@@ -17,7 +17,7 @@ const AppNavbar = () => {
   return (
     <Navbar bg="light" expand="lg">
       <Container>
-        <Navbar.Brand href="/home">🏥 Téléconsult</Navbar.Brand>
+        <Navbar.Brand href="/">🏥 Téléconsult</Navbar.Brand>
         <Nav className="ms-auto">
           <Navbar.Text className="me-3">
             Connecté en tant que <strong>{user?.email}</strong>

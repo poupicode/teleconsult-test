@@ -1,10 +1,13 @@
-import React from "react";
+import React, { useEffect } from "react";
 import Container from "react-bootstrap/Container";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import LoginRegister from "../components/auth/LoginRegister";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 const AuthPage = () => {
+
   return (
     <Container fluid className="vh-100 d-flex align-items-center justify-content-center bg-light">
       <Row className="w-100">
