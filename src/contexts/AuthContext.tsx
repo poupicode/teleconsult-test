@@ -16,7 +16,7 @@ const AuthContext = createContext<AuthContextType>({
   session: null,
   user: null,
   loading: true,
-  logout: async () => {},
+  logout: async () => { },
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -43,7 +43,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         dispatch(setUser({
           id: session.user.id,
           username: session.user.email ?? '',
-          user_kind: "patient",
+          user_kind: session.user.user_metadata?.user_kind ?? null,
         }));
       } else {
         dispatch(setAuthenticated(false));
@@ -54,7 +54,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     getSession();
 
-    // Écoute les changements d'auth
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setLocalUser(session?.user ?? null);
@@ -63,7 +62,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         dispatch(setUser({
           id: session.user.id,
           username: session.user.email ?? '',
-          user_kind: "patient",
+          user_kind: session.user.user_metadata?.user_kind ?? null,
         }));
       } else {
         dispatch(setAuthenticated(false));
