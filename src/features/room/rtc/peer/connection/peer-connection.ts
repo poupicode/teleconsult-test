@@ -8,6 +8,52 @@ import { DataChannelManager } from '../data-channel/data-channel-manager';
 import { setupPeerConnectionListeners, IPeerConnection } from '../handlers/connection-handlers';
 import { handleOffer, handleAnswer, handleIceCandidate, createOffer } from '../handlers/signaling-handlers';
 
+// Interfaces pour les statistiques WebRTC
+interface RTCStatsReport {
+    forEach(callbackfn: (value: RTCStats) => void): void;
+}
+
+interface RTCStats {
+    id: string;
+    timestamp: number;
+    type: string;
+    [key: string]: any;
+}
+
+// Interface spécifique pour les statistiques de candidat ICE
+interface RTCIceCandidateStats {
+    id: string;
+    timestamp: number;
+    type: string;
+    candidateType: string;
+    ip: string;
+    port: number;
+    protocol: string;
+    relayProtocol?: string;
+    [key: string]: any;
+}
+
+// Interface spécifique pour les statistiques de paire de candidats ICE
+interface RTCIceCandidatePairStats {
+    id: string;
+    timestamp: number;
+    type: string;
+    localCandidateId: string;
+    remoteCandidateId: string;
+    nominated: boolean;
+    selected: boolean;
+    state: string;
+    priority: number;
+    transportId: string;
+    relayProtocol?: string;
+    [key: string]: any;
+}
+
+// Interface pour l'analyse des candidats ICE
+interface CandidateTypeCount {
+    [key: string]: number;
+}
+
 export class PeerConnection implements IPeerConnection {
     private pc: RTCPeerConnection;
     private signaling: SignalingService;
@@ -16,6 +62,12 @@ export class PeerConnection implements IPeerConnection {
     private roomId: string;
     private clientId: string;
     private readyToNegotiate: boolean = false;
+
+    // ICE debugging
+    private iceConnectionTimeout: NodeJS.Timeout | null = null;
+    private iceStartTime: number = 0;
+    private iceCandidates: {local: RTCIceCandidate[], remote: RTCIceCandidate[]} = {local: [], remote: []};
+    private hasRelay: boolean = false;
 
     // Callbacks
     private onConnectionStateChangeCallback: ((state: RTCPeerConnectionState) => void) | null = null;
@@ -36,7 +88,10 @@ export class PeerConnection implements IPeerConnection {
 
         // Get the ICE configuration from the store
         const iceConfig = store.getState().iceConfig.config;
-        console.log('[WebRTC] Using ICE configuration:', iceConfig);
+        console.log('[WebRTC] Using ICE configuration:', JSON.stringify(iceConfig));
+        
+        // Vérifier si les serveurs TURN sont bien configurés
+        this.checkTurnConfiguration(iceConfig);
 
         // Initialize signaling
         this.signaling = new SignalingService(roomId, clientId, role);
@@ -54,6 +109,222 @@ export class PeerConnection implements IPeerConnection {
 
         // Setup peer connection listeners
         this.setupListeners();
+        
+        // Setup custom ICE debugging
+        this.setupIceDebugging();
+    }
+
+    // Vérifier si la configuration TURN est valide
+    private checkTurnConfiguration(iceConfig: RTCConfiguration) {
+        if (!iceConfig.iceServers || iceConfig.iceServers.length === 0) {
+            console.error('[WebRTC] No ICE servers configured!');
+            return;
+        }
+        
+        // Recherche des serveurs TURN
+        let hasTurnServer = false;
+        for (const server of iceConfig.iceServers) {
+            if (!server.urls) continue;
+            
+            const urls = Array.isArray(server.urls) ? server.urls : [server.urls];
+            
+            for (const url of urls) {
+                if (typeof url === 'string' && url.startsWith('turn:')) {
+                    hasTurnServer = true;
+                    // Vérifier les identifiants TURN
+                    if (!server.username || !server.credential) {
+                        console.warn(`[WebRTC] TURN server ${url} missing credentials!`);
+                    } else {
+                        console.log(`[WebRTC] Found TURN server: ${url}`);
+                    }
+                }
+            }
+        }
+        
+        if (!hasTurnServer) {
+            console.warn('[WebRTC] No TURN servers found in configuration! This will cause connection issues in restrictive networks.');
+        }
+    }
+
+    // Configuration du débogage ICE avancé
+    private setupIceDebugging() {
+        this.iceStartTime = Date.now();
+        this.iceCandidates = {local: [], remote: []};
+        this.hasRelay = false;
+        
+        // Surveiller les candidats ICE locaux
+        this.pc.onicecandidate = (event) => {
+            if (event.candidate) {
+                this.iceCandidates.local.push(event.candidate);
+                console.log(`[WebRTC-ICE] Local candidate: ${event.candidate.candidate}`);
+                
+                // Analyser le candidat
+                this.analyzeIceCandidate(event.candidate, true);
+                
+                // Définir un timeout si c'est le premier candidat
+                if (this.iceCandidates.local.length === 1 && !this.iceConnectionTimeout) {
+                    this.iceConnectionTimeout = setTimeout(() => {
+                        if (this.pc.iceConnectionState !== 'connected' && this.pc.iceConnectionState !== 'completed') {
+                            console.warn('[WebRTC-ICE] Connection timeout after 15s. Current state:', this.pc.iceConnectionState);
+                            this.logIceStats();
+                        }
+                    }, 15000);
+                }
+            } else {
+                console.log('[WebRTC-ICE] Local candidates gathering complete');
+            }
+        };
+        
+        // Surveiller les changements d'état de connexion ICE
+        this.pc.oniceconnectionstatechange = () => {
+            const state = this.pc.iceConnectionState;
+            console.log(`[WebRTC-ICE] Connection state changed: ${state}`);
+            
+            switch (state) {
+                case 'checking':
+                    console.log(`[WebRTC-ICE] Started checking candidates. Time elapsed: ${Date.now() - this.iceStartTime}ms`);
+                    break;
+                    
+                case 'connected':
+                case 'completed':
+                    if (this.iceConnectionTimeout) {
+                        clearTimeout(this.iceConnectionTimeout);
+                        this.iceConnectionTimeout = null;
+                    }
+                    console.log(`[WebRTC-ICE] Connection established in ${Date.now() - this.iceStartTime}ms`);
+                    console.log(`[WebRTC-ICE] Using TURN relay: ${this.hasRelay ? 'Yes' : 'No/Unknown'}`);
+                    
+                    // Analyser les statistiques détaillées après connexion
+                    setTimeout(() => this.getDetailedConnectionStats(), 1000);
+                    break;
+                    
+                case 'failed':
+                    console.error('[WebRTC-ICE] Connection failed. This is likely due to a TURN server issue or network restriction.');
+                    this.logIceStats();
+                    break;
+            }
+        };
+    }
+    
+    // Analyse un candidat ICE pour déterminer son type
+    private analyzeIceCandidate(candidate: RTCIceCandidate, isLocal: boolean) {
+        const candidateStr = candidate.candidate;
+        if (!candidateStr) return;
+        
+        try {
+            // Vérifier si c'est un candidat relay (TURN)
+            if (candidateStr.includes(' typ relay ')) {
+                this.hasRelay = true;
+                console.log(`[WebRTC-ICE] ${isLocal ? 'Local' : 'Remote'} TURN relay candidate found: ${candidateStr}`);
+            }
+            
+            // Extraire le type de candidat
+            const match = candidateStr.match(/ typ ([a-z]+) /);
+            if (match) {
+                const type = match[1]; // host, srflx, prflx ou relay
+                console.log(`[WebRTC-ICE] ${isLocal ? 'Local' : 'Remote'} candidate type: ${type}`);
+            }
+        } catch (err) {
+            console.error('[WebRTC-ICE] Error analyzing candidate:', err);
+        }
+    }
+    
+    // Analyse les statistiques de connexion pour comprendre les problèmes
+    private async getDetailedConnectionStats() {
+        try {
+            if (!this.pc.getStats) {
+                console.log('[WebRTC-ICE] getStats API not available');
+                return;
+            }
+            
+            const stats = await this.pc.getStats();
+            let selectedPair: RTCIceCandidatePairStats | null = null;
+            let localCandidate: RTCIceCandidateStats | null = null;
+            let remoteCandidate: RTCIceCandidateStats | null = null;
+            
+            stats.forEach((report: RTCStats) => {
+                if (report.type === 'transport') {
+                    console.log('[WebRTC-ICE] Transport:', report);
+                }
+                
+                // Trouver la paire de candidats sélectionnée
+                if (report.type === 'candidate-pair' && report.selected === true) {
+                    selectedPair = report as RTCIceCandidatePairStats;
+                    console.log('[WebRTC-ICE] Selected candidate pair:', report);
+                }
+                
+                // Stocker les informations sur les candidats
+                if (report.type === 'local-candidate') {
+                    if (selectedPair && report.id === selectedPair.localCandidateId) {
+                        localCandidate = report as RTCIceCandidateStats;
+                    }
+                }
+                
+                if (report.type === 'remote-candidate') {
+                    if (selectedPair && report.id === selectedPair.remoteCandidateId) {
+                        remoteCandidate = report as RTCIceCandidateStats;
+                    }
+                }
+            });
+            
+            // Analyser la paire sélectionnée
+            if (selectedPair && localCandidate && remoteCandidate) {
+                console.log('[WebRTC-ICE] Connection established using:');
+                console.log(`[WebRTC-ICE] Local: ${(localCandidate as RTCIceCandidateStats).candidateType} (${(localCandidate as RTCIceCandidateStats).protocol}) - ${(localCandidate as RTCIceCandidateStats).ip}:${(localCandidate as RTCIceCandidateStats).port}`);
+                console.log(`[WebRTC-ICE] Remote: ${(remoteCandidate as RTCIceCandidateStats).candidateType} (${(remoteCandidate as RTCIceCandidateStats).protocol}) - ${(remoteCandidate as RTCIceCandidateStats).ip}:${(remoteCandidate as RTCIceCandidateStats).port}`);
+                
+                if ((localCandidate as RTCIceCandidateStats).candidateType === 'relay' || (remoteCandidate as RTCIceCandidateStats).candidateType === 'relay') {
+                    console.log('[WebRTC-ICE] Connection using TURN relay');
+                    // Identifier quel serveur TURN est utilisé
+                    if ((localCandidate as RTCIceCandidateStats).relayProtocol || (remoteCandidate as RTCIceCandidateStats).relayProtocol) {
+                        console.log(`[WebRTC-ICE] Relay protocol: ${(localCandidate as RTCIceCandidateStats).relayProtocol || (remoteCandidate as RTCIceCandidateStats).relayProtocol}`);
+                    }
+                } else {
+                    console.log('[WebRTC-ICE] Direct connection (no TURN relay)');
+                }
+            }
+            
+        } catch (err) {
+            console.error('[WebRTC-ICE] Error getting connection stats:', err);
+        }
+    }
+    
+    // Journalise les statistiques ICE pour le débogage
+    private logIceStats() {
+        console.log('[WebRTC-ICE] === ICE Connection Diagnostics ===');
+        console.log(`[WebRTC-ICE] Connection state: ${this.pc.iceConnectionState}`);
+        console.log(`[WebRTC-ICE] Gathering state: ${this.pc.iceGatheringState}`);
+        console.log(`[WebRTC-ICE] Signaling state: ${this.pc.signalingState}`);
+        console.log(`[WebRTC-ICE] Local candidates: ${this.iceCandidates.local.length}`);
+        console.log(`[WebRTC-ICE] Remote candidates: ${this.iceCandidates.remote.length}`);
+        
+        // Types de candidats locaux
+        const localTypes: CandidateTypeCount = this.iceCandidates.local.reduce((acc: CandidateTypeCount, candidate) => {
+            const match = candidate.candidate.match(/ typ ([a-z]+) /);
+            if (match) {
+                const type = match[1];
+                acc[type] = (acc[type] || 0) + 1;
+            }
+            return acc;
+        }, {});
+        console.log('[WebRTC-ICE] Local candidate types:', localTypes);
+        
+        // Vérifier les facteurs courants de défaillance
+        if (!this.hasRelay) {
+            console.warn('[WebRTC-ICE] No TURN relay candidates found - this often causes connection failures in restrictive networks');
+        }
+        
+        if (this.pc.iceConnectionState === 'failed') {
+            console.warn('[WebRTC-ICE] Connection failure may be due to:');
+            console.warn('- TURN server inaccessible ou mal configuré');
+            console.warn('- Identifiants TURN invalides ou expirés');
+            console.warn('- Ports bloqués par pare-feu');
+            console.warn('- Restrictions de réseau trop strictes');
+        }
+        
+        // Afficher la configuration ICE
+        const iceConfig = store.getState().iceConfig.config;
+        console.log('[WebRTC-ICE] Current ICE configuration:', JSON.stringify(iceConfig));
     }
 
     // Méthode pour configurer tous les listeners
@@ -95,6 +366,11 @@ export class PeerConnection implements IPeerConnection {
                 }
                 else if (message.type === 'ice-candidate') {
                     console.log('[WebRTC] Processing ICE candidate');
+                    // Stocker le candidat distant pour débogage
+                    if (message.content) {
+                        this.iceCandidates.remote.push(message.content as RTCIceCandidate);
+                        this.analyzeIceCandidate(message.content as RTCIceCandidate, false);
+                    }
                     // Vérifier que le type est bien un candidat ICE et utiliser un cast de type sécurisé
                     await handleIceCandidate(this.pc, message.content as RTCIceCandidateInit);
                 }
