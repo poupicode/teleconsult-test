@@ -5,12 +5,14 @@
     "paths": {
       "@/*": ["./*"]
     },
-    "jsx": "react",
+    "jsx": "react-jsx",
     "esModuleInterop": true,
     "target": "ES2015",
     "module": "ESNext",
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
-    "noEmit": true
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["react/jsx-runtime"]
   }
 }
