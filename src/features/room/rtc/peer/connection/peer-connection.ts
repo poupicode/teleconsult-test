@@ -93,6 +93,9 @@ export class PeerConnection implements IPeerConnection {
         // Vérifier si les serveurs TURN sont bien configurés
         this.checkTurnConfiguration(iceConfig);
 
+        // TEST: Vérifier explicitement l'accessibilité du serveur TURN
+        this.testTurnServer('turn:turn.ekami.ch:3478', 'wei', 'toto1234');
+
         // Initialize signaling
         this.signaling = new SignalingService(roomId, clientId, role);
 
@@ -325,6 +328,76 @@ export class PeerConnection implements IPeerConnection {
         // Afficher la configuration ICE
         const iceConfig = store.getState().iceConfig.config;
         console.log('[WebRTC-ICE] Current ICE configuration:', JSON.stringify(iceConfig));
+    }
+
+    // Test explicite d'accessibilité au serveur TURN
+    private testTurnServer(url: string, username: string, credential: string) {
+        console.log(`[TURN-TEST] Testing TURN server: ${url}`);
+        
+        // Créer une configuration ICE spécifique pour ce test
+        const testConfig = {
+            iceServers: [{
+                urls: [url],
+                username: username,
+                credential: credential
+            }],
+            iceTransportPolicy: 'relay' as RTCIceTransportPolicy // Force l'utilisation des serveurs TURN uniquement
+        };
+        
+        // Créer une connexion peer temporaire pour tester
+        const pc1 = new RTCPeerConnection(testConfig);
+        const pc2 = new RTCPeerConnection(testConfig);
+        
+        // Suivre si des candidats relay sont générés
+        let relayFound = false;
+        
+        // Gérer les candidats ICE générés par pc1
+        pc1.onicecandidate = (event) => {
+            if (event.candidate) {
+                console.log(`[TURN-TEST] Candidate: ${event.candidate.candidate}`);
+                
+                // Vérifier si c'est un candidat relay (TURN)
+                if (event.candidate.candidate.includes(' typ relay ')) {
+                    relayFound = true;
+                    console.log('[TURN-TEST] SUCCESS: TURN server is accessible and credentials are valid!');
+                }
+            } else {
+                // Fin de la collecte des candidats
+                if (!relayFound) {
+                    console.error('[TURN-TEST] FAILURE: No relay candidates found. TURN server is not accessible or credentials are invalid.');
+                    console.log('[TURN-TEST] Common issues:');
+                    console.log('- TURN server could be down or unreachable');
+                    console.log('- Credentials may have expired');
+                    console.log('- Network might be blocking UDP/TCP ports');
+                    console.log('- TURN server might have reached its connection limit');
+                }
+                
+                // Nettoyer
+                setTimeout(() => {
+                    pc1.close();
+                    pc2.close();
+                }, 5000);
+            }
+        };
+        
+        // Configurer le test en créant un canal de données
+        const dc = pc1.createDataChannel('turnTest');
+        
+        pc1.createOffer().then((offer) => {
+            return pc1.setLocalDescription(offer);
+        }).then(() => {
+            // L'offre a été créée, la collecte des candidats ICE va commencer
+            console.log('[TURN-TEST] Offer created, ICE gathering starting...');
+        }).catch((err) => {
+            console.error('[TURN-TEST] Error testing TURN server:', err);
+        });
+        
+        // Définir un timeout pour le test au cas où aucun candidat n'est généré
+        setTimeout(() => {
+            if (!relayFound) {
+                console.error('[TURN-TEST] TIMEOUT: No relay candidates received within 5 seconds');
+            }
+        }, 5000);
     }
 
     // Méthode pour configurer tous les listeners
