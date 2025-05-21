@@ -11,6 +11,7 @@ import { RoomSupabase } from '@/features/room/roomSupabase';
 import { MdAddIcCall } from 'react-icons/md';
 import { PeerConnection } from '@/features/room/rtc/peer';
 import BluetoothContext from '@/components/bluetooth/BluetoothContext';
+import DoctorInterface from '@/components/bluetooth/DoctorInterface';
 
 export default function ConsultationPage() {
     const userKind = useSelector((state: RootState) => state.user.user_kind);
@@ -72,7 +73,12 @@ export default function ConsultationPage() {
                             <Card.Title>Informations patient</Card.Title>
                             <p>Cette section pourra contenir des informations sur le patient</p>
                         </Card.Body>
+                        {userKind === "patient" && (
                         <BluetoothContext/>
+                        )}
+                        {userKind === "practitioner" && (
+                            <DoctorInterface/>
+                        )}
                     </Card>
                 </Col>
 
