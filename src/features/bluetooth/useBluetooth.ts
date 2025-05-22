@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import deviceType from './config';
 import { configureNotifications } from './services';
+import { peer } from '@/lib/peerInstance';
 
 interface ConnectedCard {
   device: BluetoothDevice;
@@ -83,28 +84,43 @@ export function useBluetooth() {
   };
 
   const addOrUpdateCard = (
-    device: BluetoothDevice,
-    server: BluetoothRemoteGATTServer,
-    service: string,
-    measurements: { name: string; data: string | number }[]
-  ) => {
-    setConnectedCards((prev) => {
-      const index = prev.findIndex((card) => card.service === service); //&& card.device.id === device.id (à ajouter pour ne pas écraser les memes services)
-      const updatedCard: ConnectedCard = {
-        device,
-        server,
-        service,
-        deviceName: device.name || 'Inconnu',
-        measurements,
-      };
-      if (index !== -1) {
-        const copy = [...prev];
-        copy[index] = updatedCard;
-        return copy;
-      }
-      return [...prev, updatedCard];
-    });
-  };
+  device: BluetoothDevice,
+  server: BluetoothRemoteGATTServer,
+  service: string,
+  measurements: { name: string; data: string | number }[]
+) => {
+  setConnectedCards((prev) => {
+    const index = prev.findIndex((card) => card.service === service);
+    const updatedCard: ConnectedCard = {
+      device,
+      server,
+      service,
+      deviceName: device.name || 'Inconnu',
+      measurements,
+    };
+
+    if (index !== -1) {
+      const copy = [...prev];
+      copy[index] = updatedCard;
+      return copy;
+    }
+
+    return [...prev, updatedCard];
+  });
+
+  // 🔁 ENVOI DES DONNÉES VIA WebRTC
+  if (peer.isDataChannelAvailable()) {
+    const formattedPayload = {
+      [service]: measurements
+    };
+    peer.sendChatMessage(JSON.stringify({
+      type: 'measure',
+      payload: formattedPayload
+    }));
+  } else {
+    console.warn('DataChannel non disponible');
+  }
+};
 
   return { status, connectedCards, connect };
 }

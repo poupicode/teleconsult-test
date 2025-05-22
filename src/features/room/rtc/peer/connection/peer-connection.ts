@@ -653,3 +653,5 @@ export class PeerConnection implements IPeerConnection {
         this.dataChannelManager.setDataChannel(channel);
     }
 }
+
+export { Role };
