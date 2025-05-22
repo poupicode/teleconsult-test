@@ -39,6 +39,8 @@ export default function ConsultationPage() {
 =======
     
 
+    
+
     // Charger les détails de la salle si on est connecté
     useEffect(() => {
         if (roomId) {
@@ -83,6 +85,7 @@ export default function ConsultationPage() {
     setPeerConnection(peer);
   };
 =======
+
 
     return (
         <Container fluid className="mt-4">
