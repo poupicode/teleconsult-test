@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 
 
+
 function HomePage() {
   const navigate = useNavigate();
   const { session } = useAuth();
