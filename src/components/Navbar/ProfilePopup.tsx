@@ -65,7 +65,7 @@ export default function ProfilePopup({
                 </ul>
               </>
             ) : (
-              <Button
+              <Button variant="primary" className="primary-btn mb-3"
                 onClick={() => {
                   navigate("/login");
                 }}
