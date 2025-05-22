@@ -8,7 +8,7 @@
   font-family: "Fira Sans";
   font-style: normal;
   font-weight: 400;
-  src: url("../../public/fonts/fira-sans-regular.woff2") format("woff2"); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+  src: url("/fonts/fira-sans-regular.woff2") format("woff2"); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
 }
 /* fira-sans-medium - latin */
 @font-face {
@@ -16,7 +16,7 @@
   font-family: "Fira Sans";
   font-style: normal;
   font-weight: 500;
-  src: url("../../public/fonts/fira-sans-medium.woff2") format("woff2"); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+  src: url("/fonts/fira-sans-medium.woff2") format("woff2"); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
 }
 /* fira-sans-semibold - latin */
 @font-face {
@@ -24,7 +24,7 @@
   font-family: "Fira Sans";
   font-style: normal;
   font-weight: 600;
-  src: url("../../public/fonts/fira-sans-semibold.woff2") format("woff2"); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+  src: url("/fonts/fira-sans-semibold.woff2") format("woff2"); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
 }
 /* fira-sans-bold - latin */
 @font-face {
@@ -32,7 +32,7 @@
   font-family: "Fira Sans";
   font-style: normal;
   font-weight: 700;
-  src: url("../../public/fonts/fira-sans-bold.woff2") format("woff2"); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+  src: url("/fonts/fira-sans-bold.woff2") format("woff2"); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
 }
 /* fira-sans-black - latin */
 @font-face {
@@ -40,7 +40,7 @@
   font-family: "Fira Sans";
   font-style: normal;
   font-weight: 900;
-  src: url("../../public/fonts/fira-sans-black.woff2") format("woff2"); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+  src: url("/fonts/fira-sans-black.woff2") format("woff2"); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
 }
 
 html,
