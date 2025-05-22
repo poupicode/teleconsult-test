@@ -53,7 +53,7 @@ export default function ProfilePopup({
                       Modifier le compte
                     </Button>
                   </li>
-                  <li key="logout-button" className="mt-2">
+                  <li key="logout-button" className="mt-2 mb-2">
                     <Button
                       variant="link"
                       className="tertiary-btn"

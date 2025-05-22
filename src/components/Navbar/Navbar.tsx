@@ -33,7 +33,7 @@ const AppNavbar = () => {
               Connecté en tant que : <strong className="color-white">{user?.email}</strong>
             </Navbar.Text>
           )}
-          <Button className={styles.profileBtn}
+          <Button variant="secondary" className={styles.profileBtn}
             ref={target}
             onClick={() => setIsProfileButtonClicked(!isProfileButtonClicked)}
           >
