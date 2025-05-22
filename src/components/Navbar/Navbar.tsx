@@ -12,12 +12,12 @@ const AppNavbar = () => {
     navigate("/"); // Retour à la page d'accueil
   };
 
-  if (!session) return null; // Pas de navbar si pas connecté
+  // if (!session) return null; // Pas de navbar si pas connecté
 
   return (
     <Navbar bg="light" expand="lg">
       <Container>
-        <Navbar.Brand href="/">🏥 Téléconsult</Navbar.Brand>
+        <Navbar.Brand href="/">Téléconsultation</Navbar.Brand>
         <Nav className="ms-auto">
           <Navbar.Text className="me-3">
             Connecté en tant que <strong>{user?.email}</strong>
