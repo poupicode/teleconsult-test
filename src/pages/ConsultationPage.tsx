@@ -32,9 +32,30 @@ export default function ConsultationPage() {
     dispatch(roomIdUpdated(null));
   };
 
+<<<<<<< HEAD
   useEffect(() => {
     if (roomId) {
       RoomSupabase.getRoom(roomId).then((room) => {
+=======
+    
+
+    // Charger les détails de la salle si on est connecté
+    useEffect(() => {
+        if (roomId) {
+            RoomSupabase.getRoom(roomId).then(room => {
+                if (room) {
+                    setRoomName(room.short_name);
+                }
+            });
+        } else {
+            setRoomName('');
+        }
+    }, [roomId]);
+
+    const onCreateRoomClick = async () => {
+        // Création d'une salle avec un nom généré automatiquement
+        const room = await RoomSupabase.createRoom();
+>>>>>>> 0b630f2 (card for choose/delete the consultation room)
         if (room) {
           setRoomName(room.short_name);
         }
@@ -57,9 +78,31 @@ export default function ConsultationPage() {
     }
   }, [showRoomBrowser]);
 
+<<<<<<< HEAD
   const handlePeerConnectionReady = (peer: PeerConnection) => {
     setPeerConnection(peer);
   };
+=======
+
+    return (
+        <Container fluid className="mt-4">
+            <Row>
+                {/* Colonne gauche : Espace pour des fonctionnalités futures */}
+                <Col md={3}>
+                    <Card className="mb-3">
+                        <Card.Body>
+                            <Card.Title>Informations patient</Card.Title>
+                            <p>Cette section pourra contenir des informations sur le patient</p>
+                        </Card.Body>
+                        {userKind === "patient" && (
+                        <BluetoothContext/>
+                        )}
+                        {userKind === "practitioner" && (
+                            <DoctorInterface/>
+                        )}
+                    </Card>
+                </Col>
+>>>>>>> 0b630f2 (card for choose/delete the consultation room)
 
   return (
     <Container fluid className="mt-4">
@@ -154,6 +197,7 @@ export default function ConsultationPage() {
             </Card.Body>
           </Card>
 
+<<<<<<< HEAD
           {roomId && (
             <Card className="mb-3">
               <ChatBox peerConnection={peerConnection} />
@@ -163,4 +207,17 @@ export default function ConsultationPage() {
       </Row>
     </Container>
   );
+=======
+                    {/* Nouvelle carte pour le chatbox sous la consultation en cours */}
+                    {roomId && (
+                        <Card className="mb-3">
+                            <ChatBox peerConnection={peerConnection} />
+                        </Card>
+                    )}
+                </Col>
+            </Row>
+        </Container>
+        
+    );
+>>>>>>> 0b630f2 (card for choose/delete the consultation room)
 }
