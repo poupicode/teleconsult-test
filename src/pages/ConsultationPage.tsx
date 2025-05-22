@@ -25,13 +25,16 @@ export default function ConsultationPage() {
     null
   );
 
-  const handleDisconnect = () => {
-    if (peerConnection) {
-      console.log("[ConsultationPage] Déconnexion explicite du PeerConnection");
-      peerConnection.disconnect();
-    }
-    dispatch(roomIdUpdated(null));
-  };
+    const handleDisconnect = () => {
+        // Déconnecter explicitement le PeerConnection avant de quitter la salle
+        if (peerConnection) {
+            console.log('[ConsultationPage] Déconnexion explicite du PeerConnection');
+            peerConnection.disconnect();
+        }
+        dispatch(roomIdUpdated(null));
+    };
+
+    
 
   useEffect(() => {
     if (roomId) {
@@ -59,9 +62,11 @@ export default function ConsultationPage() {
     }
   }, [showRoomBrowser]);
 
-  const handlePeerConnectionReady = (peer: PeerConnection) => {
-    setPeerConnection(peer);
-  };
+    // Référence à l'instance de PeerConnection créée dans ConsultationRoom
+    const handlePeerConnectionReady = (peer: PeerConnection) => {
+        setPeerConnection(peer);
+    };
+
 
   return (
     <Container fluid className="mt-4">
@@ -168,17 +173,15 @@ export default function ConsultationPage() {
             </Card.Body>
           </Card>
 
-          {roomId && (
-            <Card className="mb-3">
-              <ChatBox peerConnection={peerConnection} />
-            </Card>
-          {roomId && (
-            <Card className="mb-3">
-              <ChatBox peerConnection={peerConnection} />
-            </Card>
-          )}
-        </Col>
-      </Row>
-    </Container>
-  );
+                    {/* Nouvelle carte pour le chatbox sous la consultation en cours */}
+                    {roomId && (
+                        <Card className="mb-3">
+                            <ChatBox peerConnection={peerConnection} />
+                        </Card>
+                    )}
+                </Col>
+            </Row>
+        </Container>
+        
+    );
 }
