@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "react-bootstrap";
 import { useAuth } from "@/contexts/AuthContext";
 
+
 function HomePage() {
   const navigate = useNavigate();
   const { session } = useAuth();
