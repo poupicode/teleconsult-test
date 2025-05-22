@@ -67,6 +67,30 @@ body {
 
 /* Common CSS */
 
+h1{
+  color: #da6254 !important;
+  font-size: 2em!important;
+  font-weight: 700!important;
+}
+
+header{
+  border-bottom: #c0d4ec solid 1px;
+}
+
+.public-header{
+  padding: 1em 0 .5em;
+  width: calc(100vw - 12em);
+  margin: 0 auto;
+  h1{
+    padding: 0 2em;
+  }
+}
+.dashboard-header{
+  padding: 1em 0 .5em;
+  width: calc(100vw - 14em);
+  margin: 0 1em;
+}
+
 button {
   border: none!important;
 }
