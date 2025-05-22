@@ -1,0 +1,32 @@
+.popup{
+    max-width: none!important;
+    width: 25%!important;
+    height: auto!important;
+    padding: 1em 1em 0!important;
+    div,h3{
+        padding: 0!important;
+    }
+    ul{
+        margin: 0!important;
+    }
+    button{
+        width: 100%!important;
+    }
+}
+
+.profileBtn{
+    padding: 0!important;
+    border-radius: 50%!important;
+    background-color: #C0D4EC!important;
+}
+
+.profileBtn:hover{
+    background-color: #fad0d1!important;
+}
+
+.navbar{
+    padding: 0 5em !important;
+}
+
+
+

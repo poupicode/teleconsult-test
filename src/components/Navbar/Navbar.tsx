@@ -1,30 +1,49 @@
-import { Navbar, Nav, Container, Button } from "react-bootstrap";
+import {
+  Navbar,
+  Nav,
+  Container,
+  Button
+} from "react-bootstrap";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
-import React from "react";
+import { useState, useRef, useEffect } from "react";
+import { useLocation } from "react-router-dom";
+
+import ProfilePopup from "./ProfilePopup";
+import styles from "./Navbar.module.css";
 
 const AppNavbar = () => {
-  const { user, logout, session } = useAuth();
-  const navigate = useNavigate();
+  const { user, session } = useAuth();
+  const [isProfileButtonClicked, setIsProfileButtonClicked] = useState(false);
 
-  const handleLogout = async () => {
-    await logout();
-    navigate("/"); // Retour à la page d'accueil
-  };
+  const target = useRef(null);
 
-  // if (!session) return null; // Pas de navbar si pas connecté
+  // Fermer la pop up à chaque navigation
+  const location = useLocation();
+  useEffect(() => {
+    setIsProfileButtonClicked(false);
+  }, [location.pathname]);
 
   return (
-    <Navbar bg="light" expand="lg">
+    <Navbar className={`${styles.navbar} bg-blue`} expand="lg">
       <Container>
-        <Navbar.Brand href="/">Téléconsultation</Navbar.Brand>
+        <Navbar.Brand className="color-white fw-black fs-2" href="/">Téléconsultation</Navbar.Brand>
         <Nav className="ms-auto">
-          <Navbar.Text className="me-3">
-            Connecté en tant que <strong>{user?.email}</strong>
-          </Navbar.Text>
-          <Button variant="outline-danger" onClick={handleLogout}>
-            Déconnexion
+          {session && (
+            <Navbar.Text className="me-3 color-white">
+              Connecté en tant que : <strong className="color-white">{user?.email}</strong>
+            </Navbar.Text>
+          )}
+          <Button className={styles.profileBtn}
+            ref={target}
+            onClick={() => setIsProfileButtonClicked(!isProfileButtonClicked)}
+          >
+            <img src="/icons/profile-icon.png" alt="Icône profil" width={50} />
+            
           </Button>
+          <ProfilePopup
+            target={target.current}
+            isProfileButtonClicked={isProfileButtonClicked}
+          />
         </Nav>
       </Container>
     </Navbar>
