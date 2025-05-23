@@ -1,5 +1,7 @@
 
 const PatientInformationsForm = () => {
-    return <div>Test</div>
+    return (
+        <div className="mt-5">Formulaire</div>
+    )
 }
 export default PatientInformationsForm;

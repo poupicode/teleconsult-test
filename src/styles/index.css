@@ -68,7 +68,6 @@ body {
 /* Common CSS */
 
 h1{
-  font-size: 2em!important;
   font-weight: 700!important;
 }
 
@@ -91,12 +90,16 @@ header{
   margin: 0 auto;
   h1{
     padding: 0 2em;
+    font-size: 2em!important;
   }
 }
 .dashboard-header{
   padding: 1em 0 .5em;
-  width: calc(100vw - 14em);
+  width: calc(100vw - 28em);
   margin: 0 1em;
+  h1{
+    font-size: 1.7em!important;
+  }
 }
 
 button {

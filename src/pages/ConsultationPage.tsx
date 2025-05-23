@@ -13,7 +13,8 @@ import { PeerConnection } from "@/features/room/rtc/peer";
 import BluetoothContext from "@/components/bluetooth/BluetoothContext";
 import DoctorInterface from "@/components/bluetooth/DoctorInterface";
 import SideMenu from "@/components/SideMenu";
-import PatientInformationsForm from "@/components/PatientInformationsForm";
+import PatientInformationsForm from "@/components/InformationsForm";
+import Header from "@/components/Header";
 
 export default function ConsultationPage() {
   const userKind = useSelector((state: RootState) => state.user.user_kind);
@@ -87,6 +88,7 @@ export default function ConsultationPage() {
               />
             </Card.Body>
           </Card> */}
+          <Header variant="dashboard" title="Informations du patient" />
           <PatientInformationsForm />
         </Col>
 
