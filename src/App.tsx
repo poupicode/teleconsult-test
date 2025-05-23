@@ -12,6 +12,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import ConsultationPage from "./pages/ConsultationPage";
 import ModifyAccountPage from "./pages/ModifyAccountPage";
 import BackgroundPattern from "./components/BackgroundPattern";
+import DoctorInterfaceConsultation from "./pages/DoctorInterfaceConsultation";
 
 function App() {
   return (
@@ -29,6 +30,20 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route path="/consultation" element={<ConsultationPage />} />
             <Route path="/modify-account" element={<ModifyAccountPage />} />
+          </Route>
+
+          <Route element={<ProtectedRoute />}>
+            <Route
+              path="/DoctorInterfaceConsultation"
+              element={<DoctorInterfaceConsultation />}
+            />
+          </Route>
+
+          <Route element={<ProtectedRoute />}>
+            <Route
+              path="/DoctorInterfaceConsultation"
+              element={<DoctorInterfaceConsultation />}
+            />
           </Route>
 
           {/* Routes publiques */}
