@@ -1,22 +1,22 @@
-import React, { useEffect } from "react";
+import { useState } from "react";
 import Container from "react-bootstrap/Container";
-import Row from "react-bootstrap/Row";
-import Col from "react-bootstrap/Col";
-import LoginRegister from "../components/auth/LoginRegister";
+import { Row, Col } from "react-bootstrap";
+import LoginRegister from "@/components/auth/LoginRegister";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import Header from "@/components/Header";
+
+import styles from "./AuthPage.module.css";
 
 const AuthPage = () => {
-
+  const [isRegistering, setIsRegistering] = useState(false);
   return (
-    <Container fluid className="vh-100 d-flex align-items-center justify-content-center bg-light">
-      <Row className="w-100">
-        <Col xs={12} sm={8} md={6} lg={4} className="mx-auto">
-          <h2 className="text-center mb-4">Connexion ou inscription</h2>
-          <LoginRegister />
-        </Col>
-      </Row>
-    </Container>
+    <>
+      <Header variant="public" title={!isRegistering ? "Connexion" : "Inscription"} />
+      <Container className="d-flex justify-content-center w-100 mt-4">
+        <LoginRegister onIsRegistering={(val : boolean) => setIsRegistering(val)} />
+      </Container>
+    </>
   );
 };
 
