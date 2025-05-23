@@ -75,7 +75,7 @@ export default function DoctorInterfaceConsultation() {
           </h2>
           <Button
             variant="danger"
-            className="rounded-pill"
+            className="rounded-pill text-white"
             onClick={handleAddRoom}
           >
             Créer une salle
@@ -87,7 +87,7 @@ export default function DoctorInterfaceConsultation() {
             <Col key={room.id} md={6} lg={4}>
               <div
                 className="card shadow-lg p-3 mb-4 rounded"
-                style={{ backgroundColor: "#F0EDF4" }}
+                style={{ backgroundColor: "#F0EDF4", height: "400px" }}
               >
                 <div className="card-body">
                   {/* Nom de la salle */}
@@ -100,6 +100,8 @@ export default function DoctorInterfaceConsultation() {
                         </Form.Label>
                         <Form.Control
                           type="text"
+                          className="mb-5"
+                          maxLength={40}
                           value={room.name}
                           onChange={(e) =>
                             handleChange(room.id, "name", e.target.value)
@@ -134,13 +136,30 @@ export default function DoctorInterfaceConsultation() {
                   ) : (
                     <>
                       {/* Nom de la salle (affiché) */}
-                      <h5 className="card-title text-center fw-bold mb-3">
+                      <h5
+                        className="card-title text-center fw-bold mb-3"
+                        style={{
+                          height: "48px", // ~2 lignes
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
                         {room.name}
                       </h5>
 
                       {/* Description (affichée) */}
-                      <p className="card-text text-center">
-                        {room.description}
+                      <p
+                        className="card-text text-center my-3"
+                        style={{
+                          height: "72px", // 3 lignes
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {room.description.length > 60
+                          ? room.description.slice(0, 60) + "..."
+                          : room.description}
                       </p>
                     </>
                   )}
@@ -149,14 +168,14 @@ export default function DoctorInterfaceConsultation() {
                   {room.isValidated ? (
                     <Button
                       type="button"
-                      className="btn btn-danger rounded-pill mx-auto d-block mb-3 px-5"
+                      className="btn btn-danger rounded-pill mx-auto d-block mb-3 px-5 text-white"
                     >
                       Rejoindre
                     </Button>
                   ) : (
                     <Button
                       type="button"
-                      className="btn btn-success rounded-pill mx-auto d-block mb-3 px-5"
+                      className="btn btn-success rounded-pill mx-auto d-block mb-5 px-5 text-white"
                       onClick={() => handleValidateRoom(room.id)}
                       disabled={
                         room.name.trim() === "" ||
@@ -167,18 +186,20 @@ export default function DoctorInterfaceConsultation() {
                     </Button>
                   )}
 
-                  <hr className="my-3 border border-primary" />
-
-                  {/* Lien de suppression */}
-                  <div className="d-flex justify-content-center">
-                    <button
-                      type="button"
-                      className="btn btn-link text-danger"
-                      onClick={() => handleDeleteRoom(room.id)}
-                    >
-                      Supprimer la salle
-                    </button>
-                  </div>
+                  {room.isValidated && (
+                    <>
+                      <hr className="my-3 border border-primary" />
+                      <div className="d-flex justify-content-center">
+                        <button
+                          type="button"
+                          className="btn btn-link text-danger"
+                          onClick={() => handleDeleteRoom(room.id)}
+                        >
+                          Supprimer la salle
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </Col>
