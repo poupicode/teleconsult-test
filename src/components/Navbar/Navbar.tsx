@@ -24,7 +24,7 @@ const AppNavbar = () => {
   }, [location.pathname]);
 
   return (
-    <Navbar className={`${styles.navbar} bg-blue`} expand="lg">
+    <Navbar className={`${styles.navbar} bg-blue position-fixed w-100`} expand="lg">
       <Container>
         <Navbar.Brand className="color-white fw-black fs-3" href="/">Téléconsultation</Navbar.Brand>
         <Nav className="ms-auto">

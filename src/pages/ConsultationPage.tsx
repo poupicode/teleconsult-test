@@ -66,7 +66,7 @@ export default function ConsultationPage() {
     setPeerConnection(peer);
   };
 
-//   Pour vérifier si le formulaire de remplissage des informations du patient est bien rempli avant de pouvoir naviguer dans le Side Menu
+  //   Pour vérifier si le formulaire de remplissage des informations du patient est bien rempli avant de pouvoir naviguer dans le Side Menu
   const [isInformationsEntered, setIsInformationsEntered] = useState(false);
 
   return (
@@ -76,7 +76,7 @@ export default function ConsultationPage() {
         <Col md={3} className="bg-grey p-0">
           <SideMenu isInformationsEntered={isInformationsEntered} />
         </Col>
-
+        
         {/* Colonne centrale : Consultation Room */}
         <Col md={6}>
           <Card className="mb-3">

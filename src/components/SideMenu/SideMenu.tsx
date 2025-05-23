@@ -17,13 +17,13 @@ const SideMenu = ({ isInformationsEntered }: InformationsEntered) => {
   }
 
   return (
-    <div className="w-100">
+    <div className={`w-100 ${styles.h100vh}`}>
       <ul className={`${!isInformationsEntered && styles.sideMenuInactive}`}>
         <li key="informations">
           <Button
-            className={`mt-3 w-100 text-start ${styles.noRouded} ${
+            className={`w-100 text-start ${styles.noRouded} ${
               styles.btnTab
-            } ${!isConsultationTab && "fw-medium"}`}
+            } ${styles.mt4em} ${!isConsultationTab && "fw-medium"}`}
             disabled={!isConsultationTab}
             onClick={handleChangeTab}
           >
