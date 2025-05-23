@@ -87,7 +87,11 @@ export default function DoctorInterfaceConsultation() {
             <Col key={room.id} md={6} lg={4}>
               <div
                 className="card shadow-lg p-3 mb-4 rounded"
+<<<<<<< HEAD
                 style={{ backgroundColor: "#F0EDF4", height: "350px" }}
+=======
+                style={{ backgroundColor: "#F0EDF4", height: "400px" }}
+>>>>>>> 13da782 (WIP improved the aesthetics of the cards solved a few text problems that appeared when they weren't supposed to.)
               >
                 <div className="card-body">
                   {/* Nom de la salle */}
@@ -100,7 +104,11 @@ export default function DoctorInterfaceConsultation() {
                         </Form.Label>
                         <Form.Control
                           type="text"
+<<<<<<< HEAD
                           className="mb-2"
+=======
+                          className="mb-5"
+>>>>>>> 13da782 (WIP improved the aesthetics of the cards solved a few text problems that appeared when they weren't supposed to.)
                           maxLength={40}
                           value={room.name}
                           onChange={(e) =>
@@ -164,12 +172,18 @@ export default function DoctorInterfaceConsultation() {
                           textOverflow: "ellipsis",
                         }}
                       >
+<<<<<<< HEAD
                         <p
                           className="card-text text-center my-3"
                           style={{ maxHeight: "120px", overflowY: "auto" }}
                         >
                           {room.description}
                         </p>
+=======
+                        {room.description.length > 60
+                          ? room.description.slice(0, 60) + "..."
+                          : room.description}
+>>>>>>> 13da782 (WIP improved the aesthetics of the cards solved a few text problems that appeared when they weren't supposed to.)
                       </p>
                     </>
                   )}
