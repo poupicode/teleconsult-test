@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { Container, Row, Col, Card, Button, Collapse } from "react-bootstrap";
 import { useSelector, useDispatch } from "react-redux";
 import RoomBrowser from "@/components/room/RoomBrowser";
@@ -13,8 +13,23 @@ import { PeerConnection } from "@/features/room/rtc/peer";
 import BluetoothContext from "@/components/bluetooth/BluetoothContext";
 import DoctorInterface from "@/components/bluetooth/DoctorInterface";
 import SideMenu from "@/components/SideMenu";
-import PatientInformationsForm from "@/components/InformationsForm";
+import InformationsForm from "@/components/InformationsForm";
 import Header from "@/components/Header";
+
+type PatientInformationsFormData = {
+  name: string;
+  first_name: string;
+  birth_date: string;
+  gender: "Homme" | "Femme";
+  patient_number: number;
+  consultation_reason: string;
+};
+
+type PraticienInformationsFormData = {
+  name: string;
+  first_name: string;
+};
+
 
 export default function ConsultationPage() {
   const userKind = useSelector((state: RootState) => state.user.user_kind);
@@ -71,16 +86,43 @@ export default function ConsultationPage() {
   //   Pour vérifier si le formulaire de remplissage des informations du patient est bien rempli avant de pouvoir naviguer dans le Side Menu
   const [isInformationsEntered, setIsInformationsEntered] = useState(false);
 
+  // Stocker les informations du patient issues du formulaire côté patient
+  const [patientInformations, setPatientInformations] =
+    useState<PatientInformationsFormData | null>(null);
+
+    const [praticienInformations, setPraticienInformations] = useState<PraticienInformationsFormData | null>(null);
+
+    useEffect(() => {
+      if (praticienInformations) {  
+
+        console.log("Informations praticien :", praticienInformations);
+      }
+    }, [praticienInformations]);
+    useEffect(() => {
+      if (patientInformations) {  
+
+        console.log("Informations patient :", patientInformations);
+      }
+    }, [patientInformations]);
+
+  const [isConsultationTab, setIsConsultationTab] = useState(false);
+
   return (
     <Container fluid>
       <Row>
         {/* Colonne gauche : Side Menu */}
         <Col md={3} className="bg-grey p-0">
-          <SideMenu isInformationsEntered={isInformationsEntered} />
+          <SideMenu
+            userKind={userKind}
+            isInformationsEntered={isInformationsEntered}
+            patientInformations={patientInformations}
+            isConsultationTab={isConsultationTab}
+            setIsConsultationTab={setIsConsultationTab}
+          />
         </Col>
-        
+
         {/* Colonne centrale : Consultation Room */}
-        <Col md={6}>
+        <Col md={9}>
           {/* <Card className="mb-3">
             <Card.Body>
               <ConsultationRoom
@@ -89,7 +131,14 @@ export default function ConsultationPage() {
             </Card.Body>
           </Card> */}
           <Header variant="dashboard" title="Informations du patient" />
-          <PatientInformationsForm />
+          {!isConsultationTab && (<InformationsForm
+            userKind={userKind}
+            setIsInformationsEntered={setIsInformationsEntered}
+            setPatientInformations={setPatientInformations}
+            setPraticienInformations={setPraticienInformations}
+            setIsConsultationTab={setIsConsultationTab}
+          />)}
+          
         </Col>
 
         {/* Colonne droite : RoomBrowser pour praticiens ou RoomList pour patients */}
@@ -119,8 +168,8 @@ export default function ConsultationPage() {
             <Card.Body>
               <Card.Title>Consultation en cours</Card.Title> */}
 
-              {/* Affichage de l'ID de la room ou "n/a" si aucune room */}
-              {/* <div className="mb-3 p-2 bg-light rounded border">
+        {/* Affichage de l'ID de la room ou "n/a" si aucune room */}
+        {/* <div className="mb-3 p-2 bg-light rounded border">
                 <p className="mb-1">
                   <strong>Salle : {roomName || "n/a"}</strong>
                 </p>
@@ -140,8 +189,8 @@ export default function ConsultationPage() {
                 )}
               </div> */}
 
-              {/* Bouton de création de salle pour les praticiens */}
-              {/* {userKind === "practitioner" && !roomId && (
+        {/* Bouton de création de salle pour les praticiens */}
+        {/* {userKind === "practitioner" && !roomId && (
                 <Button
                   variant="primary"
                   onClick={onCreateRoomClick}
@@ -151,13 +200,13 @@ export default function ConsultationPage() {
                 </Button>
               )} */}
 
-              {/* Liste des rooms pour les patients (toujours visible) */}
-              {/* {userKind === "patient" && <RoomList />}
+        {/* Liste des rooms pour les patients (toujours visible) */}
+        {/* {userKind === "patient" && <RoomList />}
             </Card.Body>
           </Card> */}
 
-          {/* Nouvelle carte pour le chatbox sous la consultation en cours */}
-          {/* {roomId && (
+        {/* Nouvelle carte pour le chatbox sous la consultation en cours */}
+        {/* {roomId && (
             <Card className="mb-3">
               <ChatBox peerConnection={peerConnection} />
             </Card>

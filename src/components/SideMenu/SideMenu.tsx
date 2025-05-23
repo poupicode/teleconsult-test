@@ -4,13 +4,25 @@ import PatientInformations from "./PatientInformations";
 
 import styles from "./SideMenu.module.css";
 
-type InformationsEntered = {
-  isInformationsEntered: boolean;
+type InformationsFormDetails = {
+  name: string;
+  first_name: string;
+  birth_date: string;
+  gender: "Homme" | "Femme";
+  patient_number: number;
+  consultation_reason: string;
 };
 
-const SideMenu = ({ isInformationsEntered }: InformationsEntered) => {
+type InformationsEntered = {
+  isInformationsEntered: boolean;
+  userKind: string | null;
+  patientInformations: InformationsFormDetails | null;
+  isConsultationTab: boolean;
+  setIsConsultationTab: (value: boolean) => void;
+};
+
+const SideMenu = ({ isInformationsEntered, userKind, patientInformations, isConsultationTab, setIsConsultationTab }: InformationsEntered) => {
   // Pour juste mettre le style des boutons d'onglet sur actif ou inactif (et pour changer d'onglet)
-  const [isConsultationTab, setIsConsultationTab] = useState(false);
 
   function handleChangeTab() {
     setIsConsultationTab(!isConsultationTab);
@@ -41,9 +53,9 @@ const SideMenu = ({ isInformationsEntered }: InformationsEntered) => {
             Consultation
           </Button>
         </li>
-        {isInformationsEntered && (
-          <li key="patient" className="mt-3 p-2">
-            <PatientInformations />
+        {isInformationsEntered && userKind==="patient" && (
+          <li key="patient" className="mt-2 p-2">
+            <PatientInformations patientInformations={patientInformations} />
           </li>
         )}
       </ul>
