@@ -68,9 +68,16 @@ body {
 /* Common CSS */
 
 h1{
-  color: #da6254 !important;
   font-size: 2em!important;
   font-weight: 700!important;
+}
+
+h1, .color-red{
+  color: #da6254 !important;
+}
+
+hr{
+  border-bottom-color: #c0d4ec!important;
 }
 
 header{
