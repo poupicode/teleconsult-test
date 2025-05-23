@@ -38,41 +38,6 @@ function App() {
             />
           </Route>
 
-          <Route element={<ProtectedRoute />}>
-            <Route
-              path="/DoctorInterfaceConsultation"
-              element={<DoctorInterfaceConsultation />}
-            />
-          </Route>
-
-          <Route element={<ProtectedRoute />}>
-            <Route
-              path="/DoctorInterfaceConsultation"
-              element={<DoctorInterfaceConsultation />}
-            />
-          </Route>
-
-          <Route element={<ProtectedRoute />}>
-            <Route
-              path="/DoctorInterfaceConsultation"
-              element={<DoctorInterfaceConsultation />}
-            />
-          </Route>
-
-          <Route element={<ProtectedRoute />}>
-            <Route
-              path="/DoctorInterfaceConsultation"
-              element={<DoctorInterfaceConsultation />}
-            />
-          </Route>
-
-          <Route element={<ProtectedRoute />}>
-            <Route
-              path="/DoctorInterfaceConsultation"
-              element={<DoctorInterfaceConsultation />}
-            />
-          </Route>
-
           {/* Routes publiques */}
           <Route path="/error" element={<ErrorPage />} />
           <Route path="/" element={<HomePage />} />
