@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import deviceType from './config';
 import { configureNotifications } from './services';
 
@@ -10,7 +10,11 @@ interface ConnectedCard {
   measurements: { name: string; data: string | number }[];
 }
 
-export function useBluetooth() {
+type UseBluetoothOptions = {
+  onMeasurement?: (payload: object) => void;
+};
+
+export function useBluetooth({ onMeasurement }: UseBluetoothOptions = {}) {
   const [status, setStatus] = useState('En attente...');
   const [connectedCards, setConnectedCards] = useState<ConnectedCard[]>([]);
   const deviceRef = useRef<BluetoothDevice | null>(null);
@@ -42,7 +46,7 @@ export function useBluetooth() {
             serviceKey,
             device,
             server,
-            addOrUpdateCard,
+            (dev, srv, svc, measures) => addOrUpdateCard(dev, srv, svc, measures, onMeasurement),
             setStatus
           );
           return;
@@ -69,7 +73,7 @@ export function useBluetooth() {
             serviceKey,
             device,
             server,
-            addOrUpdateCard,
+            (dev, srv, svc, measures) => addOrUpdateCard(dev, srv, svc, measures, onMeasurement),
             setStatus
           );
           return;
@@ -86,10 +90,23 @@ export function useBluetooth() {
     device: BluetoothDevice,
     server: BluetoothRemoteGATTServer,
     service: string,
-    measurements: { name: string; data: string | number }[]
+    measurements: { name: string; data: string | number }[],
+    sendMeasurement?: (payload: object) => void
   ) => {
+    const payload = {
+      [service]: measurements.reduce((acc, m) => {
+        acc[m.name] = m.data;
+        return acc;
+      }, {} as Record<string, string | number>)
+    };
+      console.log('[Patient] Mesure prête à être envoyée via WebRTC :', payload);
+
+    if (sendMeasurement) {
+      sendMeasurement(payload); // 🔁 envoie la mesure via WebRTC
+    }
+
     setConnectedCards((prev) => {
-      const index = prev.findIndex((card) => card.service === service); //&& card.device.id === device.id (à ajouter pour ne pas écraser les memes services)
+      const index = prev.findIndex((card) => card.service === service);
       const updatedCard: ConnectedCard = {
         device,
         server,

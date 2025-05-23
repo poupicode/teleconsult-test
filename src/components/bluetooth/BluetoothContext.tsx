@@ -1,9 +1,23 @@
 import { useBluetooth } from '../../features/bluetooth/useBluetooth';
 import ServiceCard from './ServiceCard';
 import ButtonConnexionApp from './ButtonConnexionApp';
+import { PeerConnection } from '@/features/room/rtc/peer/connection/peer-connection';
 
-export default function BluetoothContext() {
-  const { status, connectedCards, connect } = useBluetooth();
+interface BluetoothContextProps {
+  peerConnection: PeerConnection;
+}
+
+export default function BluetoothContext({ peerConnection }: BluetoothContextProps) {
+  // 👉 On injecte une fonction d'envoi directement dans le hook
+  const { status, connectedCards, connect } = useBluetooth({
+    onMeasurement: (payload) => {
+  if (!peerConnection || !peerConnection.isDataChannelAvailable()) return;
+
+  const manager = peerConnection.getDataChannelManager();
+  manager.sendMeasurement(payload);
+}
+
+  });
 
   return (
     <div className="p-4 border rounded-md space-y-4">

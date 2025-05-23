@@ -652,4 +652,8 @@ export class PeerConnection implements IPeerConnection {
     setDataChannel(channel: RTCDataChannel) {
         this.dataChannelManager.setDataChannel(channel);
     }
+    getDataChannelManager(): DataChannelManager {  //bluetooth
+  return this.dataChannelManager;
+}
+
 }

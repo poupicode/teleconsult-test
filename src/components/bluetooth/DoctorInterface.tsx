@@ -1,73 +1,49 @@
-import { useState, useEffect } from "react";
-import RenderResults from "./RenderResults";
-import SendButtonData from "./SendData";
+import React, { useEffect } from 'react';
+import { useDoctorData } from '@/features/bluetooth/useDoctorData';
+import { PeerConnection } from '@/features/room/rtc/peer/connection/peer-connection';
 
-type DoctorServices = {
-  [serviceName: string]: Array<object>;
-};
+interface DoctorInterfaceProps {
+  peerConnection?: PeerConnection; // le ? rend la prop optionnelle
+}
 
-export default function DoctorInterface() {
-  const [doctorServices, setDoctorServices] = useState<DoctorServices>({});
-  const [newData, setNewData] = useState<object | null>(null);
+export default function DoctorInterface({ peerConnection }: DoctorInterfaceProps) {
+  const { doctorServices, receiveData } = useDoctorData();
 
-  // Récupération de la donnée de l'input
-  const getValueFromInput = (rawDataReceived: object) => {
-    // Mettre dans newData la donnée reçue par l'input
-    setNewData(rawDataReceived);
-  };
-
-  //   Fonction pour comparer si le service de currentData (rawDataReceived) existe dans l'ensemble allServices (doctorServices)
-  function checkIsDataReceivedServiceExist(
-    currentData: object,
-    allServices: DoctorServices
-  ) {
-    // Stocker le service de la donnée reçue
-    const service: string = Object.entries(currentData)[0][0];
-    // Stocker les mesures de la donnée reçue
-    const measures: object = Object.entries(currentData)[0][1];
-
-    const tempResult: DoctorServices = allServices;
-
-    // Regarder si pour chaque clé dans doctorServices, le service de currentData y correspond
-    // Si oui, ajouter à la fin au service les mesures
-    // Sinon, créer le service dans tous les services et y ajouter à la fin les mesures
-    if (tempResult[service]) {
-      tempResult[service].push(measures);
-    } else {
-      tempResult[service] = [measures];
+  useEffect(() => {
+    if (peerConnection) {
+      peerConnection.getDataChannelManager().onMeasurement(receiveData);
     }
-    // Mettre à jour le state doctorServices
-    setDoctorServices(tempResult);
+  }, [peerConnection, receiveData]);
+
+  if (!peerConnection) {
+    return <p className="text-red-500">Connexion WebRTC non établie…</p>;
   }
 
-  // Au changement de newData, appeler checkIsDataReceivedServiceExist
-  useEffect(() => {
-    if (newData) {
-      checkIsDataReceivedServiceExist(newData, doctorServices);
-      setNewData(null);
-    }
-    console.log("doctorServices mis à jour :", doctorServices);
-  }, [newData, doctorServices]);
-
-
   return (
-    <>
-      <SendButtonData onSendValue={getValueFromInput} />
-
-
-
-      {
-        Object.entries(doctorServices).map(([serviceName, data]) => {
-          return (
-            <RenderResults
-              // key={serviceName}
-              serviceName={serviceName}
-              data={data}
-            />
-          );
-        })
-      }
-
-    </>
+    <div className="p-4 space-y-4">
+      <h2 className="text-xl font-bold">Mesures reçues</h2>
+      {Object.entries(doctorServices).length === 0 ? (
+        <p className="text-gray-500">Aucune mesure reçue pour le moment.</p>
+      ) : (
+        <div className="space-y-4">
+          {Object.entries(doctorServices).map(([service, entries], index) => (
+            <div key={index} className="border p-4 rounded">
+              <h3 className="font-semibold">{service}</h3>
+              <ul className="list-disc pl-5">
+                {entries.map((entry, i) => (
+                  <li key={i}>
+                    {Object.entries(entry).map(([key, value]) => (
+                      <span key={key}>
+                        <strong>{key}</strong>: {value}&nbsp;
+                      </span>
+                    ))}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

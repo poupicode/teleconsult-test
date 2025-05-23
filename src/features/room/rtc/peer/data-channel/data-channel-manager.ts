@@ -11,6 +11,11 @@ export class DataChannelManager {
     private clientId: string;
     private role: Role;
     private onChatMessageCallback: ((message: ChatMessage) => void) | null = null;
+    private onMeasurementCallback: ((data: object) => void) | null = null;
+
+onMeasurement(callback: (data: object) => void) {
+    this.onMeasurementCallback = callback;
+}
 
     constructor(peerConnectionProvider: () => RTCPeerConnection, roomId: string, clientId: string, role: Role) {
         this.getPeerConnection = peerConnectionProvider;
@@ -97,6 +102,11 @@ export class DataChannelManager {
                             this.onChatMessageCallback(chatMessage);
                         }
                         break;
+                        case 'measurement':
+        if (this.onMeasurementCallback) {
+            this.onMeasurementCallback(message.payload);
+        }
+        break;
 
                     // Ajouter d'autres types de messages ici
                     default:
@@ -190,4 +200,8 @@ export class DataChannelManager {
             this.dataChannel = null;
         }
     }
+    sendMeasurement(data: object): boolean {
+    return this.sendDataChannelMessage('measurement', data);
+}
+
 }
