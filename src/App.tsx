@@ -10,12 +10,15 @@ import {
 } from "./components/auth/ProtectedRoute";
 import { AuthProvider } from "./contexts/AuthContext";
 import ConsultationPage from "./pages/ConsultationPage";
-import DoctorInterfaceConsultation from "./components/room/DoctorInterfaceConsultation";
+import ModifyAccountPage from "./pages/ModifyAccountPage";
+import BackgroundPattern from "./components/BackgroundPattern";
+import DoctorInterfaceConsultation from "./pages/DoctorInterfaceConsultation";
 
 function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <BackgroundPattern />
         <AppNavbar />
         <Routes>
           {/* Routes accessibles uniquement aux utilisateurs NON connectés */}
@@ -26,6 +29,14 @@ function App() {
           {/* Routes accessibles uniquement aux utilisateurs connectés */}
           <Route element={<ProtectedRoute />}>
             <Route path="/consultation" element={<ConsultationPage />} />
+            <Route path="/modify-account" element={<ModifyAccountPage />} />
+          </Route>
+
+          <Route element={<ProtectedRoute />}>
+            <Route
+              path="/DoctorInterfaceConsultation"
+              element={<DoctorInterfaceConsultation />}
+            />
           </Route>
 
           <Route element={<ProtectedRoute />}>
