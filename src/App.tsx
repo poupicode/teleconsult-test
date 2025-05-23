@@ -29,6 +29,14 @@ function App() {
           {/* Routes accessibles uniquement aux utilisateurs connectés */}
           <Route element={<ProtectedRoute />}>
             <Route path="/consultation" element={<ConsultationPage />} />
+            <Route path="/modify-account" element={<ModifyAccountPage />} />
+          </Route>
+
+          <Route element={<ProtectedRoute />}>
+            <Route
+              path="/DoctorInterfaceConsultation"
+              element={<DoctorInterfaceConsultation />}
+            />
           </Route>
 
           <Route element={<ProtectedRoute />}>
