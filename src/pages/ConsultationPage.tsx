@@ -13,6 +13,7 @@ import { PeerConnection } from "@/features/room/rtc/peer";
 import BluetoothContext from "@/components/bluetooth/BluetoothContext";
 import DoctorInterface from "@/components/bluetooth/DoctorInterface";
 import SideMenu from "@/components/SideMenu";
+import PatientInformationsForm from "@/components/PatientInformationsForm";
 
 export default function ConsultationPage() {
   const userKind = useSelector((state: RootState) => state.user.user_kind);
@@ -79,17 +80,18 @@ export default function ConsultationPage() {
 
         {/* Colonne centrale : Consultation Room */}
         <Col md={6}>
-          <Card className="mb-3">
+          {/* <Card className="mb-3">
             <Card.Body>
               <ConsultationRoom
                 onPeerConnectionReady={handlePeerConnectionReady}
               />
             </Card.Body>
-          </Card>
+          </Card> */}
+          <PatientInformationsForm />
         </Col>
 
         {/* Colonne droite : RoomBrowser pour praticiens ou RoomList pour patients */}
-        <Col md={3}>
+        {/* <Col md={3}>
           <Card className="mb-3">
             <Card.Header>
               {userKind === "practitioner" && (
@@ -113,10 +115,10 @@ export default function ConsultationPage() {
               )}
             </Card.Header>
             <Card.Body>
-              <Card.Title>Consultation en cours</Card.Title>
+              <Card.Title>Consultation en cours</Card.Title> */}
 
               {/* Affichage de l'ID de la room ou "n/a" si aucune room */}
-              <div className="mb-3 p-2 bg-light rounded border">
+              {/* <div className="mb-3 p-2 bg-light rounded border">
                 <p className="mb-1">
                   <strong>Salle : {roomName || "n/a"}</strong>
                 </p>
@@ -134,10 +136,10 @@ export default function ConsultationPage() {
                     Quitter la consultation
                   </Button>
                 )}
-              </div>
+              </div> */}
 
               {/* Bouton de création de salle pour les praticiens */}
-              {userKind === "practitioner" && !roomId && (
+              {/* {userKind === "practitioner" && !roomId && (
                 <Button
                   variant="primary"
                   onClick={onCreateRoomClick}
@@ -145,20 +147,20 @@ export default function ConsultationPage() {
                 >
                   <MdAddIcCall className="me-1" /> Créer une salle
                 </Button>
-              )}
+              )} */}
 
               {/* Liste des rooms pour les patients (toujours visible) */}
-              {userKind === "patient" && <RoomList />}
+              {/* {userKind === "patient" && <RoomList />}
             </Card.Body>
-          </Card>
+          </Card> */}
 
           {/* Nouvelle carte pour le chatbox sous la consultation en cours */}
-          {roomId && (
+          {/* {roomId && (
             <Card className="mb-3">
               <ChatBox peerConnection={peerConnection} />
             </Card>
           )}
-        </Col>
+        </Col> */}
       </Row>
     </Container>
   );
