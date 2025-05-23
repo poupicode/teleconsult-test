@@ -26,7 +26,7 @@ const AppNavbar = () => {
   return (
     <Navbar className={`${styles.navbar} bg-blue`} expand="lg">
       <Container>
-        <Navbar.Brand className="color-white fw-black fs-2" href="/">Téléconsultation</Navbar.Brand>
+        <Navbar.Brand className="color-white fw-black fs-3" href="/">Téléconsultation</Navbar.Brand>
         <Nav className="ms-auto">
           {session && (
             <Navbar.Text className="me-3 color-white">
