@@ -5,13 +5,11 @@ const Header = ({
   variant: "dashboard" | "public";
   title?: string;
 }) => {
-  return variant === "public" ? (
-    <header className="public-header">
-        <h1>{title}</h1>
-    </header>
-  ) : (
-    <header className="dashboard-header">
-        <h1>{title}</h1>
+  return (
+    <header
+      className={variant === "public" ? "public-header" : "dashboard-header"}
+    >
+      <h1>{title}</h1>
     </header>
   );
 };
