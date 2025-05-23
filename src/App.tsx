@@ -4,9 +4,13 @@ import HomePage from "./pages/HomePage";
 import React from "react";
 import AppNavbar from "./components/Navbar";
 import ErrorPage from "./pages/ErrorPage";
-import { ProtectedRoute, PublicOnlyRoute } from "./components/auth/ProtectedRoute";
+import {
+  ProtectedRoute,
+  PublicOnlyRoute,
+} from "./components/auth/ProtectedRoute";
 import { AuthProvider } from "./contexts/AuthContext";
 import ConsultationPage from "./pages/ConsultationPage";
+import DoctorInterfaceConsultation from "./pages/DoctorInterfaceConsultation";
 
 function App() {
   return (
@@ -22,6 +26,13 @@ function App() {
           {/* Routes accessibles uniquement aux utilisateurs connectés */}
           <Route element={<ProtectedRoute />}>
             <Route path="/consultation" element={<ConsultationPage />} />
+          </Route>
+
+          <Route element={<ProtectedRoute />}>
+            <Route
+              path="/DoctorInterfaceConsultation"
+              element={<DoctorInterfaceConsultation />}
+            />
           </Route>
 
           {/* Routes publiques */}
