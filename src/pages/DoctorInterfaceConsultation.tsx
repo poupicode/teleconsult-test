@@ -75,7 +75,7 @@ export default function DoctorInterfaceConsultation() {
           </h2>
           <Button
             variant="danger"
-            className="rounded-pill text-white"
+            className="rounded-pill"
             onClick={handleAddRoom}
           >
             Créer une salle
@@ -87,15 +87,7 @@ export default function DoctorInterfaceConsultation() {
             <Col key={room.id} md={6} lg={4}>
               <div
                 className="card shadow-lg p-3 mb-4 rounded"
-<<<<<<< HEAD
-<<<<<<< HEAD
-                style={{ backgroundColor: "#F0EDF4", height: "350px" }}
-=======
-                style={{ backgroundColor: "#F0EDF4", height: "400px" }}
->>>>>>> 13da782 (WIP improved the aesthetics of the cards solved a few text problems that appeared when they weren't supposed to.)
-=======
-                style={{ backgroundColor: "#F0EDF4", height: "350px" }}
->>>>>>> 2e61740 (the cards are now good, the connection between the “rejoindre” button and the visio still needs to be made)
+                style={{ backgroundColor: "#F0EDF4" }}
               >
                 <div className="card-body">
                   {/* Nom de la salle */}
@@ -108,34 +100,21 @@ export default function DoctorInterfaceConsultation() {
                         </Form.Label>
                         <Form.Control
                           type="text"
-<<<<<<< HEAD
-<<<<<<< HEAD
-                          className="mb-2"
-=======
-                          className="mb-5"
->>>>>>> 13da782 (WIP improved the aesthetics of the cards solved a few text problems that appeared when they weren't supposed to.)
-=======
-                          className="mb-2"
->>>>>>> 2e61740 (the cards are now good, the connection between the “rejoindre” button and the visio still needs to be made)
-                          maxLength={40}
                           value={room.name}
                           onChange={(e) =>
                             handleChange(room.id, "name", e.target.value)
                           }
                           isInvalid={
                             !room.isValidated &&
-                            room.name.trim() !== "" &&
                             isDuplicateName(room.name, room.id)
                           }
                           placeholder="Ex: Salle 1"
                         />
-                        {!room.isValidated &&
-                          room.name.trim() !== "" &&
-                          isDuplicateName(room.name, room.id) && (
-                            <Form.Control.Feedback type="invalid">
-                              Ce nom existe déjà.
-                            </Form.Control.Feedback>
-                          )}
+                        {!room.isValidated && (
+                          <Form.Control.Feedback type="invalid">
+                            Ce nom existe déjà.
+                          </Form.Control.Feedback>
+                        )}
                       </Form.Group>
 
                       {/* Description (editable) */}
@@ -143,61 +122,25 @@ export default function DoctorInterfaceConsultation() {
                         <Form.Label>Description :</Form.Label>
                         <Form.Control
                           as="textarea"
-                          rows={2}
-                          maxLength={70}
+                          rows={3}
                           value={room.description}
                           onChange={(e) =>
                             handleChange(room.id, "description", e.target.value)
                           }
                           placeholder="Ajoutez une description..."
                         />
-                        <Form.Text muted>
-                          {room.description.length} / 70 caractères
-                        </Form.Text>
                       </Form.Group>
                     </>
                   ) : (
                     <>
                       {/* Nom de la salle (affiché) */}
-                      <h5
-                        className="card-title text-center fw-bold mb-3"
-                        style={{
-                          height: "48px", // ~2 lignes
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
+                      <h5 className="card-title text-center fw-bold mb-3">
                         {room.name}
                       </h5>
 
                       {/* Description (affichée) */}
-                      <p
-                        className="card-text text-center my-3"
-                        style={{
-                          height: "72px", // 3 lignes
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 2e61740 (the cards are now good, the connection between the “rejoindre” button and the visio still needs to be made)
-                        <p
-                          className="card-text text-center my-3"
-                          style={{ maxHeight: "120px", overflowY: "auto" }}
-                        >
-                          {room.description}
-                        </p>
-<<<<<<< HEAD
-=======
-                        {room.description.length > 60
-                          ? room.description.slice(0, 60) + "..."
-                          : room.description}
->>>>>>> 13da782 (WIP improved the aesthetics of the cards solved a few text problems that appeared when they weren't supposed to.)
-=======
->>>>>>> 2e61740 (the cards are now good, the connection between the “rejoindre” button and the visio still needs to be made)
+                      <p className="card-text text-center">
+                        {room.description}
                       </p>
                     </>
                   )}
@@ -206,14 +149,14 @@ export default function DoctorInterfaceConsultation() {
                   {room.isValidated ? (
                     <Button
                       type="button"
-                      className="btn btn-danger rounded-pill mx-auto d-block mb-3 px-5 text-white"
+                      className="btn btn-danger rounded-pill mx-auto d-block mb-3 px-5"
                     >
                       Rejoindre
                     </Button>
                   ) : (
                     <Button
                       type="button"
-                      className="btn btn-success rounded-pill mx-auto d-block mb-5 px-5 text-white"
+                      className="btn btn-success rounded-pill mx-auto d-block mb-3 px-5"
                       onClick={() => handleValidateRoom(room.id)}
                       disabled={
                         room.name.trim() === "" ||
@@ -224,20 +167,18 @@ export default function DoctorInterfaceConsultation() {
                     </Button>
                   )}
 
-                  {room.isValidated && (
-                    <>
-                      <hr className="my-3 border border-primary" />
-                      <div className="d-flex justify-content-center">
-                        <button
-                          type="button"
-                          className="btn btn-link text-danger"
-                          onClick={() => handleDeleteRoom(room.id)}
-                        >
-                          Supprimer la salle
-                        </button>
-                      </div>
-                    </>
-                  )}
+                  <hr className="my-3 border border-primary" />
+
+                  {/* Lien de suppression */}
+                  <div className="d-flex justify-content-center">
+                    <button
+                      type="button"
+                      className="btn btn-link text-danger"
+                      onClick={() => handleDeleteRoom(room.id)}
+                    >
+                      Supprimer la salle
+                    </button>
+                  </div>
                 </div>
               </div>
             </Col>
