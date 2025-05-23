@@ -77,17 +77,23 @@ export default function ConsultationPage() {
         {/* Colonne gauche : Side Menu */}
         <Col md={3} className="bg-grey p-0">
           <SideMenu isInformationsEntered={isInformationsEntered} />
+          {userKind === "patient" && peerConnection && (
+    <BluetoothContext peerConnection={peerConnection} />
+  )}
+  {userKind === "practitioner" && peerConnection && (
+  <DoctorInterface peerConnection={peerConnection} />
+)}
         </Col>
         
         {/* Colonne centrale : Consultation Room */}
         <Col md={6}>
-          {/* <Card className="mb-3">
+          <Card className="mb-3">
             <Card.Body>
               <ConsultationRoom
                 onPeerConnectionReady={handlePeerConnectionReady}
               />
             </Card.Body>
-          </Card> */}
+          </Card>
           <Header variant="dashboard" title="Informations du patient" />
           <PatientInformationsForm />
         </Col>
