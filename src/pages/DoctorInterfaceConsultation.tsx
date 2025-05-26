@@ -170,6 +170,10 @@ export default function DoctorInterfaceConsultation() {
                         >
                           {room.description}
                         </p>
+
+                        {room.description.length > 60
+                          ? room.description.slice(0, 60) + "..."
+                          : room.description}
                       </p>
                     </>
                   )}
