@@ -127,7 +127,7 @@ export default function ConsultationPage() {
           <Header
             variant="dashboard"
             title={`Information du ${
-              userKind === "patient" ? "patien" : "praticien"
+              userKind === "patient" ? "patient" : "praticien"
             }`}
           />
           {!isConsultationTab ? (
