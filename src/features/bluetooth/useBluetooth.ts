@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import deviceType from './config';
 import { configureNotifications } from './services';
 
@@ -11,20 +11,18 @@ interface ConnectedCard {
 }
 
 type UseBluetoothOptions = {
-  onMeasurement?: (payload: object) => void; // Fonction appelée à chaque nouvelle mesure
+  onMeasurement?: (payload: object) => void;
 };
 
 export function useBluetooth({ onMeasurement }: UseBluetoothOptions = {}) {
   const [status, setStatus] = useState('En attente...');
-  const [connectedCards, setConnectedCards] = useState<ConnectedCard[]>([]); // Liste des cartes connectées et leurs mesures
-  const deviceRef = useRef<BluetoothDevice | null>(null); // Référence à l’appareil connecté
+  const [connectedCards, setConnectedCards] = useState<ConnectedCard[]>([]);
+  const deviceRef = useRef<BluetoothDevice | null>(null);
 
-  // Liste des services supportés à partir de la config
-  const supportedServices = Object.keys(deviceType) as Array<Extract<keyof typeof deviceType, string>>;
+  const supportedServices = Object.keys(deviceType) as Array<string>;
 
   const connect = async () => {
     try {
-      // Prépare les filtres pour ne chercher que les services supportés
       const filters = supportedServices.map((svc) => ({ services: [svc] }));
       const device = await navigator.bluetooth.requestDevice({
         filters,
@@ -37,10 +35,9 @@ export function useBluetooth({ onMeasurement }: UseBluetoothOptions = {}) {
       const server = await device.gatt?.connect();
       setStatus('Connecté !');
 
-      // Écoute les déconnexions pour tenter une reconnexion automatique
       device.addEventListener('gattserverdisconnected', () => reconnectDevice(device));
 
-      if (!server) throw new Error('Impossible d’obtenir le GATT server');
+      if (!server) throw new Error('GATT indisponible');
 
       for (const serviceKey of supportedServices) {
         try {
@@ -63,9 +60,8 @@ export function useBluetooth({ onMeasurement }: UseBluetoothOptions = {}) {
     }
   };
 
-  // Fonction appelée en cas de déconnexion : tente une reconnexion automatique
   const reconnectDevice = async (device: BluetoothDevice) => {
-    setStatus('Tentative de reconnexion…');
+    setStatus('Tentative de reconnexion...');
     try {
       const server = await device.gatt!.connect();
       setStatus('Reconnecté !');
@@ -101,23 +97,15 @@ export function useBluetooth({ onMeasurement }: UseBluetoothOptions = {}) {
       [service]: measurements.reduce((acc, m) => {
         acc[m.name] = m.data;
         return acc;
-      }, {} as Record<string, string | number>)
+      }, {} as Record<string, string | number>),
     };
-      console.log('[Patient] Mesure prête à être envoyée via WebRTC :', payload);
 
-    if (sendMeasurement) {
-      sendMeasurement(payload); // envoie la mesure via WebRTC
-    }
+    console.log('[Patient] Mesure prête à être envoyée :', payload);
+    if (sendMeasurement) sendMeasurement(payload);
 
     setConnectedCards((prev) => {
       const index = prev.findIndex((card) => card.service === service);
-      const updatedCard: ConnectedCard = {
-        device,
-        server,
-        service,
-        deviceName: device.name || 'Inconnu',
-        measurements,
-      };
+      const updatedCard: ConnectedCard = { device, server, service, deviceName: device.name || 'Inconnu', measurements };
       if (index !== -1) {
         const copy = [...prev];
         copy[index] = updatedCard;

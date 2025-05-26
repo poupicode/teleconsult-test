@@ -8,16 +8,14 @@ export function useDoctorData() {
   const [doctorServices, setDoctorServices] = useState<DoctorServices>({});
   const [newData, setNewData] = useState<object | null>(null);
 
-  // Appelé quand une nouvelle mesure arrive via WebRTC
   const receiveData = (rawDataReceived: object) => {
-    console.log('[Médecin] Mesure reçue via WebRTC :', rawDataReceived);
+    console.log('[Médecin] Mesure reçue :', rawDataReceived);
     setNewData(rawDataReceived);
   };
 
-  // Ajoute la mesure dans l'état local (affichage uniquement, pas de persistance)
   const processNewData = (currentData: object) => {
-    const service: string = Object.entries(currentData)[0][0];
-    const measures: object = Object.entries(currentData)[0][1];
+    const service = Object.keys(currentData)[0];
+    const measures = (currentData as any)[service];
 
     setDoctorServices((prev) => {
       const updated = { ...prev };
@@ -34,8 +32,5 @@ export function useDoctorData() {
     }
   }, [newData]);
 
-  return {
-    doctorServices,
-    receiveData,     // À passer à dataChannelManager.onMeasurement()
-  };
+  return { doctorServices, receiveData };
 }
