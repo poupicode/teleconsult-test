@@ -25,7 +25,6 @@ export default function ConsultationPage() {
   );
 
   const handleDisconnect = () => {
-    // Déconnecter explicitement le PeerConnection avant de quitter la salle
     if (peerConnection) {
       console.log("[ConsultationPage] Déconnexion explicite du PeerConnection");
       peerConnection.disconnect();
@@ -58,7 +57,6 @@ export default function ConsultationPage() {
     }
   }, [showRoomBrowser]);
 
-  // Référence à l'instance de PeerConnection créée dans ConsultationRoom
   const handlePeerConnectionReady = (peer: PeerConnection) => {
     setPeerConnection(peer);
   };
@@ -156,7 +154,6 @@ export default function ConsultationPage() {
             </Card.Body>
           </Card>
 
-          {/* Nouvelle carte pour le chatbox sous la consultation en cours */}
           {roomId && (
             <Card className="mb-3">
               <ChatBox peerConnection={peerConnection} />
