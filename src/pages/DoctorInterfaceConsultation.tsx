@@ -170,6 +170,14 @@ export default function DoctorInterfaceConsultation() {
                         >
                           {room.description}
                         </p>
+<<<<<<< HEAD
+=======
+                        {room.description.length > 60
+                          ? room.description.slice(0, 60) + "..."
+                          : room.description}
+>>>>>>> 13da782 (WIP improved the aesthetics of the cards solved a few text problems that appeared when they weren't supposed to.)
+=======
+>>>>>>> 2e61740 (the cards are now good, the connection between the “rejoindre” button and the visio still needs to be made)
                       </p>
                     </>
                   )}
