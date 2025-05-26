@@ -87,7 +87,7 @@ export default function DoctorInterfaceConsultation() {
             <Col key={room.id} md={6} lg={4}>
               <div
                 className="card shadow-lg p-3 mb-4 rounded"
-                style={{ backgroundColor: "#F0EDF4", height: "400px" }}
+                style={{ backgroundColor: "#F0EDF4", height: "350px" }}
               >
                 <div className="card-body">
                   {/* Nom de la salle */}
@@ -100,7 +100,7 @@ export default function DoctorInterfaceConsultation() {
                         </Form.Label>
                         <Form.Control
                           type="text"
-                          className="mb-5"
+                          className="mb-2"
                           maxLength={40}
                           value={room.name}
                           onChange={(e) =>
@@ -108,15 +108,18 @@ export default function DoctorInterfaceConsultation() {
                           }
                           isInvalid={
                             !room.isValidated &&
+                            room.name.trim() !== "" &&
                             isDuplicateName(room.name, room.id)
                           }
                           placeholder="Ex: Salle 1"
                         />
-                        {!room.isValidated && (
-                          <Form.Control.Feedback type="invalid">
-                            Ce nom existe déjà.
-                          </Form.Control.Feedback>
-                        )}
+                        {!room.isValidated &&
+                          room.name.trim() !== "" &&
+                          isDuplicateName(room.name, room.id) && (
+                            <Form.Control.Feedback type="invalid">
+                              Ce nom existe déjà.
+                            </Form.Control.Feedback>
+                          )}
                       </Form.Group>
 
                       {/* Description (editable) */}
@@ -124,13 +127,17 @@ export default function DoctorInterfaceConsultation() {
                         <Form.Label>Description :</Form.Label>
                         <Form.Control
                           as="textarea"
-                          rows={3}
+                          rows={2}
+                          maxLength={70}
                           value={room.description}
                           onChange={(e) =>
                             handleChange(room.id, "description", e.target.value)
                           }
                           placeholder="Ajoutez une description..."
                         />
+                        <Form.Text muted>
+                          {room.description.length} / 70 caractères
+                        </Form.Text>
                       </Form.Group>
                     </>
                   ) : (
@@ -157,9 +164,12 @@ export default function DoctorInterfaceConsultation() {
                           textOverflow: "ellipsis",
                         }}
                       >
-                        {room.description.length > 60
-                          ? room.description.slice(0, 60) + "..."
-                          : room.description}
+                        <p
+                          className="card-text text-center my-3"
+                          style={{ maxHeight: "120px", overflowY: "auto" }}
+                        >
+                          {room.description}
+                        </p>
                       </p>
                     </>
                   )}
