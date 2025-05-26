@@ -10,7 +10,7 @@ export function useDoctorData() {
 
   // Appelé quand une nouvelle mesure arrive via WebRTC
   const receiveData = (rawDataReceived: object) => {
-    console.log('[Médecin] Mesure reçue via WebRTC :', rawDataReceived); // 👈 LOG ICI
+    console.log('[Médecin] Mesure reçue via WebRTC :', rawDataReceived);
     setNewData(rawDataReceived);
   };
 
@@ -35,7 +35,7 @@ export function useDoctorData() {
   }, [newData]);
 
   return {
-    doctorServices, // Pour affichage
+    doctorServices,
     receiveData,     // À passer à dataChannelManager.onMeasurement()
   };
 }

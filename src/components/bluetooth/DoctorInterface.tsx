@@ -2,19 +2,22 @@ import React, { useEffect } from 'react';
 import { useDoctorData } from '@/features/bluetooth/useDoctorData';
 import { PeerConnection } from '@/features/room/rtc/peer/connection/peer-connection';
 
+// Props attendues : peerConnection est optionnelle
 interface DoctorInterfaceProps {
-  peerConnection?: PeerConnection; // le ? rend la prop optionnelle
+  peerConnection?: PeerConnection;
 }
 
 export default function DoctorInterface({ peerConnection }: DoctorInterfaceProps) {
+  // Hook personnalisé pour stocker les mesures reçues et fournir une fonction de réception
   const { doctorServices, receiveData } = useDoctorData();
 
   useEffect(() => {
+    // Lorsque peerConnection est disponible, on attache la fonction de réception aux mesures entrantes
     if (peerConnection) {
       peerConnection.getDataChannelManager().onMeasurement(receiveData);
     }
   }, [peerConnection, receiveData]);
-
+// Si la connexion WebRTC n'est pas encore établie, on affiche un message d'erreur
   if (!peerConnection) {
     return <p className="text-red-500">Connexion WebRTC non établie…</p>;
   }

@@ -13,10 +13,6 @@ export class DataChannelManager {
     private onChatMessageCallback: ((message: ChatMessage) => void) | null = null;
     private onMeasurementCallback: ((data: object) => void) | null = null;
 
-onMeasurement(callback: (data: object) => void) {
-    this.onMeasurementCallback = callback;
-}
-
     constructor(peerConnectionProvider: () => RTCPeerConnection, roomId: string, clientId: string, role: Role) {
         this.getPeerConnection = peerConnectionProvider;
         this.roomId = roomId;
@@ -202,6 +198,9 @@ onMeasurement(callback: (data: object) => void) {
     }
     sendMeasurement(data: object): boolean {
     return this.sendDataChannelMessage('measurement', data);
-}
+    }
+    onMeasurement(callback: (data: object) => void) {
+        this.onMeasurementCallback = callback;
+    }
 
 }

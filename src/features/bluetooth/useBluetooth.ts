@@ -11,18 +11,20 @@ interface ConnectedCard {
 }
 
 type UseBluetoothOptions = {
-  onMeasurement?: (payload: object) => void;
+  onMeasurement?: (payload: object) => void; // Fonction appelée à chaque nouvelle mesure
 };
 
 export function useBluetooth({ onMeasurement }: UseBluetoothOptions = {}) {
   const [status, setStatus] = useState('En attente...');
-  const [connectedCards, setConnectedCards] = useState<ConnectedCard[]>([]);
-  const deviceRef = useRef<BluetoothDevice | null>(null);
+  const [connectedCards, setConnectedCards] = useState<ConnectedCard[]>([]); // Liste des cartes connectées et leurs mesures
+  const deviceRef = useRef<BluetoothDevice | null>(null); // Référence à l’appareil connecté
 
+  // Liste des services supportés à partir de la config
   const supportedServices = Object.keys(deviceType) as Array<Extract<keyof typeof deviceType, string>>;
 
   const connect = async () => {
     try {
+      // Prépare les filtres pour ne chercher que les services supportés
       const filters = supportedServices.map((svc) => ({ services: [svc] }));
       const device = await navigator.bluetooth.requestDevice({
         filters,
@@ -35,6 +37,7 @@ export function useBluetooth({ onMeasurement }: UseBluetoothOptions = {}) {
       const server = await device.gatt?.connect();
       setStatus('Connecté !');
 
+      // Écoute les déconnexions pour tenter une reconnexion automatique
       device.addEventListener('gattserverdisconnected', () => reconnectDevice(device));
 
       if (!server) throw new Error('Impossible d’obtenir le GATT server');
@@ -60,6 +63,7 @@ export function useBluetooth({ onMeasurement }: UseBluetoothOptions = {}) {
     }
   };
 
+  // Fonction appelée en cas de déconnexion : tente une reconnexion automatique
   const reconnectDevice = async (device: BluetoothDevice) => {
     setStatus('Tentative de reconnexion…');
     try {
@@ -102,7 +106,7 @@ export function useBluetooth({ onMeasurement }: UseBluetoothOptions = {}) {
       console.log('[Patient] Mesure prête à être envoyée via WebRTC :', payload);
 
     if (sendMeasurement) {
-      sendMeasurement(payload); // 🔁 envoie la mesure via WebRTC
+      sendMeasurement(payload); // envoie la mesure via WebRTC
     }
 
     setConnectedCards((prev) => {

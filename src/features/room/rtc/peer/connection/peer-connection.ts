@@ -653,7 +653,8 @@ export class PeerConnection implements IPeerConnection {
         this.dataChannelManager.setDataChannel(channel);
     }
     getDataChannelManager(): DataChannelManager {  //bluetooth
-  return this.dataChannelManager;
-}
+        //Pour accéder au gestionnaire du canal de données WebRTC depuis un autre composant
+        return this.dataChannelManager;
+    }
 
 }
