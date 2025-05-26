@@ -27,10 +27,11 @@ const ModifyAccount = () => {
   const navigate = useNavigate();
 
   // Fonction de soumission du formulaire
-  // Actuellement, elle ne fait que rediriger vers la page d'accueil
+  // Actuellement, elle ne fait que rediriger vers la page précédente
   const onSubmit = (data: FormValues) => {
     console.log(user);
-    navigate("/");
+    navigate(-1); // Retour à la page précédente
+    // Ici, vous pouvez ajouter la logique pour mettre à jour les informations de l'utilisateur
   };
   return (
     <div>
@@ -115,10 +116,12 @@ const ModifyAccount = () => {
           >
             Enregistrer
           </Button>
+          {/* Bouton pour annuler les modifications */}
+          {/* Retour à la page précédente */}
           <Button
             className="d-block mx-auto w-auto tertiary-btn"
             variant="link"
-            onClick={() => navigate("/")}
+            onClick={() => navigate(-1)}
           >
             Retour
           </Button>

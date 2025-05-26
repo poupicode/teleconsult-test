@@ -216,7 +216,7 @@ const InformationsForm = ({
                 <Form.Control
                   className="bg-grey"
                   type="text"
-                  maxLength={80}
+                  maxLength={60}
                   defaultValue={
                     isInformationsEntered && userKind === "patient"
                       ? patientInformations?.consultation_reason ?? ""
@@ -225,8 +225,8 @@ const InformationsForm = ({
                   {...register("consultation_reason", {
                     required: "Motif requis",
                     maxLength: {
-                      value: 80,
-                      message: "Le motif ne doit pas dépasser 100 caractères",
+                      value: 60,
+                      message: "Le motif ne doit pas dépasser 60 caractères",
                     },
                   })}
                 />
