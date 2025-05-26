@@ -140,6 +140,12 @@ export default function ConsultationPage() {
             />
           ) : (
             <>
+              {userKind === "patient" && peerConnection && (
+                <BluetoothContext peerConnection={peerConnection} />
+              )}
+              {userKind === "practitioner" && peerConnection && (
+                <DoctorInterface peerConnection={peerConnection} />
+              )}
               <Card className="mb-3">
                 <Card.Body>
                   <ConsultationRoom
@@ -214,12 +220,6 @@ export default function ConsultationPage() {
                 <Card className="mb-3">
                   <ChatBox peerConnection={peerConnection} />
                 </Card>
-              )}
-              {userKind === "patient" && peerConnection && (
-                <BluetoothContext peerConnection={peerConnection} />
-              )}
-              {userKind === "practitioner" && peerConnection && (
-                <DoctorInterface peerConnection={peerConnection} />
               )}
             </>
           )}
