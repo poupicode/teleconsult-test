@@ -33,25 +33,38 @@ type PraticienInformationsFormData = {
 };
 
 export default function ConsultationPage() {
+  // Récupération des données du store Redux : le rôle de l'utilisateur, l'ID de la salle, etc.
   const userKind = useSelector((state: RootState) => state.user.user_kind);
   const roomId = useSelector((state: RootState) => state.room.roomId);
+
+  // Utilisation du hook useDispatch pour envoyer des actions Redux
+  // (par exemple, pour mettre à jour l'ID de la salle)
   const dispatch = useDispatch();
+
+  // État local pour gérer l'affichage du navigateur de salle, le nom de la salle et la connexion PeerConnection
+  // (PeerConnection est utilisé pour gérer la connexion WebRTC entre le patient et le praticien)
   const [showRoomBrowser, setShowRoomBrowser] = useState(false);
   const [roomName, setRoomName] = useState<string>("");
   const [peerConnection, setPeerConnection] = useState<PeerConnection | null>(
     null
   );
 
+  // Fonction pour gérer la déconnexion de la salle
+  // Elle déconnecte explicitement le PeerConnection et met à jour l'ID de la salle dans le store Redux
   const handleDisconnect = () => {
     // Déconnecter explicitement le PeerConnection avant de quitter la salle
     if (peerConnection) {
       console.log("[ConsultationPage] Déconnexion explicite du PeerConnection");
       peerConnection.disconnect();
     }
+    // Réinitialiser l'état local de PeerConnection
+    setPeerConnection(null);
     dispatch(roomIdUpdated(null));
   };
 
   // Charger les détails de la salle si on est connecté
+  // (par exemple, pour afficher le nom de la salle)
+  // Utilisation de useEffect pour charger le nom de la salle lorsque roomId change
   useEffect(() => {
     if (roomId) {
       RoomSupabase.getRoom(roomId).then((room) => {
@@ -64,6 +77,8 @@ export default function ConsultationPage() {
     }
   }, [roomId]);
 
+  // Fonction pour créer une nouvelle salle lorsque le praticien clique sur le bouton "Créer une salle"
+  // Elle utilise RoomSupabase pour créer une salle avec un nom généré automatiquement
   const onCreateRoomClick = async () => {
     // Création d'une salle avec un nom généré automatiquement
     const room = await RoomSupabase.createRoom();
@@ -80,6 +95,8 @@ export default function ConsultationPage() {
   }, [showRoomBrowser]);
 
   // Référence à l'instance de PeerConnection créée dans ConsultationRoom
+  // Cette fonction est appelée lorsque la connexion PeerConnection est prête
+  // (par exemple, lorsque le praticien ou le patient est prêt à commencer la consultation)
   const handlePeerConnectionReady = (peer: PeerConnection) => {
     setPeerConnection(peer);
   };
@@ -146,6 +163,9 @@ export default function ConsultationPage() {
               setPatientInformations={setPatientInformations}
               setPraticienInformations={setPraticienInformations}
               setIsConsultationTab={setIsConsultationTab}
+              praticienInformations={praticienInformations}
+              patientInformations={patientInformations}
+              isInformationsEntered={isInformationsEntered}
             />
           ) : (
             // Si l'onglet de consultation est actif (du menu latéral), afficher :

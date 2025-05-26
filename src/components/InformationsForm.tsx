@@ -24,6 +24,9 @@ type InformationsFormProps = {
   setPatientInformations: (data: PatientInformationsFormData) => void;
   setIsConsultationTab: (value: boolean) => void;
   setPraticienInformations: (data: PraticienInformationsFormData) => void;
+  praticienInformations: PraticienInformationsFormData | null;
+  patientInformations: PatientInformationsFormData | null;
+  isInformationsEntered: boolean;
 };
 
 // Composant pour le formulaire d'informations du patient ou du praticien
@@ -33,6 +36,9 @@ const InformationsForm = ({
   setPatientInformations,
   setIsConsultationTab,
   setPraticienInformations,
+  praticienInformations,
+  patientInformations,
+  isInformationsEntered,
 }: InformationsFormProps) => {
   // Utilisation de useForm pour gérer le formulaire
   const {
@@ -66,11 +72,19 @@ const InformationsForm = ({
         <Row md={3} className="d-flex justify-content-center">
           <Col>
             {/* Informations du patient : nom */}
+            {/* Quand il faut modifier le nom, le nom actuel du patient/praticien est pré-rempli */}
             <Form.Group className="mb-3">
               <Form.Label className="fw-medium">Nom :</Form.Label>
               <Form.Control
                 className="bg-grey"
                 type="text"
+                defaultValue={
+                  isInformationsEntered
+                    ? userKind === "patient"
+                      ? patientInformations?.name
+                      : praticienInformations?.name
+                    : ""
+                }
                 {...register("name", {
                   required: "Nom requis",
                   onChange: (e) => {
@@ -85,11 +99,19 @@ const InformationsForm = ({
           </Col>
           <Col>
             {/* Informations du praticien : prénom */}
+            {/* Quand il faut modifier le prénom, le prénom actuel du patient/praticien est pré-rempli */}
             <Form.Group className="mb-3">
               <Form.Label className="fw-medium">Prénom :</Form.Label>
               <Form.Control
                 className="bg-grey"
                 type="text"
+                defaultValue={
+                  isInformationsEntered
+                    ? userKind === "patient"
+                      ? patientInformations?.first_name
+                      : praticienInformations?.first_name
+                    : ""
+                }
                 {...register("first_name", {
                   required: "Prénom requis",
                   onChange: (e) => {
@@ -114,6 +136,7 @@ const InformationsForm = ({
           <Row md={3} className="d-flex justify-content-center">
             <Col>
               {/* Informations du patient : date de naissance */}
+              {/* Quand il faut modifier la date de naissance, la date actuelle du patient est pré-remplie */}
               <Form.Group className="mb-3">
                 <Form.Label className="fw-medium">
                   Date de naissance :
@@ -121,6 +144,14 @@ const InformationsForm = ({
                 <Form.Control
                   className="bg-grey"
                   type="date"
+                  defaultValue={
+                    isInformationsEntered && userKind === "patient"
+                      ? patientInformations?.birth_date
+                          .split("/")
+                          .reverse()
+                          .join("-") ?? ""
+                      : ""
+                  }
                   {...register("birth_date", { required: "Date requise" })}
                 />
                 {errors.birth_date && (
@@ -131,11 +162,17 @@ const InformationsForm = ({
               </Form.Group>
 
               {/* Informations du patient : numéro patient */}
+              {/* Quand il faut modifier le numéro patient, le numéro actuel du patient est pré-rempli */}
               <Form.Group className="mb-3">
                 <Form.Label className="fw-medium">Numéro patient :</Form.Label>
                 <Form.Control
                   className="bg-grey"
                   type="number"
+                  defaultValue={
+                    isInformationsEntered && userKind === "patient"
+                      ? patientInformations?.patient_number ?? ""
+                      : ""
+                  }
                   {...register("patient_number", { required: "Numéro requis" })}
                 />
                 {errors.patient_number && (
@@ -147,9 +184,15 @@ const InformationsForm = ({
             </Col>
             <Col>
               {/* Informations du patient : sexe */}
+              {/* Quand il faut modifier le sexe, le sexe actuel du patient est pré-rempli */}
               <Form.Group className="mb-3">
                 <Form.Label className="fw-medium">Sexe :</Form.Label>
                 <Form.Select
+                  defaultValue={
+                    isInformationsEntered && userKind === "patient"
+                      ? patientInformations?.gender ?? ""
+                      : ""
+                  }
                   className="bg-grey"
                   {...register("gender", {
                     required: "Choisissez un sexe",
@@ -165,6 +208,7 @@ const InformationsForm = ({
               </Form.Group>
 
               {/* Informations du patient : motif de consultation */}
+              {/* Quand il faut modifier le motif de consultation, le motif actuel du patient est pré-rempli */}
               <Form.Group className="mb-3">
                 <Form.Label className="fw-medium">
                   Motif de consultation :
@@ -173,6 +217,11 @@ const InformationsForm = ({
                   className="bg-grey"
                   type="text"
                   maxLength={80}
+                  defaultValue={
+                    isInformationsEntered && userKind === "patient"
+                      ? patientInformations?.consultation_reason ?? ""
+                      : ""
+                  }
                   {...register("consultation_reason", {
                     required: "Motif requis",
                     maxLength: {
@@ -191,6 +240,7 @@ const InformationsForm = ({
           </Row>
         )}
 
+        {/* Bouton de confirmation */}
         <Button
           type="submit"
           variant="primary"

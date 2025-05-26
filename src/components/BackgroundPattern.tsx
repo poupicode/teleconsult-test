@@ -10,7 +10,7 @@ const BackgroundPattern = () => {
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
-        <g clip-path="url(#clip0_142_919)">
+        <g clipPath="url(#clip0_142_919)">
           <path
             d="M1152.71 -47.3542L1222.96 -39.0457C1220.36 -17.854 1219.04 -8.3488 1238.63 13.9112C1267.99 47.2742 1307.21 97.4312 1263.43 152.604C1235.2 188.185 1203.66 241.926 1218.51 281.073C1243.21 346.262 1253.41 355.669 1212.75 410.641C1192.19 438.433 1201.67 471.999 1187.65 491.805C1173.57 511.666 1120.87 520.259 1111.71 555.425C1099.98 600.467 1132.03 635.731 1148.76 682.289C1154.86 699.271 1154.63 717.42 1156.51 739.222C1160.13 780.963 1149.8 828.697 1140.4 861.702L1088.92 855.614C1093.96 837.558 1099.9 807.786 1096.73 774.994C1095.89 766.332 1093.88 757.017 1091.04 747.243C1081.05 712.733 1060.78 672.57 1045.71 635.666C1038.81 618.759 1032.98 602.537 1029.75 587.859C1020.9 547.845 1041.06 515.189 1065.81 491.698C1075.58 482.423 1086.08 474.567 1095.78 468.267C1100.34 465.32 1104.92 462.03 1109.52 458.456C1139.55 435.026 1168.99 399.099 1177.09 363.215C1186.42 321.851 1133.43 240.047 1140.97 186.526C1152.19 106.737 1185.02 102.127 1195.74 52.4333C1200.94 28.2888 1170.13 -24.7057 1152.71 -47.3609L1152.71 -47.3542Z"
             fill="url(#paint0_linear_142_919)"
@@ -61,8 +61,8 @@ const BackgroundPattern = () => {
             y2="422.107"
             gradientUnits="userSpaceOnUse"
           >
-            <stop stop-color="#F8F7FA" />
-            <stop offset="1" stop-color="#FEF6F7" />
+            <stop stopColor="#F8F7FA" />
+            <stop offset="1" stopColor="#FEF6F7" />
           </linearGradient>
           <linearGradient
             id="paint1_linear_142_919"
@@ -72,8 +72,8 @@ const BackgroundPattern = () => {
             y2="616.835"
             gradientUnits="userSpaceOnUse"
           >
-            <stop stop-color="#F8F7FA" />
-            <stop offset="1" stop-color="#FEF6F7" />
+            <stop stopColor="#F8F7FA" />
+            <stop offset="1" stopColor="#FEF6F7" />
           </linearGradient>
           <linearGradient
             id="paint2_linear_142_919"
@@ -83,8 +83,8 @@ const BackgroundPattern = () => {
             y2="552.293"
             gradientUnits="userSpaceOnUse"
           >
-            <stop stop-color="#F8F7FA" />
-            <stop offset="1" stop-color="#FEF6F7" />
+            <stop stopColor="#F8F7FA" />
+            <stop offset="1" stopColor="#FEF6F7" />
           </linearGradient>
           <linearGradient
             id="paint3_linear_142_919"
@@ -94,8 +94,8 @@ const BackgroundPattern = () => {
             y2="578.035"
             gradientUnits="userSpaceOnUse"
           >
-            <stop stop-color="#F8F7FA" />
-            <stop offset="1" stop-color="#FEF6F7" />
+            <stop stopColor="#F8F7FA" />
+            <stop offset="1" stopColor="#FEF6F7" />
           </linearGradient>
           <linearGradient
             id="paint4_linear_142_919"
@@ -105,8 +105,8 @@ const BackgroundPattern = () => {
             y2="378.436"
             gradientUnits="userSpaceOnUse"
           >
-            <stop stop-color="#F8F7FA" />
-            <stop offset="1" stop-color="#FEF6F7" />
+            <stop stopColor="#F8F7FA" />
+            <stop offset="1" stopColor="#FEF6F7" />
           </linearGradient>
           <linearGradient
             id="paint5_linear_142_919"
@@ -116,8 +116,8 @@ const BackgroundPattern = () => {
             y2="250.159"
             gradientUnits="userSpaceOnUse"
           >
-            <stop stop-color="#F8F7FA" />
-            <stop offset="1" stop-color="#FEF6F7" />
+            <stop stopColor="#F8F7FA" />
+            <stop offset="1" stopColor="#FEF6F7" />
           </linearGradient>
           <linearGradient
             id="paint6_linear_142_919"
@@ -127,8 +127,8 @@ const BackgroundPattern = () => {
             y2="726.423"
             gradientUnits="userSpaceOnUse"
           >
-            <stop stop-color="#F8F7FA" />
-            <stop offset="1" stop-color="#FEF6F7" />
+            <stop stopColor="#F8F7FA" />
+            <stop offset="1" stopColor="#FEF6F7" />
           </linearGradient>
           <linearGradient
             id="paint7_linear_142_919"
@@ -138,8 +138,8 @@ const BackgroundPattern = () => {
             y2="431.984"
             gradientUnits="userSpaceOnUse"
           >
-            <stop stop-color="#F8F7FA" />
-            <stop offset="1" stop-color="#FEF6F7" />
+            <stop stopColor="#F8F7FA" />
+            <stop offset="1" stopColor="#FEF6F7" />
           </linearGradient>
           <linearGradient
             id="paint8_linear_142_919"
@@ -149,8 +149,8 @@ const BackgroundPattern = () => {
             y2="260.682"
             gradientUnits="userSpaceOnUse"
           >
-            <stop stop-color="#F8F7FA" />
-            <stop offset="1" stop-color="#FEF6F7" />
+            <stop stopColor="#F8F7FA" />
+            <stop offset="1" stopColor="#FEF6F7" />
           </linearGradient>
           <linearGradient
             id="paint9_linear_142_919"
@@ -160,8 +160,8 @@ const BackgroundPattern = () => {
             y2="711.281"
             gradientUnits="userSpaceOnUse"
           >
-            <stop stop-color="#F8F7FA" />
-            <stop offset="1" stop-color="#FEF6F7" />
+            <stop stopColor="#F8F7FA" />
+            <stop offset="1" stopColor="#FEF6F7" />
           </linearGradient>
           <clipPath id="clip0_142_919">
             <rect width="1440" height="810" fill="white" />

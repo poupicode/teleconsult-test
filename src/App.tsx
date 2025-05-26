@@ -10,6 +10,7 @@ import {
 } from "./components/auth/ProtectedRoute";
 import { AuthProvider } from "./contexts/AuthContext";
 import ConsultationPage from "./pages/ConsultationPage";
+import ModifyAccountPage from "./pages/ModifyAccountPage";
 import BackgroundPattern from "./components/BackgroundPattern";
 
 function App() {
@@ -27,6 +28,7 @@ function App() {
           {/* Routes accessibles uniquement aux utilisateurs connectés */}
           <Route element={<ProtectedRoute />}>
             <Route path="/consultation" element={<ConsultationPage />} />
+            <Route path="/modify-account" element={<ModifyAccountPage />} />
           </Route>
 
           {/* Routes publiques */}
