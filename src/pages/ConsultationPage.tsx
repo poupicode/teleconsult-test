@@ -217,6 +217,7 @@ export default function ConsultationPage() {
                   <ChatBox peerConnection={peerConnection} />
                 </Card>
               )}
+              
             </>
           )}
         </Col>
