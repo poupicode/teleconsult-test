@@ -13,7 +13,6 @@ import { PeerConnection } from "@/features/room/rtc/peer";
 import BluetoothContext from "@/components/bluetooth/BluetoothContext";
 import DoctorInterface from "@/components/bluetooth/DoctorInterface";
 import DoctorInterfaceConsultation from "@/components/room/DoctorInterfaceConsultation";
-import DoctorInterfaceConsultation from "@/components/room/DoctorInterfaceConsultation";
 
 export default function ConsultationPage() {
   const userKind = useSelector((state: RootState) => state.user.user_kind);
@@ -26,7 +25,6 @@ export default function ConsultationPage() {
   );
 
   const handleDisconnect = () => {
-    // Déconnecter explicitement le PeerConnection avant de quitter la salle
     if (peerConnection) {
       console.log("[ConsultationPage] Déconnexion explicite du PeerConnection");
       peerConnection.disconnect();
@@ -34,7 +32,6 @@ export default function ConsultationPage() {
     dispatch(roomIdUpdated(null));
   };
 
-  // Charger les détails de la salle si on est connecté
   useEffect(() => {
     if (roomId) {
       RoomSupabase.getRoom(roomId).then((room) => {
@@ -57,11 +54,9 @@ export default function ConsultationPage() {
   useEffect(() => {
     if (showRoomBrowser) {
       // Logic if needed on showing browser
-      // Logic if needed on showing browser
     }
   }, [showRoomBrowser]);
 
-  // Référence à l'instance de PeerConnection créée dans ConsultationRoom
   const handlePeerConnectionReady = (peer: PeerConnection) => {
     setPeerConnection(peer);
   };
@@ -69,7 +64,6 @@ export default function ConsultationPage() {
   return (
     <Container fluid className="mt-4">
       <Row>
-        {/* Colonne gauche : Espace pour des fonctionnalités futures */}
         <Col md={3}>
           <Card className="mb-3">
             <Card.Body>
@@ -160,7 +154,6 @@ export default function ConsultationPage() {
             </Card.Body>
           </Card>
 
-          {/* Nouvelle carte pour le chatbox sous la consultation en cours */}
           {roomId && (
             <Card className="mb-3">
               <ChatBox peerConnection={peerConnection} />
