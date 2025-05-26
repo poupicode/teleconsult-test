@@ -48,7 +48,7 @@ body {
   height: 100%;
   margin: 0;
   padding: 0;
-  background-color: #FFFBFC!important;
+  background-color: transparent !important;
   font-family: "Fira Sans" !important;
   font-size: 18px;
 }
@@ -152,6 +152,9 @@ ul {
 }
 .bg-blue{
     background-color: #2A5867!important;
+}
+.bg-white-pink{
+  background-color: rgb(255, 251, 252) !important;
 }
 .color-white{
   color: #FFFBFC!important;

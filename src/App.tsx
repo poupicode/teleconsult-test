@@ -4,14 +4,19 @@ import HomePage from "./pages/HomePage";
 import React from "react";
 import AppNavbar from "./components/Navbar";
 import ErrorPage from "./pages/ErrorPage";
-import { ProtectedRoute, PublicOnlyRoute } from "./components/auth/ProtectedRoute";
+import {
+  ProtectedRoute,
+  PublicOnlyRoute,
+} from "./components/auth/ProtectedRoute";
 import { AuthProvider } from "./contexts/AuthContext";
 import ConsultationPage from "./pages/ConsultationPage";
+import BackgroundPattern from "./components/BackgroundPattern";
 
 function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <BackgroundPattern />
         <AppNavbar />
         <Routes>
           {/* Routes accessibles uniquement aux utilisateurs NON connectés */}
