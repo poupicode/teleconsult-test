@@ -1,3 +1,4 @@
+// Motif de fond de l'application
 const BackgroundPattern = () => {
   return (
     <div className="bg-white-pink position-absolute top-0 start-0 w-100 h-100" style={{ zIndex: -1 }}>

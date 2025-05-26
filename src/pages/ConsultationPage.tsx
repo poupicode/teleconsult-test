@@ -16,6 +16,7 @@ import SideMenu from "@/components/SideMenu";
 import InformationsForm from "@/components/InformationsForm";
 import Header from "@/components/Header";
 
+// Définition des types pour les données du formulaire pour les informations du patient
 type PatientInformationsFormData = {
   name: string;
   first_name: string;
@@ -25,6 +26,7 @@ type PatientInformationsFormData = {
   consultation_reason: string;
 };
 
+// Définition des types pour les données du formulaire pour les informations du praticien
 type PraticienInformationsFormData = {
   name: string;
   first_name: string;
@@ -82,17 +84,21 @@ export default function ConsultationPage() {
     setPeerConnection(peer);
   };
 
-  //   Pour vérifier si le formulaire de remplissage des informations du patient est bien rempli avant de pouvoir naviguer dans le Side Menu
+  //  Pour vérifier si le formulaire de remplissage des informations du patient est bien rempli avant de pouvoir naviguer dans le Side Menu
+  // (pour le patient et praticien, on ne peut pas accéder à la consultation sans avoir rempli les informations)
   const [isInformationsEntered, setIsInformationsEntered] = useState(false);
 
   // Stocker les informations du patient issues du formulaire côté patient
+  // (ce sont les informations du patient qui seront envoyées au praticien une fois dans la salle de consultation et affichées dans le menu latéral (pour le patient))
   const [patientInformations, setPatientInformations] =
     useState<PatientInformationsFormData | null>(null);
 
   // Stocker les informations du patient issues du formulaire côté praticien
+  // (ce sont les informations du praticien qui seront envoyés au patient une fois dans la salle de consultation)
   const [praticienInformations, setPraticienInformations] =
     useState<PraticienInformationsFormData | null>(null);
 
+  // Pour afficher les informations du patient et du praticien dans la console une fois qu'elles sont définies par le formulaire
   useEffect(() => {
     if (praticienInformations) {
       console.log("Informations praticien :", praticienInformations);
@@ -113,6 +119,7 @@ export default function ConsultationPage() {
       <Row>
         {/* Colonne gauche : Side Menu */}
         <Col md={3} className="bg-grey p-0">
+          {/* <SideMenu /> avec les props appropriées */}
           <SideMenu
             userKind={userKind}
             isInformationsEntered={isInformationsEntered}
@@ -124,12 +131,14 @@ export default function ConsultationPage() {
 
         {/* Colonne centrale : Consultation Room */}
         <Col md={9}>
+          {/* Composant Header de tableau de bord */}
           <Header
             variant="dashboard"
             title={`Information du ${
               userKind === "patient" ? "patient" : "praticien"
             }`}
           />
+          {/* Si l'onglet de consultation n'est pas actif (du menu latéral), afficher le formulaire d'entrée d'informations */}
           {!isConsultationTab ? (
             <InformationsForm
               userKind={userKind}
@@ -139,6 +148,7 @@ export default function ConsultationPage() {
               setIsConsultationTab={setIsConsultationTab}
             />
           ) : (
+            // Si l'onglet de consultation est actif (du menu latéral), afficher :
             <>
               {userKind === "patient" && peerConnection && (
                 <BluetoothContext peerConnection={peerConnection} />

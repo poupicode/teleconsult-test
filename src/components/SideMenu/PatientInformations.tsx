@@ -1,5 +1,6 @@
 import { Card } from "react-bootstrap";
 
+// Composant pour afficher les informations du patient
 type InformationsFormDetails = {
   name: string;
   first_name: string;
@@ -9,10 +10,12 @@ type InformationsFormDetails = {
   consultation_reason: string;
 };
 
+// Types pour les données du formulaire d'informations
 type InformationsFormData = {
   patientInformations: InformationsFormDetails | null;
 };
 
+// Composant pour afficher les informations du patient dans le menu latéral
 const PatientInformations = ({ patientInformations } : InformationsFormData) => {
   return (
     <Card className="mb-3">

@@ -6,11 +6,14 @@ import { useSelector } from "react-redux";
 
 import styles from "./Navbar.module.css";
 
+// Définition des types pour les props du composant ProfilePopup
 interface PropsPopup {
   target: any;
   isProfileButtonClicked: boolean;
 }
 
+// Le composant ProfilePopup affiche les informations de l'utilisateur connecté
+// et permet de se déconnecter ou de modifier son compte.
 export default function ProfilePopup({
   target,
   isProfileButtonClicked,
@@ -18,11 +21,13 @@ export default function ProfilePopup({
   const { user, logout, session } = useAuth();
   const navigate = useNavigate();
 
+  // Fonction pour gérer la déconnexion de l'utilisateur
   const handleLogout = async () => {
     await logout();
     navigate("/login"); // Retour à la page d'accueil
   };
 
+  // Récupération du type d'utilisateur (patient ou praticien) depuis le store Redux
   const userKind: string | null = useSelector((state: RootState) => state.user.user_kind);
 
   return (
@@ -34,9 +39,11 @@ export default function ProfilePopup({
       {(props) => (
         <Popover className={`${styles.popup} card bg-grey`} id="overlay-example" {...props}>
           <Popover.Header as="h3" className="fs-5 mb-4">
+            {/* Titre du popover */}
             {session ? "Username" : "Vous n'êtes pas encore connecté"}
           </Popover.Header>
           <Popover.Body>
+            {/* Informations de l'utilisateur */}
             {session ? (
               <>
                 <ul>
@@ -49,11 +56,13 @@ export default function ProfilePopup({
                 </ul>
                 <ul className="d-grid gap-2">
                   <li key="modify-button" className="mt-2">
+                    {/* Bouton pour modifier le compte */}
                     <Button variant="secondary" className="secondary-btn">
                       Modifier le compte
                     </Button>
                   </li>
                   <li key="logout-button" className="mt-2 mb-2">
+                    {/* Bouton de déconnexion */}
                     <Button
                       variant="link"
                       className="tertiary-btn"

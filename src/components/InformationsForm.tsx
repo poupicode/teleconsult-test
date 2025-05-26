@@ -16,6 +16,8 @@ type PraticienInformationsFormData = {
   name: string;
   first_name: string;
 };
+
+// Propriétés du composant InformationsForm
 type InformationsFormProps = {
   userKind: string | null;
   setIsInformationsEntered: (value: boolean) => void;
@@ -24,6 +26,7 @@ type InformationsFormProps = {
   setPraticienInformations: (data: PraticienInformationsFormData) => void;
 };
 
+// Composant pour le formulaire d'informations du patient ou du praticien
 const InformationsForm = ({
   userKind,
   setIsInformationsEntered,
@@ -31,13 +34,16 @@ const InformationsForm = ({
   setIsConsultationTab,
   setPraticienInformations,
 }: InformationsFormProps) => {
+  // Utilisation de useForm pour gérer le formulaire
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm<PatientInformationsFormData>();
 
+  // Fonction de soumission du formulaire
   const onSubmit = (data: PatientInformationsFormData) => {
+    // Vérification du type d'utilisateur et formatage des données
     const formattedData =
       userKind === "patient"
         ? {
@@ -46,6 +52,7 @@ const InformationsForm = ({
           }
         : data;
 
+    // Mise à jour des états en fonction du type d'utilisateur
     userKind === "patient"
       ? setPatientInformations(formattedData)
       : setPraticienInformations(formattedData);
@@ -54,9 +61,11 @@ const InformationsForm = ({
   };
   return (
     <div className="w-100 mt-3">
+      {/* Formulaire d'informations */}
       <Form onSubmit={handleSubmit(onSubmit)}>
         <Row md={3} className="d-flex justify-content-center">
           <Col>
+            {/* Informations du patient : nom */}
             <Form.Group className="mb-3">
               <Form.Label className="fw-medium">Nom :</Form.Label>
               <Form.Control
@@ -75,6 +84,7 @@ const InformationsForm = ({
             </Form.Group>
           </Col>
           <Col>
+            {/* Informations du praticien : prénom */}
             <Form.Group className="mb-3">
               <Form.Label className="fw-medium">Prénom :</Form.Label>
               <Form.Control
@@ -103,6 +113,7 @@ const InformationsForm = ({
         {userKind === "patient" && (
           <Row md={3} className="d-flex justify-content-center">
             <Col>
+              {/* Informations du patient : date de naissance */}
               <Form.Group className="mb-3">
                 <Form.Label className="fw-medium">
                   Date de naissance :
@@ -118,6 +129,8 @@ const InformationsForm = ({
                   </small>
                 )}
               </Form.Group>
+
+              {/* Informations du patient : numéro patient */}
               <Form.Group className="mb-3">
                 <Form.Label className="fw-medium">Numéro patient :</Form.Label>
                 <Form.Control
@@ -133,6 +146,7 @@ const InformationsForm = ({
               </Form.Group>
             </Col>
             <Col>
+              {/* Informations du patient : sexe */}
               <Form.Group className="mb-3">
                 <Form.Label className="fw-medium">Sexe :</Form.Label>
                 <Form.Select
@@ -149,6 +163,8 @@ const InformationsForm = ({
                   <small className="text-danger">{errors.gender.message}</small>
                 )}
               </Form.Group>
+
+              {/* Informations du patient : motif de consultation */}
               <Form.Group className="mb-3">
                 <Form.Label className="fw-medium">
                   Motif de consultation :

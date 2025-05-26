@@ -3,6 +3,7 @@ import PatientInformations from "./PatientInformations";
 
 import styles from "./SideMenu.module.css";
 
+// Types pour les informations du patient et du praticien du formulaire
 type InformationsFormDetails = {
   name: string;
   first_name: string;
@@ -12,6 +13,7 @@ type InformationsFormDetails = {
   consultation_reason: string;
 };
 
+// Types pour les informations entrées dans le menu latéral
 type InformationsEntered = {
   isInformationsEntered: boolean;
   userKind: string | null;
@@ -20,15 +22,17 @@ type InformationsEntered = {
   setIsConsultationTab: (value: boolean) => void;
 };
 
+// Composant pour le menu latéral de la page de consultation
+// Il affiche les informations du patient ou du praticien et permet de naviguer entre les onglets "Informations" et "Consultation"
 const SideMenu = ({ isInformationsEntered, userKind, patientInformations, isConsultationTab, setIsConsultationTab }: InformationsEntered) => {
-  // Pour juste mettre le style des boutons d'onglet sur actif ou inactif (et pour changer d'onglet)
-
+  // Pour juste mettre le style des boutons d'onglet sur actif ou inactif (et pour changer d'onglet) quand on clique dessus (sur le bouton "Informations du praticien/patient" ou "Consultation")
   function handleChangeTab() {
     setIsConsultationTab(!isConsultationTab);
   }
 
   return (
     <div className={`w-100 ${styles.h100vh}`}>
+      {/* Si les informations sont entrées, activer la navigation sur le menu latéral */}
       <ul className={`${!isInformationsEntered && styles.sideMenuInactive}`}>
         <li key="informations">
           <Button
@@ -38,7 +42,8 @@ const SideMenu = ({ isInformationsEntered, userKind, patientInformations, isCons
             disabled={!isConsultationTab}
             onClick={handleChangeTab}
           >
-            Informations du praticien
+            {/* Titre de l'onglet : patient ou praticien*/}
+            Informations du {userKind === "patient" ? "patient" : "praticien"}
           </Button>
         </li>
         <li key="consultation">
@@ -52,6 +57,7 @@ const SideMenu = ({ isInformationsEntered, userKind, patientInformations, isCons
             Consultation
           </Button>
         </li>
+        {/* Afficher les informations du patient si elles sont disponibles (se réactualise quand on rentre les informations dans patientInformations (dans le composant parent ConsultationPage)) */}
         {isInformationsEntered && userKind==="patient" && (
           <li key="patient" className="mt-2 p-2">
             <PatientInformations patientInformations={patientInformations} />
