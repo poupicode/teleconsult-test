@@ -87,15 +87,7 @@ export default function DoctorInterfaceConsultation() {
             <Col key={room.id} md={6} lg={4}>
               <div
                 className="card shadow-lg p-3 mb-4 rounded"
-<<<<<<< HEAD
-<<<<<<< HEAD
                 style={{ backgroundColor: "#F0EDF4", height: "350px" }}
-=======
-                style={{ backgroundColor: "#F0EDF4", height: "400px" }}
->>>>>>> 13da782 (WIP improved the aesthetics of the cards solved a few text problems that appeared when they weren't supposed to.)
-=======
-                style={{ backgroundColor: "#F0EDF4", height: "350px" }}
->>>>>>> 2e61740 (the cards are now good, the connection between the “rejoindre” button and the visio still needs to be made)
               >
                 <div className="card-body">
                   {/* Nom de la salle */}
@@ -108,15 +100,7 @@ export default function DoctorInterfaceConsultation() {
                         </Form.Label>
                         <Form.Control
                           type="text"
-<<<<<<< HEAD
-<<<<<<< HEAD
                           className="mb-2"
-=======
-                          className="mb-5"
->>>>>>> 13da782 (WIP improved the aesthetics of the cards solved a few text problems that appeared when they weren't supposed to.)
-=======
-                          className="mb-2"
->>>>>>> 2e61740 (the cards are now good, the connection between the “rejoindre” button and the visio still needs to be made)
                           maxLength={40}
                           value={room.name}
                           onChange={(e) =>
@@ -180,24 +164,16 @@ export default function DoctorInterfaceConsultation() {
                           textOverflow: "ellipsis",
                         }}
                       >
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 2e61740 (the cards are now good, the connection between the “rejoindre” button and the visio still needs to be made)
                         <p
                           className="card-text text-center my-3"
                           style={{ maxHeight: "120px", overflowY: "auto" }}
                         >
                           {room.description}
                         </p>
-<<<<<<< HEAD
-=======
+
                         {room.description.length > 60
                           ? room.description.slice(0, 60) + "..."
                           : room.description}
->>>>>>> 13da782 (WIP improved the aesthetics of the cards solved a few text problems that appeared when they weren't supposed to.)
-=======
->>>>>>> 2e61740 (the cards are now good, the connection between the “rejoindre” button and the visio still needs to be made)
                       </p>
                     </>
                   )}
