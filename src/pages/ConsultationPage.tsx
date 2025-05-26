@@ -31,6 +31,7 @@ export default function ConsultationPage() {
     }
     dispatch(roomIdUpdated(null));
   };
+<<<<<<< HEAD
 
 <<<<<<< HEAD
   useEffect(() => {
@@ -58,6 +59,12 @@ export default function ConsultationPage() {
         // Création d'une salle avec un nom généré automatiquement
         const room = await RoomSupabase.createRoom();
 >>>>>>> 0b630f2 (card for choose/delete the consultation room)
+=======
+
+  useEffect(() => {
+    if (roomId) {
+      RoomSupabase.getRoom(roomId).then((room) => {
+>>>>>>> 27abf40 (changes the location of the file "DoctorInterfaceConsultation.tsx)
         if (room) {
           setRoomName(room.short_name);
         }
@@ -79,14 +86,21 @@ export default function ConsultationPage() {
       // Logic if needed on showing browser
     }
   }, [showRoomBrowser]);
+<<<<<<< HEAD
 
 <<<<<<< HEAD
   const handlePeerConnectionReady = (peer: PeerConnection) => {
     setPeerConnection(peer);
   };
 =======
+=======
+>>>>>>> 27abf40 (changes the location of the file "DoctorInterfaceConsultation.tsx)
 
+  const handlePeerConnectionReady = (peer: PeerConnection) => {
+    setPeerConnection(peer);
+  };
 
+<<<<<<< HEAD
     return (
         <Container fluid className="mt-4">
             <Row>
@@ -201,6 +215,101 @@ export default function ConsultationPage() {
           </Card>
 
 <<<<<<< HEAD
+=======
+  return (
+    <Container fluid className="mt-4">
+      <Row>
+        <Col md={3}>
+          <Card className="mb-3">
+            <Card.Body>
+              <Card.Title>Informations patient</Card.Title>
+              <p>
+                Cette section pourra contenir des informations sur le patient
+              </p>
+            </Card.Body>
+            {userKind === "patient" && <BluetoothContext />}
+            {userKind === "practitioner" && <DoctorInterface />}
+          </Card>
+        </Col>
+
+        <Col md={6}>
+          <Card className="mb-3">
+            <Card.Body>
+              <ConsultationRoom
+                onPeerConnectionReady={handlePeerConnectionReady}
+              />
+            </Card.Body>
+          </Card>
+          {/* Interface du praticien pour créer et gérer les salles */}
+          {userKind === "practitioner" && (
+            <Card className="mb-3">
+              <Card.Body>
+                <DoctorInterfaceConsultation />
+              </Card.Body>
+            </Card>
+          )}
+        </Col>
+
+        <Col md={3}>
+          <Card className="mb-3">
+            <Card.Header>
+              {userKind === "practitioner" && (
+                <>
+                  <Button
+                    onClick={() => setShowRoomBrowser(!showRoomBrowser)}
+                    aria-controls="room-browser-collapse"
+                    aria-expanded={showRoomBrowser}
+                    className="mb-2 w-100"
+                  >
+                    {showRoomBrowser
+                      ? "Masquer les consultations"
+                      : "Gérer les consultations"}
+                  </Button>
+                  <Collapse in={showRoomBrowser}>
+                    <div id="room-browser-collapse">
+                      <RoomBrowser isVisible={showRoomBrowser} />
+                    </div>
+                  </Collapse>
+                </>
+              )}
+            </Card.Header>
+            <Card.Body>
+              <Card.Title>Consultation en cours</Card.Title>
+              <div className="mb-3 p-2 bg-light rounded border">
+                <p className="mb-1">
+                  <strong>Salle : {roomName || "n/a"}</strong>
+                </p>
+                <p className="mb-1 text-muted small">
+                  {roomId || "Aucune salle sélectionnée"}
+                </p>
+
+                {roomId && (
+                  <Button
+                    variant="warning"
+                    size="sm"
+                    onClick={handleDisconnect}
+                    className="w-100"
+                  >
+                    Quitter la consultation
+                  </Button>
+                )}
+              </div>
+
+              {userKind === "practitioner" && !roomId && (
+                <Button
+                  variant="primary"
+                  onClick={onCreateRoomClick}
+                  className="mb-3 w-100"
+                >
+                  <MdAddIcCall className="me-1" /> Créer une salle
+                </Button>
+              )}
+
+              {userKind === "patient" && <RoomList />}
+            </Card.Body>
+          </Card>
+
+>>>>>>> 27abf40 (changes the location of the file "DoctorInterfaceConsultation.tsx)
           {roomId && (
             <Card className="mb-3">
               <ChatBox peerConnection={peerConnection} />
@@ -210,6 +319,7 @@ export default function ConsultationPage() {
       </Row>
     </Container>
   );
+<<<<<<< HEAD
 =======
                     {/* Nouvelle carte pour le chatbox sous la consultation en cours */}
                     {roomId && (
@@ -223,4 +333,6 @@ export default function ConsultationPage() {
         
     );
 >>>>>>> 0b630f2 (card for choose/delete the consultation room)
+=======
+>>>>>>> 27abf40 (changes the location of the file "DoctorInterfaceConsultation.tsx)
 }
