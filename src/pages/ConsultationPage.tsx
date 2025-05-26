@@ -168,7 +168,7 @@ export default function ConsultationPage() {
               isInformationsEntered={isInformationsEntered}
             />
           ) : (
-            // Si l'onglet de consultation est actif (du menu latéral), afficher :
+            // Si l'onglet de consultation est actif (du menu latéral), afficher : (mettre ici toute la logique de la page de consultation : création de salle, affichage de la consultation, chat, etc.)
             <>
               {userKind === "patient" && peerConnection && (
                 <BluetoothContext peerConnection={peerConnection} />
