@@ -1,5 +1,4 @@
 import { Button } from "react-bootstrap";
-import { useState } from "react";
 import PatientInformations from "./PatientInformations";
 
 import styles from "./SideMenu.module.css";

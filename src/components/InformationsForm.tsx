@@ -1,8 +1,7 @@
 import { useForm } from "react-hook-form";
-import { Alert, Button, Form, Row, Col } from "react-bootstrap";
-import { useState } from "react";
+import { Button, Form, Row, Col } from "react-bootstrap";
 
-// Types des informations
+// Types des informations du patient
 type PatientInformationsFormData = {
   name: string;
   first_name: string;
@@ -12,6 +11,7 @@ type PatientInformationsFormData = {
   consultation_reason: string;
 };
 
+// Types des informations du praticien
 type PraticienInformationsFormData = {
   name: string;
   first_name: string;
@@ -22,11 +22,6 @@ type InformationsFormProps = {
   setPatientInformations: (data: PatientInformationsFormData) => void;
   setIsConsultationTab: (value: boolean) => void;
   setPraticienInformations: (data: PraticienInformationsFormData) => void;
-};
-
-const formatDateToFR = (dateStr: string): string => {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString("fr-FR");
 };
 
 const InformationsForm = ({
