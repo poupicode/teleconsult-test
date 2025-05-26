@@ -12,7 +12,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import ConsultationPage from "./pages/ConsultationPage";
 import ModifyAccountPage from "./pages/ModifyAccountPage";
 import BackgroundPattern from "./components/BackgroundPattern";
-import DoctorInterfaceConsultation from "./pages/DoctorInterfaceConsultation";
+import DoctorInterfaceConsultation from "./components/room/DoctorInterfaceConsultation";
 
 function App() {
   return (
