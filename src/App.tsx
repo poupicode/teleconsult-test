@@ -10,7 +10,7 @@ import {
 } from "./components/auth/ProtectedRoute";
 import { AuthProvider } from "./contexts/AuthContext";
 import ConsultationPage from "./pages/ConsultationPage";
-import DoctorInterfaceConsultation from "./pages/DoctorInterfaceConsultation";
+import DoctorInterfaceConsultation from "./components/room/DoctorInterfaceConsultation";
 
 function App() {
   return (
