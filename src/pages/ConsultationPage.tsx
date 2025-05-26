@@ -135,7 +135,10 @@ export default function ConsultationPage() {
     <Container fluid>
       <Row>
         {/* Colonne gauche : Side Menu */}
-        <Col md={3} className="bg-grey p-0">
+        <Col
+          className="bg-grey p-0"
+          style={{ flex: "0 0 20%", maxWidth: "20%" }}
+        >
           {/* <SideMenu /> avec les props appropriées */}
           <SideMenu
             userKind={userKind}
