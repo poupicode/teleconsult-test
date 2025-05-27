@@ -1,25 +1,15 @@
 import { useBluetooth } from '../../features/bluetooth/useBluetooth';
 import ServiceCard from './ServiceCard';
 import ButtonConnexionApp from './ButtonConnexionApp';
-import { PeerConnection } from '@/features/room/rtc/peer/connection/peer-connection';
+import { WebSocketAdapter } from '@/features/bluetooth/WebSocketAdapter';
 
-// Définition des props attendues pour le composant : un objet PeerConnection
-interface BluetoothContextProps {
-  peerConnection: PeerConnection;
-}
+const socket = new WebSocketAdapter('ws://localhost:3001');
 
-export default function BluetoothContext({ peerConnection }: BluetoothContextProps) {
-// Initialisation du hook Bluetooth avec une fonction de rappel "onMeasurement"
-  // Cette fonction est appelée à chaque nouvelle mesure reçue via Bluetooth
+export default function BluetoothContext() {
   const { status, connectedCards, connect } = useBluetooth({
     onMeasurement: (payload) => {
-      // Vérifie que le peerConnection est disponible et que le canal de données est prêt
-  if (!peerConnection || !peerConnection.isDataChannelAvailable()) return;
-// Récupère le gestionnaire du dataChannel et envoie la mesure au "docteur"
-  const manager = peerConnection.getDataChannelManager();
-  manager.sendMeasurement(payload);
-}
-
+      socket.sendMeasurement(payload);
+    },
   });
 
   return (

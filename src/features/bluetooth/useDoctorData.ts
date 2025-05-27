@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 
 type DoctorServices = {
-  [serviceName: string]: Array<object>;
+  [serviceName: string]: object;
 };
 
 export function useDoctorData() {
@@ -17,12 +17,10 @@ export function useDoctorData() {
     const service = Object.keys(currentData)[0];
     const measures = (currentData as any)[service];
 
-    setDoctorServices((prev) => {
-      const updated = { ...prev };
-      if (!updated[service]) updated[service] = [];
-      updated[service].push(measures);
-      return updated;
-    });
+    setDoctorServices((prev) => ({
+      ...prev,
+      [service]: measures, // ❗️écrase les anciennes données pour n’afficher que la dernière
+    }));
   };
 
   useEffect(() => {
