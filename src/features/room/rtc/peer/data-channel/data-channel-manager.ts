@@ -51,8 +51,6 @@ export class DataChannelManager {
 
     // Configure les événements pour le dataChannel
     setupDataChannel(channel: RTCDataChannel) {
-        console.log(`[WebRTC] Setting up data channel events. Initial state: ${channel.readyState}`);
-        
         channel.onopen = () => {
             console.log('[WebRTC] Data channel opened');
             // Forcer une mise à jour de l'interface en utilisant un dispatch vide
@@ -108,12 +106,6 @@ export class DataChannelManager {
                 console.error('[WebRTC] Error parsing message:', err);
             }
         };
-        
-        // Si le canal est déjà ouvert, déclencher immédiatement l'événement onopen
-        if (channel.readyState === 'open') {
-            console.log('[WebRTC] Data channel was already open, dispatching open event');
-            store.dispatch({ type: 'webrtc/dataChannelStatusChanged' });
-        }
     }
 
     // Envoyer un message via le dataChannel
@@ -171,9 +163,7 @@ export class DataChannelManager {
 
     // Vérifier si le dataChannel est disponible
     isDataChannelAvailable(): boolean {
-        const isAvailable = this.dataChannel !== null && this.dataChannel.readyState === 'open';
-        console.log(`[WebRTC] DataChannel availability check: ${isAvailable} (channel: ${this.dataChannel ? 'exists' : 'null'}, state: ${this.dataChannel?.readyState || 'n/a'})`);
-        return isAvailable;
+        return this.dataChannel !== null && this.dataChannel.readyState === 'open';
     }
 
     // Obtenir le canal de données
@@ -183,10 +173,7 @@ export class DataChannelManager {
 
     // Définir le canal de données
     setDataChannel(channel: RTCDataChannel) {
-        console.log('[WebRTC] Setting data channel from external source');
         this.dataChannel = channel;
-        // Configurer immédiatement les événements pour le canal reçu
-        this.setupDataChannel(channel);
     }
 
     // Fermer le canal de données
