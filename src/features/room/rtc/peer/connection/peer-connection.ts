@@ -571,12 +571,25 @@ export class PeerConnection implements IPeerConnection {
                         return; // Sortir tôt pour éviter la logique redondante en bas
                     }
 
-                    // Pour le patient, réinitialiser également la connexion si le praticien se déconnecte
+                    // Pour le patient, attendre avant de reset pour éviter les déconnexions temporaires
                     if (this.role === Role.PATIENT &&
                         (this.pc.connectionState === 'connected' ||
                             this.pc.connectionState === 'connecting')) {
-                        console.log('[WebRTC] Practitioner disconnected, resetting patient peer connection');
-                        this.resetPeerConnection();
+                        console.warn('[WebRTC] Practitioner appears disconnected. Waiting before resetting connection...');
+                        
+                        setTimeout(() => {
+                            const stillMissing = !this.signaling.hasPatientAndPractitioner();
+                            const connectionState = this.pc.connectionState;
+                            
+                            if (stillMissing && 
+                                (connectionState === 'disconnected' || connectionState === 'failed')) {
+                                console.warn('[WebRTC] Practitioner is still absent and connection is not healthy. Resetting...');
+                                this.resetPeerConnection();
+                            } else {
+                                console.log('[WebRTC] Practitioner reappeared or connection recovered. No reset needed.');
+                            }
+                        }, 3000); // attends 3 secondes avant de décider de reset
+                        
                         return; // Sortir tôt pour éviter la logique redondante en bas
                     }
                 }
