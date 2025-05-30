@@ -23,7 +23,7 @@ export const DEFAULT_ICE_CONFIG: RTCConfiguration = {
         }
     ],
     "iceCandidatePoolSize": 20,
-    "iceTransportPolicy": "relay" as RTCIceTransportPolicy // Force l'utilisation exclusive des serveurs TURN (mode relay uniquement)
+    // "iceTransportPolicy": "relay" as RTCIceTransportPolicy 
     // Cette option peut être retirée si besoin pour revenir au mode par défaut
 };
 
