@@ -11,18 +11,19 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
  * Default ICE server configuration
  * Includes TURN servers to facilitate connections when direct peer-to-peer fails
  */
-export const DEFAULT_ICE_CONFIG = {
+export const DEFAULT_ICE_CONFIG: RTCConfiguration = {
     "iceServers": [
         {
             "urls": [
-                "turn:turn.ekami.ch:3478?transport=tcp",
-                "turn:turn.ekami.ch:3478?transport=udp"
+                "turn:turn.ekami.ch:3478?transport=tcp" // Utilisation de TCP uniquement pour une meilleure traversée des pare-feu
             ],
             "username": "wei",
             "credential": "toto1234"
         }
     ],
-    "iceCandidatePoolSize": 20
+    "iceCandidatePoolSize": 20,
+    "iceTransportPolicy": "relay" as RTCIceTransportPolicy // Force l'utilisation exclusive des serveurs TURN (mode relay uniquement)
+                                                          // Cette option peut être retirée si besoin pour revenir au mode par défaut
 };
 
 /**

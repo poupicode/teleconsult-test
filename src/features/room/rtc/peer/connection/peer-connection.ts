@@ -156,7 +156,7 @@ export class PeerConnection implements IPeerConnection {
             clearTimeout(this.iceConnectionTimeout);
             this.iceConnectionTimeout = null;
         }
-        
+
         // Réinitialiser les variables de débogage ICE
         this.iceStartTime = Date.now();
         this.iceCandidates = { local: [], remote: [] };
@@ -548,18 +548,18 @@ export class PeerConnection implements IPeerConnection {
     // Connect to signaling service and set up listeners
     async connect() {
         console.log('[WebRTC] Connecting to signaling service');
-        
+
         // Réinitialiser l'état avant de se connecter
         this.readyToNegotiate = false;
         this.iceCandidates = { local: [], remote: [] };
         this.hasRelay = false;
-        
+
         // Se connecter au service de signalisation
         await this.signaling.connect();
-        
+
         // Configurer les écouteurs de signalisation
         await this.setupSignalingListeners();
-        
+
         console.log('[WebRTC] Connected to signaling service and setup completed');
     }
 
@@ -618,7 +618,7 @@ export class PeerConnection implements IPeerConnection {
                 clearTimeout(this.iceConnectionTimeout);
                 this.iceConnectionTimeout = null;
             }
-            
+
             // Fermer le canal de données
             this.dataChannelManager.closeDataChannel();
 
