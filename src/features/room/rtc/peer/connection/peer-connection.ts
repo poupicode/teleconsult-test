@@ -180,7 +180,7 @@ export class PeerConnection implements IPeerConnection {
                     roomId: this.roomId,
                     content: event.candidate
                 });
-                
+
                 // Pour les candidats de type "relay", marquer que nous avons trouvé un candidat TURN
                 if (event.candidate.candidate.includes(' typ relay ')) {
                     this.hasRelay = true;
@@ -193,7 +193,7 @@ export class PeerConnection implements IPeerConnection {
                         if (this.pc.iceConnectionState !== 'connected' && this.pc.iceConnectionState !== 'completed') {
                             console.warn('[WebRTC-ICE] Connection timeout after 30s. Current state:', this.pc.iceConnectionState);
                             this.logIceStats();
-                            
+
                             // Tenter de récupérer la connexion si elle est en échec
                             if (this.pc.iceConnectionState === 'failed' || this.pc.iceConnectionState === 'disconnected') {
                                 console.log('[WebRTC-ICE] Attempting to recover failed connection by re-adding all ICE candidates...');
@@ -249,13 +249,13 @@ export class PeerConnection implements IPeerConnection {
             if (candidateStr.includes(' typ relay ')) {
                 this.hasRelay = true;
                 console.log(`[WebRTC-ICE] ${isLocal ? 'Local' : 'Remote'} TURN relay candidate found: ${candidateStr}`);
-                
+
                 // Extraire l'adresse IP du serveur TURN utilisé
                 const ipMatch = candidateStr.match(/([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})/);
                 if (ipMatch) {
                     console.log(`[WebRTC-ICE] TURN server IP: ${ipMatch[1]}`);
                 }
-                
+
                 // Vérifier le protocole utilisé (UDP/TCP)
                 if (candidateStr.includes('udp')) {
                     console.log('[WebRTC-ICE] Using UDP protocol for TURN');
@@ -269,7 +269,7 @@ export class PeerConnection implements IPeerConnection {
             if (match) {
                 const type = match[1]; // host, srflx, prflx ou relay
                 console.log(`[WebRTC-ICE] ${isLocal ? 'Local' : 'Remote'} candidate type: ${type}`);
-                
+
                 // Si on reçoit un candidat distant, c'est un bon signe que la communication fonctionne
                 if (!isLocal) {
                     console.log('[WebRTC-ICE] Successfully received remote candidate - signaling is working');
@@ -670,10 +670,21 @@ export class PeerConnection implements IPeerConnection {
 
             // Réinitialiser l'état et les collections
             this.readyToNegotiate = false;
-            
+
             // S'assurer que les candidats ICE sont correctement nettoyés
             this.iceCandidates = { local: [], remote: [] };
             this.hasRelay = false;
+
+            // Forcer une mise à jour de l'état pour les composants qui observent
+            // les changements de statut du dataChannel
+            store.dispatch({ type: 'webrtc/connectionStatusChanged', payload: {
+                status: 'disconnected',
+                roomId: this.roomId
+            }});
+
+            // Forcer un dispatch explicite quand on quitte une room pour éviter
+            // tout comportement résiduel
+            store.dispatch({ type: 'webrtc/dataChannelStatusChanged' });
 
             console.log('[WebRTC] Disconnection complete');
         } catch (error) {
@@ -687,9 +698,9 @@ export class PeerConnection implements IPeerConnection {
             console.log('[WebRTC-ICE] No remote candidates to retry');
             return;
         }
-        
+
         console.log(`[WebRTC-ICE] Retrying connection with ${this.iceCandidates.remote.length} remote candidates`);
-        
+
         // Réessayer d'ajouter tous les candidats ICE distants
         this.iceCandidates.remote.forEach(async (candidate, index) => {
             try {
@@ -703,7 +714,7 @@ export class PeerConnection implements IPeerConnection {
 
     // Réinitialiser la connexion RTC peer
     private resetPeerConnection() {
-        console.log('[WebRTC] Resetting peer connection');
+        console.log('[WebRTC] Resetting peer connection for room:', this.roomId);
 
         // Fermer le canal de données
         this.dataChannelManager.closeDataChannel();
@@ -713,6 +724,14 @@ export class PeerConnection implements IPeerConnection {
             clearTimeout(this.iceConnectionTimeout);
             this.iceConnectionTimeout = null;
         }
+
+        // Désactiver tous les gestionnaires d'événements de la connexion peer
+        this.pc.onicecandidate = null;
+        this.pc.onconnectionstatechange = null;
+        this.pc.oniceconnectionstatechange = null;
+        this.pc.onsignalingstatechange = null;
+        this.pc.onnegotiationneeded = null;
+        this.pc.ondatachannel = null;
 
         // Fermer l'ancienne connexion peer
         this.pc.close();
@@ -726,6 +745,9 @@ export class PeerConnection implements IPeerConnection {
         // Réinitialiser les collections de candidats ICE
         this.iceCandidates = { local: [], remote: [] };
         this.hasRelay = false;
+        
+        // Réinitialiser l'état de négociation
+        this.readyToNegotiate = false;
 
         // Reconfigurer tous les écouteurs d'événements de base
         this.setupListeners();
@@ -740,7 +762,11 @@ export class PeerConnection implements IPeerConnection {
             this.onConnectionStateChangeCallback('disconnected');
         }
 
-        console.log('[WebRTC] Peer connection has been reset');
+        // Forcer une mise à jour de l'état pour les composants qui observent
+        // les changements de statut du dataChannel
+        store.dispatch({ type: 'webrtc/dataChannelStatusChanged' });
+
+        console.log('[WebRTC] Peer connection has been reset for room:', this.roomId);
     }
 
     // Getters pour permettre l'accès aux handlers

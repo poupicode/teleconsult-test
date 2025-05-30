@@ -70,11 +70,28 @@ export default function RoomBrowser({ isVisible = true }: RoomBrowserProps) {
   };
 
   const handleDisconnect = () => {
+    console.log('[RoomBrowser] Disconnecting from current room');
     dispatch(roomIdUpdated(null));
   };
 
   const handleSelectRoom = (roomId: string) => {
-    dispatch(roomIdUpdated(roomId));
+    // Si l'utilisateur est déjà dans une salle, on le déconnecte d'abord
+    if (currentRoomId) {
+      console.log(`[RoomBrowser] Changing rooms from ${currentRoomId} to ${roomId}`);
+      
+      // Déconnecter de la salle actuelle en mettant roomId à null
+      dispatch(roomIdUpdated(null));
+
+      // Délai pour s'assurer que la déconnexion est complètement terminée
+      setTimeout(() => {
+        console.log(`[RoomBrowser] Connecting to new room ${roomId} after cleanup`);
+        dispatch(roomIdUpdated(roomId));
+      }, 1000);
+    } else {
+      // Si l'utilisateur n'est pas dans une salle, on peut directement rejoindre la nouvelle
+      console.log(`[RoomBrowser] Connecting directly to room ${roomId}`);
+      dispatch(roomIdUpdated(roomId));
+    }
   };
 
   return (

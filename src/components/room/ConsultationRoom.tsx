@@ -43,10 +43,20 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
     if (previousRoomIdRef.current && previousRoomIdRef.current !== roomId) {
       // Nettoyer l'ancienne connexion
       if (peerConnection) {
-        peerConnection.disconnect();
-        setPeerConnection(null);
-        setConnectionStatus('disconnected');
-        setRoomReady(false);
+        console.log(`[ConsultationRoom] Room changed from ${previousRoomIdRef.current} to ${roomId}, disconnecting previous peer connection`);
+        
+        // Désactiver la connexion en cours
+        const disconnect = async () => {
+          await peerConnection.disconnect();
+          console.log('[ConsultationRoom] Previous peer connection disconnected');
+          
+          // Réinitialiser l'état après la déconnexion
+          setPeerConnection(null);
+          setConnectionStatus('disconnected');
+          setRoomReady(false);
+        };
+        
+        disconnect();
       }
     }
 
@@ -89,11 +99,16 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
 
     // Clean up previous connection if it exists
     if (peerConnection) {
-      peerConnection.disconnect();
+      console.log('[ConsultationRoom] Disconnecting existing peer connection before connecting to new room');
+      await peerConnection.disconnect();
       setPeerConnection(null);
+      
+      // Petit délai pour s'assurer que toutes les déconnexions sont bien effectuées
+      await new Promise(resolve => setTimeout(resolve, 300));
     }
 
     try {
+      console.log(`[ConsultationRoom] Creating new peer connection for room: ${roomId}`);
       // Create a new peer connection
       const peer = new PeerConnection(roomId, userId, userRole);
       setPeerConnection(peer);

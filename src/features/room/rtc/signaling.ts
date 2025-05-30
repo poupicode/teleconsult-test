@@ -224,17 +224,40 @@ export class SignalingService {
     /**
      * Disconnects from all channels and cleans up resources
      */
-    disconnect() {
-        console.log('[Signaling] Disconnecting');
-        if (this.presenceSubscription) {
-            // Leave presence
-            this.presenceSubscription.untrack();
-            supabase.removeChannel(this.presenceSubscription);
-            this.presenceSubscription = null;
-        }
-        if (this.subscription) {
-            supabase.removeChannel(this.subscription);
-            this.subscription = null;
+    async disconnect() {
+        console.log('[Signaling] Disconnecting from room:', this.roomId);
+        
+        try {
+            // Quitter la présence en premier pour s'assurer que les autres participants
+            // soient notifiés correctement de notre départ
+            if (this.presenceSubscription) {
+                // Leave presence explicitly to notify other users immediately
+                await this.presenceSubscription.untrack();
+                console.log('[Signaling] Untracked presence for client:', this.clientId);
+                
+                // Wait a moment to ensure the untrack propagates
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                // Remove the channel
+                await supabase.removeChannel(this.presenceSubscription);
+                this.presenceSubscription = null;
+            }
+            
+            // Désabonner du canal de signalisation
+            if (this.subscription) {
+                await supabase.removeChannel(this.subscription);
+                this.subscription = null;
+                console.log('[Signaling] Removed message subscription for room:', this.roomId);
+            }
+            
+            // Réinitialiser les callbacks et l'état
+            this.messageCallback = null;
+            this.presenceCallback = null;
+            this.roomPresences = [];
+            
+            console.log('[Signaling] Disconnection complete for room:', this.roomId);
+        } catch (error) {
+            console.error('[Signaling] Error during disconnect:', error);
         }
     }
 }

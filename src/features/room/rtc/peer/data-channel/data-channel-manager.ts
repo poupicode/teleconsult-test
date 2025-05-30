@@ -185,9 +185,26 @@ export class DataChannelManager {
             this.dataChannel.onerror = null;
             this.dataChannel.onmessage = null;
 
-            console.log('[WebRTC] Closing data channel');
-            this.dataChannel.close();
-            this.dataChannel = null;
+            console.log(`[WebRTC] Closing data channel for room: ${this.roomId}`);
+            
+            try {
+                // Check the state before closing to avoid errors
+                if (this.dataChannel.readyState !== 'closed') {
+                    this.dataChannel.close();
+                    console.log('[WebRTC] Data channel closed successfully');
+                } else {
+                    console.log('[WebRTC] Data channel was already closed');
+                }
+            } catch (err) {
+                console.error('[WebRTC] Error while closing data channel:', err);
+            } finally {
+                this.dataChannel = null;
+                
+                // Forcer une mise à jour de l'interface pour notifier les composants
+                // que le canal n'est plus disponible
+                store.dispatch({ type: 'webrtc/dataChannelStatusChanged' });
+                console.log('[WebRTC] DataChannel reference cleared');
+            }
         }
     }
 }

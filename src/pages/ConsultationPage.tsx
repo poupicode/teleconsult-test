@@ -19,13 +19,25 @@ export default function ConsultationPage() {
     const [roomName, setRoomName] = useState<string>('');
     const [peerConnection, setPeerConnection] = useState<PeerConnection | null>(null);
 
-    const handleDisconnect = () => {
+    const handleDisconnect = async () => {
         // Déconnecter explicitement le PeerConnection avant de quitter la salle
         if (peerConnection) {
             console.log('[ConsultationPage] Déconnexion explicite du PeerConnection');
-            peerConnection.disconnect();
+            
+            try {
+                // Attendre que la déconnexion soit terminée avant de mettre à jour le state
+                await peerConnection.disconnect();
+                console.log('[ConsultationPage] PeerConnection déconnecté avec succès');
+                setPeerConnection(null);
+            } catch (err) {
+                console.error('[ConsultationPage] Erreur lors de la déconnexion:', err);
+            } finally {
+                // Mettre à jour le state Redux pour indiquer qu'on n'est plus dans une room
+                dispatch(roomIdUpdated(null));
+            }
+        } else {
+            dispatch(roomIdUpdated(null));
         }
-        dispatch(roomIdUpdated(null));
     };
 
     // Charger les détails de la salle si on est connecté

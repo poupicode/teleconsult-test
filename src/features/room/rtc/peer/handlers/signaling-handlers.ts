@@ -41,7 +41,7 @@ export async function handleIceCandidate(pc: RTCPeerConnection, candidate: RTCIc
             console.warn('[WebRTC] Received null ICE candidate, ignoring');
             return;
         }
-        
+
         // Vérifier que c'est un candidat valide avant de tenter de l'ajouter
         if (typeof candidate.candidate === 'string' && candidate.candidate !== '') {
             await pc.addIceCandidate(new RTCIceCandidate(candidate));
