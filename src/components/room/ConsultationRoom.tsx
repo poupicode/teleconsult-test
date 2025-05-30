@@ -66,8 +66,6 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
 
   // Handle room connection/disconnection
   useEffect(() => {
-    let isActive = true; // Flag pour gérer le nettoyage asynchrone
-
     if (roomId && userId && userRole) {
       handleRoomConnection(roomId);
     } else if (!roomId && peerConnection) {
@@ -76,14 +74,16 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
       setConnectionStatus('disconnected');
       setRoomReady(false);
     }
+  }, [roomId, userId, userRole]);
 
+  // Cleanup effect - only runs on component unmount
+  useEffect(() => {
     return () => {
-      isActive = false;
       if (peerConnection) {
         peerConnection.disconnect();
       }
     };
-  }, [roomId, userId, userRole]);
+  }, []);
 
   // Expose peerConnection to parent component when it changes
   useEffect(() => {

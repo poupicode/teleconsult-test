@@ -49,11 +49,11 @@ export async function handleIceCandidate(pc: RTCPeerConnection, candidate: RTCIc
                 console.warn('[WebRTC-ICE] Cannot add ICE candidate: peer connection is closed');
                 return;
             }
-            
+
             // Ajouter le candidat ICE
             await pc.addIceCandidate(new RTCIceCandidate(candidate));
             console.log('[WebRTC-ICE] ICE candidate added successfully');
-            
+
             // Log additionnel pour les candidats TURN
             if (candidate.candidate.includes(' typ relay ')) {
                 console.log('[WebRTC-ICE] Added TURN relay candidate successfully');
@@ -65,7 +65,7 @@ export async function handleIceCandidate(pc: RTCPeerConnection, candidate: RTCIc
     } catch (err) {
         console.error('[WebRTC] Error adding ICE candidate:', err);
         console.error('[WebRTC] Failed candidate:', candidate);
-        
+
         // Log détaillé de l'erreur pour diagnostic
         if (err instanceof Error) {
             console.error('[WebRTC] Error details:', err.message);

@@ -172,7 +172,7 @@ export class PeerConnection implements IPeerConnection {
             if (event.candidate) {
                 // Stocker le candidat local pour le débogage
                 this.iceCandidates.local.push(event.candidate);
-                
+
                 // Logs détaillés pour le suivi
                 console.log(`[WebRTC-ICE] Local candidate: ${event.candidate.candidate}`);
                 console.log('[WebRTC-ICE] Sending ICE candidate:', event.candidate.candidate);
@@ -250,7 +250,7 @@ export class PeerConnection implements IPeerConnection {
     // Méthode pour réessayer d'ajouter tous les candidats ICE en cas d'échec de connexion
     private async retryAddingIceCandidates() {
         console.log('[WebRTC-ICE] Retrying to add all accumulated ICE candidates...');
-        
+
         // Réessayer d'ajouter tous les candidats distants accumulés
         for (const candidate of this.iceCandidates.remote) {
             try {
@@ -260,7 +260,7 @@ export class PeerConnection implements IPeerConnection {
                 console.error('[WebRTC-ICE] Failed to re-add remote ICE candidate:', err);
             }
         }
-        
+
         console.log(`[WebRTC-ICE] Retry complete. ${this.iceCandidates.remote.length} remote candidates re-processed.`);
     }
 
@@ -522,19 +522,19 @@ export class PeerConnection implements IPeerConnection {
                 }
                 else if (message.type === 'ice-candidate') {
                     console.log('[WebRTC] Processing ICE candidate:', JSON.stringify(message.content));
-                    
+
                     // RÉCEPTION CRITIQUE: Stocker et traiter le candidat distant
                     if (message.content) {
                         const candidate = message.content as RTCIceCandidate;
                         this.iceCandidates.remote.push(candidate);
-                        
+
                         // Analyser le candidat distant pour les diagnostics
                         this.analyzeIceCandidate(candidate, false);
-                        
+
                         // Log crucial pour le suivi du nombre de candidats distants
                         console.log(`[WebRTC-ICE] Remote candidates count: ${this.iceCandidates.remote.length}`);
                     }
-                    
+
                     // Traiter le candidat ICE via le handler dédié
                     await handleIceCandidate(this.pc, message.content as RTCIceCandidateInit);
                     console.log('[WebRTC-ICE] ICE candidate added successfully');

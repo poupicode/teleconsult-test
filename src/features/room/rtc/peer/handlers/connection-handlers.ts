@@ -17,7 +17,7 @@ export interface IPeerConnection {
 export function setupPeerConnectionListeners(peerConnection: IPeerConnection, pc: RTCPeerConnection) {
     // Note: ICE candidate handling is now managed in setupIceDebugging() to avoid conflicts
     // This ensures proper debugging and consistent candidate tracking
-    
+
     // Handle connection state changes
     pc.onconnectionstatechange = () => {
         console.log(`[WebRTC] Connection state changed: ${pc.connectionState}`);
