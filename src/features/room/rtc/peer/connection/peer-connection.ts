@@ -71,9 +71,6 @@ export class PeerConnection implements IPeerConnection {
     private iceCandidates: { local: RTCIceCandidate[], remote: RTCIceCandidate[] } = { local: [], remote: [] };
     private hasRelay: boolean = false;
 
-    // Timeout de déconnexion pour éviter les resets trop agressifs
-    private disconnectionTimeout: NodeJS.Timeout | null = null;
-
     // Callbacks
     private onConnectionStateChangeCallback: ((state: RTCPeerConnectionState) => void) | null = null;
     private onRoomReadyCallback: ((isReady: boolean) => void) | null = null;
@@ -571,7 +568,7 @@ export class PeerConnection implements IPeerConnection {
                             this.pc.connectionState === 'connecting')) {
                         console.warn('[WebRTC] Patient appears disconnected. Waiting before resetting connection...');
 
-                        this.disconnectionTimeout = setTimeout(() => {
+                        setTimeout(() => {
                             const stillMissing = !this.signaling.hasPatientAndPractitioner();
                             const connectionState = this.pc.connectionState;
 
@@ -582,9 +579,6 @@ export class PeerConnection implements IPeerConnection {
                             } else {
                                 console.log('[WebRTC] Patient reappeared or connection recovered. No reset needed.');
                             }
-                            
-                            // Nettoyer la référence du timeout
-                            this.disconnectionTimeout = null;
                         }, 3000); // attends 3 secondes avant de décider de reset
 
                         return; // Sortir tôt pour éviter la logique redondante en bas
@@ -596,7 +590,7 @@ export class PeerConnection implements IPeerConnection {
                             this.pc.connectionState === 'connecting')) {
                         console.warn('[WebRTC] Practitioner appears disconnected. Waiting before resetting connection...');
 
-                        this.disconnectionTimeout = setTimeout(() => {
+                        setTimeout(() => {
                             const stillMissing = !this.signaling.hasPatientAndPractitioner();
                             const connectionState = this.pc.connectionState;
 
@@ -607,21 +601,10 @@ export class PeerConnection implements IPeerConnection {
                             } else {
                                 console.log('[WebRTC] Practitioner reappeared or connection recovered. No reset needed.');
                             }
-                            
-                            // Nettoyer la référence du timeout
-                            this.disconnectionTimeout = null;
                         }, 3000); // attends 3 secondes avant de décider de reset
 
                         return; // Sortir tôt pour éviter la logique redondante en bas
                     }
-                }
-
-                // Annuler le timeout de déconnexion s'il y en a un en cours
-                // car quelqu'un vient de se reconnecter
-                if (this.disconnectionTimeout) {
-                    console.log('[WebRTC] Participant reconnected, canceling pending disconnection timeout');
-                    clearTimeout(this.disconnectionTimeout);
-                    this.disconnectionTimeout = null;
                 }
 
                 // Notifier que la salle est prête pour la connexion
@@ -727,12 +710,6 @@ export class PeerConnection implements IPeerConnection {
                 this.iceConnectionTimeout = null;
             }
 
-            // Nettoyer le timeout de déconnexion
-            if (this.disconnectionTimeout) {
-                clearTimeout(this.disconnectionTimeout);
-                this.disconnectionTimeout = null;
-            }
-
             // Fermer le canal de données
             this.dataChannelManager.closeDataChannel();
 
@@ -801,12 +778,6 @@ export class PeerConnection implements IPeerConnection {
         if (this.iceConnectionTimeout) {
             clearTimeout(this.iceConnectionTimeout);
             this.iceConnectionTimeout = null;
-        }
-
-        // Nettoyer le timeout de déconnexion
-        if (this.disconnectionTimeout) {
-            clearTimeout(this.disconnectionTimeout);
-            this.disconnectionTimeout = null;
         }
 
         // Désactiver tous les gestionnaires d'événements de la connexion peer
