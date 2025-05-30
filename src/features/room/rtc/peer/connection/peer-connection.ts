@@ -95,8 +95,8 @@ export class PeerConnection implements IPeerConnection {
         // Vérifier si les serveurs TURN sont bien configurés
         this.checkTurnConfiguration(iceConfig);
 
-        // TEST: Vérifier explicitement l'accessibilité du serveur TURN
-        this.testTurnServer('turn:turn.ekami.ch:3478', 'wei', 'toto1234');
+        // TEST: Vérifier explicitement l'accessibilité du serveur TURN (désactivé pour éviter les erreurs de timeout)
+        // this.testTurnServer('turn:turn.ekami.ch:3478', 'wei', 'toto1234');
 
         // Initialize signaling
         this.signaling = new SignalingService(roomId, clientId, role);
@@ -781,10 +781,10 @@ export class PeerConnection implements IPeerConnection {
         // Si c'est le cas et qu'on est le praticien, déclencher immédiatement la création du data channel
         const hasPatientAndPractitioner = this.signaling.hasPatientAndPractitioner();
         console.log(`[WebRTC] After reset, room has patient and practitioner: ${hasPatientAndPractitioner}`);
-        
+
         if (hasPatientAndPractitioner && this.role === Role.PRACTITIONER) {
             console.log('[WebRTC] Room is ready after reset, scheduling data channel creation');
-            
+
             // Petit délai pour s'assurer que tous les listeners sont bien configurés
             setTimeout(() => {
                 if (this.pc.connectionState !== 'closed' && this.pc.signalingState !== 'closed') {
