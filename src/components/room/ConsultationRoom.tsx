@@ -44,18 +44,18 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
       // Nettoyer l'ancienne connexion
       if (peerConnection) {
         console.log(`[ConsultationRoom] Room changed from ${previousRoomIdRef.current} to ${roomId}, disconnecting previous peer connection`);
-        
+
         // Désactiver la connexion en cours
         const disconnect = async () => {
           await peerConnection.disconnect();
           console.log('[ConsultationRoom] Previous peer connection disconnected');
-          
+
           // Réinitialiser l'état après la déconnexion
           setPeerConnection(null);
           setConnectionStatus('disconnected');
           setRoomReady(false);
         };
-        
+
         disconnect();
       }
     }
@@ -100,15 +100,15 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
     // Clean up previous connection if it exists
     if (peerConnection) {
       console.log('[ConsultationRoom] Disconnecting existing peer connection before connecting to new room');
-      
+
       // Désactiver tous les callbacks et l'état actuel avant de déconnecter
       setConnectionStatus('disconnecting');
       setRoomReady(false);
-      
+
       // Déconnecter proprement la connexion existante
       await peerConnection.disconnect();
       setPeerConnection(null);
-      
+
       // Petit délai plus long pour s'assurer que toutes les déconnexions sont bien effectuées
       // et que les canaux Supabase sont correctement fermés
       await new Promise(resolve => setTimeout(resolve, 500));

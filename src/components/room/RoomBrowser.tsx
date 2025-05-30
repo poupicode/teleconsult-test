@@ -78,10 +78,10 @@ export default function RoomBrowser({ isVisible = true }: RoomBrowserProps) {
     // Si l'utilisateur est déjà dans une salle, on le déconnecte d'abord
     if (currentRoomId) {
       console.log(`[RoomBrowser] Changing rooms from ${currentRoomId} to ${roomId}`);
-      
+
       // Stocker l'ID de la salle cible dans une variable locale
       const targetRoomId = roomId;
-      
+
       // Déconnecter de la salle actuelle en mettant roomId à null
       dispatch(roomIdUpdated(null));
 

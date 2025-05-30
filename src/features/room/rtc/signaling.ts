@@ -226,59 +226,89 @@ export class SignalingService {
      */
     async disconnect() {
         console.log('[Signaling] Disconnecting from room:', this.roomId);
-        
+
         try {
             // Quitter la présence en premier pour s'assurer que les autres participants
             // soient notifiés correctement de notre départ
             if (this.presenceSubscription) {
                 try {
-                    // Leave presence explicitly to notify other users immediately
-                    await this.presenceSubscription.untrack();
-                    console.log('[Signaling] Untracked presence for client:', this.clientId);
+                    // Vérifier si untrack est disponible avant de l'appeler
+                    if (this.presenceSubscription.untrack && typeof this.presenceSubscription.untrack === 'function') {
+                        await this.presenceSubscription.untrack();
+                        console.log('[Signaling] Untracked presence for client:', this.clientId);
+                    } else {
+                        console.log('[Signaling] Skipping untrack - not available on presenceSubscription');
+                    }
                 } catch (err) {
                     console.warn('[Signaling] Error untracking presence:', err);
                 }
-                
+
                 // Wait a moment to ensure the untrack propagates
                 await new Promise(resolve => setTimeout(resolve, 200));
-                
+
                 try {
-                    // Remove the channel
-                    await supabase.removeChannel(this.presenceSubscription);
-                    console.log('[Signaling] Removed presence channel for room:', this.roomId);
+                    // Vérifier si le canal existe et possède une méthode unsubscribe
+                    // avant d'essayer de le supprimer
+                    if (typeof this.presenceSubscription === 'object' &&
+                        this.presenceSubscription !== null &&
+                        this.presenceSubscription.unsubscribe) {
+                        // Remove the channel
+                        await supabase.removeChannel(this.presenceSubscription);
+                        console.log('[Signaling] Removed presence channel for room:', this.roomId);
+                    } else {
+                        console.log('[Signaling] Presence channel not valid for removal, skipping');
+                    }
                 } catch (err) {
                     console.warn('[Signaling] Error removing presence channel:', err);
                 }
                 this.presenceSubscription = null;
             }
-            
+
             // Désabonner du canal de signalisation
             if (this.subscription) {
                 try {
-                    await supabase.removeChannel(this.subscription);
-                    console.log('[Signaling] Removed message subscription for room:', this.roomId);
+                    // Vérifier si le canal existe et possède une méthode unsubscribe
+                    if (typeof this.subscription === 'object' &&
+                        this.subscription !== null &&
+                        this.subscription.unsubscribe) {
+                        await supabase.removeChannel(this.subscription);
+                        console.log('[Signaling] Removed message subscription for room:', this.roomId);
+                    } else {
+                        console.log('[Signaling] Message channel not valid for removal, skipping');
+                    }
                 } catch (err) {
                     console.warn('[Signaling] Error removing message channel:', err);
                 }
                 this.subscription = null;
             }
-            
+
             // Forcer manuellement la suppression de notre présence
             try {
-                const channel = supabase.channel('manual-cleanup');
-                await channel.subscribe();
-                // Canal temporaire pour forcer la mise à jour de la présence
-                await channel.unsubscribe();
+                // Créer un canal temporaire pour forcer la mise à jour de la présence
+                // mais s'assurer que nous gardons une référence dessus pour pouvoir le fermer proprement
+                const tempChannel = supabase.channel('manual-cleanup');
+
+                if (tempChannel && typeof tempChannel.subscribe === 'function') {
+                    await tempChannel.subscribe();
+
+                    // S'assurer qu'on nettoie correctement ce canal temporaire
+                    if (tempChannel && typeof tempChannel.unsubscribe === 'function') {
+                        await tempChannel.unsubscribe();
+                    }
+                }
             } catch (err) {
                 console.warn('[Signaling] Error during manual cleanup:', err);
             }
-            
+
             // Réinitialiser les callbacks et l'état
             this.messageCallback = null;
             this.presenceCallback = null;
             this.roomPresences = [];
-            
+
             console.log('[Signaling] Disconnection complete for room:', this.roomId);
+
+            // Ajouter un petit délai pour s'assurer que Supabase a bien eu le temps de traiter les changements
+            await new Promise(resolve => setTimeout(resolve, 100));
         } catch (error) {
             console.error('[Signaling] Error during disconnect:', error);
         }

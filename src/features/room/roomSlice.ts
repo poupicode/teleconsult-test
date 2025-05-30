@@ -92,7 +92,7 @@ const roomSlice = createSlice({
       state.roomId = null;
       state.participants = [];
     },
-    
+
     /**
      * Nettoyer les ressources associées à une salle lors d'une déconnexion WebRTC
      */
@@ -102,7 +102,7 @@ const roomSlice = createSlice({
         state.participants = [];
       }
     },
-    
+
     /**
      * Réinitialiser l'état des participants lorsque la connexion est réinitialisée
      */

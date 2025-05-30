@@ -539,6 +539,8 @@ export class PeerConnection implements IPeerConnection {
                         (this.pc.connectionState === 'connected' ||
                             this.pc.connectionState === 'connecting')) {
                         this.resetPeerConnection();
+                        // La réinitialisation gérera automatiquement la recréation du data channel si nécessaire
+                        return; // Sortir tôt pour éviter la logique redondante en bas
                     }
 
                     // Pour le patient, réinitialiser également la connexion si le praticien se déconnecte
@@ -547,6 +549,7 @@ export class PeerConnection implements IPeerConnection {
                             this.pc.connectionState === 'connecting')) {
                         console.log('[WebRTC] Practitioner disconnected, resetting patient peer connection');
                         this.resetPeerConnection();
+                        return; // Sortir tôt pour éviter la logique redondante en bas
                     }
                 }
 
@@ -556,7 +559,7 @@ export class PeerConnection implements IPeerConnection {
                 }
 
                 // Si la salle est prête et qu'on est le praticien, initialiser la connexion
-                // mais seulement après un court délai pour s'assurer que la réinitialisation est complète
+                // mais seulement si on n'a pas fait de reset juste avant
                 if (this.readyToNegotiate && this.role === Role.PRACTITIONER) {
                     console.log('[WebRTC] Room is ready and we are the practitioner, waiting to initiate connection...');
 
@@ -680,28 +683,32 @@ export class PeerConnection implements IPeerConnection {
 
             // Forcer une mise à jour de l'état pour les composants qui observent
             // les changements de statut du dataChannel
-            store.dispatch({ type: 'webrtc/connectionStatusChanged', payload: {
-                status: 'disconnected',
-                roomId: this.roomId
-            }});
+            store.dispatch({
+                type: 'webrtc/connectionStatusChanged', payload: {
+                    status: 'disconnected',
+                    roomId: this.roomId
+                }
+            });
 
             // Forcer un dispatch explicite quand on quitte une room pour éviter
             // tout comportement résiduel
             store.dispatch({ type: 'webrtc/dataChannelStatusChanged' });
-            
+
             // Nettoyer toute référence à cette salle dans le state Redux
             store.dispatch(cleanupRoomState({ roomId: this.roomId }));
 
             console.log('[WebRTC] Disconnection complete from room:', this.roomId);
         } catch (error) {
             console.error('[WebRTC] Error during disconnect:', error);
-            
+
             // Même en cas d'erreur, forcer les notifications de déconnexion
             // pour éviter que l'interface reste bloquée dans un état incohérent
-            store.dispatch({ type: 'webrtc/connectionStatusChanged', payload: {
-                status: 'disconnected',
-                roomId: this.roomId
-            }});
+            store.dispatch({
+                type: 'webrtc/connectionStatusChanged', payload: {
+                    status: 'disconnected',
+                    roomId: this.roomId
+                }
+            });
             store.dispatch({ type: 'webrtc/dataChannelStatusChanged' });
         }
     }
@@ -759,15 +766,33 @@ export class PeerConnection implements IPeerConnection {
         // Réinitialiser les collections de candidats ICE
         this.iceCandidates = { local: [], remote: [] };
         this.hasRelay = false;
-        
-        // Réinitialiser l'état de négociation
-        this.readyToNegotiate = false;
+
+        // NOTE: Ne pas réinitialiser this.readyToNegotiate ici car cet état doit être géré
+        // par la logique de présence. Si on le remet à false, cela empêche la reconnexion
+        // immédiate quand les deux participants sont présents.
 
         // Reconfigurer tous les écouteurs d'événements de base
         this.setupListeners();
 
         // Reconfigurer le débogage ICE (crucial pour l'envoi des candidats ICE)
         this.setupIceDebugging();
+
+        // Vérifier si la salle est prête pour la négociation après la réinitialisation
+        // Si c'est le cas et qu'on est le praticien, déclencher immédiatement la création du data channel
+        const hasPatientAndPractitioner = this.signaling.hasPatientAndPractitioner();
+        console.log(`[WebRTC] After reset, room has patient and practitioner: ${hasPatientAndPractitioner}`);
+        
+        if (hasPatientAndPractitioner && this.role === Role.PRACTITIONER) {
+            console.log('[WebRTC] Room is ready after reset, scheduling data channel creation');
+            
+            // Petit délai pour s'assurer que tous les listeners sont bien configurés
+            setTimeout(() => {
+                if (this.pc.connectionState !== 'closed' && this.pc.signalingState !== 'closed') {
+                    console.log('[WebRTC] Creating data channel after reset');
+                    this.dataChannelManager.createDataChannel();
+                }
+            }, 200);
+        }
 
         // Notifier explicitement le changement d'état de connexion, car la nouvelle
         // instance de PeerConnection ne déclenche pas automatiquement l'événement
@@ -779,10 +804,12 @@ export class PeerConnection implements IPeerConnection {
         // Forcer une mise à jour de l'état pour les composants qui observent
         // les changements de statut du dataChannel et de la connexion
         store.dispatch({ type: 'webrtc/dataChannelStatusChanged' });
-        store.dispatch({ type: 'webrtc/connectionStatusChanged', payload: {
-            status: 'reset',
-            roomId: this.roomId
-        }});
+        store.dispatch({
+            type: 'webrtc/connectionStatusChanged', payload: {
+                status: 'reset',
+                roomId: this.roomId
+            }
+        });
 
         console.log('[WebRTC] Peer connection has been reset for room:', this.roomId);
     }
