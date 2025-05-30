@@ -231,23 +231,46 @@ export class SignalingService {
             // Quitter la présence en premier pour s'assurer que les autres participants
             // soient notifiés correctement de notre départ
             if (this.presenceSubscription) {
-                // Leave presence explicitly to notify other users immediately
-                await this.presenceSubscription.untrack();
-                console.log('[Signaling] Untracked presence for client:', this.clientId);
+                try {
+                    // Leave presence explicitly to notify other users immediately
+                    await this.presenceSubscription.untrack();
+                    console.log('[Signaling] Untracked presence for client:', this.clientId);
+                } catch (err) {
+                    console.warn('[Signaling] Error untracking presence:', err);
+                }
                 
                 // Wait a moment to ensure the untrack propagates
-                await new Promise(resolve => setTimeout(resolve, 100));
+                await new Promise(resolve => setTimeout(resolve, 200));
                 
-                // Remove the channel
-                await supabase.removeChannel(this.presenceSubscription);
+                try {
+                    // Remove the channel
+                    await supabase.removeChannel(this.presenceSubscription);
+                    console.log('[Signaling] Removed presence channel for room:', this.roomId);
+                } catch (err) {
+                    console.warn('[Signaling] Error removing presence channel:', err);
+                }
                 this.presenceSubscription = null;
             }
             
             // Désabonner du canal de signalisation
             if (this.subscription) {
-                await supabase.removeChannel(this.subscription);
+                try {
+                    await supabase.removeChannel(this.subscription);
+                    console.log('[Signaling] Removed message subscription for room:', this.roomId);
+                } catch (err) {
+                    console.warn('[Signaling] Error removing message channel:', err);
+                }
                 this.subscription = null;
-                console.log('[Signaling] Removed message subscription for room:', this.roomId);
+            }
+            
+            // Forcer manuellement la suppression de notre présence
+            try {
+                const channel = supabase.channel('manual-cleanup');
+                await channel.subscribe();
+                // Canal temporaire pour forcer la mise à jour de la présence
+                await channel.unsubscribe();
+            } catch (err) {
+                console.warn('[Signaling] Error during manual cleanup:', err);
             }
             
             // Réinitialiser les callbacks et l'état

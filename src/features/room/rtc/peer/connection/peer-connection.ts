@@ -3,10 +3,12 @@
 import { SignalingService, SignalingMessage, UserPresence } from '../../signaling';
 import { store } from '@/app/store';
 import { getLatestIceConfig } from '../../ice/ice-config-slice';
+import { cleanupRoomState, resetParticipantsConnection } from '../../../roomSlice';
 import { Role, ChatMessage } from '../models/types';
 import { DataChannelManager } from '../data-channel/data-channel-manager';
 import { setupPeerConnectionListeners, IPeerConnection } from '../handlers/connection-handlers';
 import { handleOffer, handleAnswer, handleIceCandidate, createOffer } from '../handlers/signaling-handlers';
+
 
 // Interfaces pour les statistiques WebRTC
 interface RTCStatsReport {
@@ -642,7 +644,7 @@ export class PeerConnection implements IPeerConnection {
 
     // Close the connection
     async disconnect() {
-        console.log('[WebRTC] Disconnecting');
+        console.log('[WebRTC] Disconnecting from room:', this.roomId);
 
         try {
             // Nettoyer les timers
@@ -675,6 +677,7 @@ export class PeerConnection implements IPeerConnection {
             this.iceCandidates = { local: [], remote: [] };
             this.hasRelay = false;
 
+
             // Forcer une mise à jour de l'état pour les composants qui observent
             // les changements de statut du dataChannel
             store.dispatch({ type: 'webrtc/connectionStatusChanged', payload: {
@@ -685,10 +688,21 @@ export class PeerConnection implements IPeerConnection {
             // Forcer un dispatch explicite quand on quitte une room pour éviter
             // tout comportement résiduel
             store.dispatch({ type: 'webrtc/dataChannelStatusChanged' });
+            
+            // Nettoyer toute référence à cette salle dans le state Redux
+            store.dispatch(cleanupRoomState({ roomId: this.roomId }));
 
-            console.log('[WebRTC] Disconnection complete');
+            console.log('[WebRTC] Disconnection complete from room:', this.roomId);
         } catch (error) {
             console.error('[WebRTC] Error during disconnect:', error);
+            
+            // Même en cas d'erreur, forcer les notifications de déconnexion
+            // pour éviter que l'interface reste bloquée dans un état incohérent
+            store.dispatch({ type: 'webrtc/connectionStatusChanged', payload: {
+                status: 'disconnected',
+                roomId: this.roomId
+            }});
+            store.dispatch({ type: 'webrtc/dataChannelStatusChanged' });
         }
     }
 
@@ -763,8 +777,12 @@ export class PeerConnection implements IPeerConnection {
         }
 
         // Forcer une mise à jour de l'état pour les composants qui observent
-        // les changements de statut du dataChannel
+        // les changements de statut du dataChannel et de la connexion
         store.dispatch({ type: 'webrtc/dataChannelStatusChanged' });
+        store.dispatch({ type: 'webrtc/connectionStatusChanged', payload: {
+            status: 'reset',
+            roomId: this.roomId
+        }});
 
         console.log('[WebRTC] Peer connection has been reset for room:', this.roomId);
     }

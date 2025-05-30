@@ -79,14 +79,18 @@ export default function RoomBrowser({ isVisible = true }: RoomBrowserProps) {
     if (currentRoomId) {
       console.log(`[RoomBrowser] Changing rooms from ${currentRoomId} to ${roomId}`);
       
+      // Stocker l'ID de la salle cible dans une variable locale
+      const targetRoomId = roomId;
+      
       // Déconnecter de la salle actuelle en mettant roomId à null
       dispatch(roomIdUpdated(null));
 
       // Délai pour s'assurer que la déconnexion est complètement terminée
+      // et que les canaux Supabase sont correctement fermés
       setTimeout(() => {
-        console.log(`[RoomBrowser] Connecting to new room ${roomId} after cleanup`);
-        dispatch(roomIdUpdated(roomId));
-      }, 1000);
+        console.log(`[RoomBrowser] Connecting to new room ${targetRoomId} after cleanup`);
+        dispatch(roomIdUpdated(targetRoomId));
+      }, 1500); // Délai augmenté pour s'assurer que tout est bien nettoyé
     } else {
       // Si l'utilisateur n'est pas dans une salle, on peut directement rejoindre la nouvelle
       console.log(`[RoomBrowser] Connecting directly to room ${roomId}`);

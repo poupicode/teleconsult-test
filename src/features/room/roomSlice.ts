@@ -92,6 +92,27 @@ const roomSlice = createSlice({
       state.roomId = null;
       state.participants = [];
     },
+    
+    /**
+     * Nettoyer les ressources associées à une salle lors d'une déconnexion WebRTC
+     */
+    cleanupRoomState(state, action: PayloadAction<{ roomId: string }>) {
+      if (state.roomId === action.payload.roomId) {
+        console.log(`[RoomSlice] Cleaning up room state for room: ${action.payload.roomId}`);
+        state.participants = [];
+      }
+    },
+    
+    /**
+     * Réinitialiser l'état des participants lorsque la connexion est réinitialisée
+     */
+    resetParticipantsConnection(state, action: PayloadAction<{ roomId: string }>) {
+      if (state.roomId === action.payload.roomId) {
+        console.log(`[RoomSlice] Resetting participants connection states for room: ${action.payload.roomId}`);
+        // Garder les participants mais réinitialiser leur état de connexion
+        state.participants = state.participants.map(p => ({ ...p, isConnected: false }));
+      }
+    },
   },
 });
 
@@ -102,6 +123,8 @@ export const {
   participantJoined,
   participantLeft,
   participantConnectionStatusChanged,
-  resetRoom
+  resetRoom,
+  cleanupRoomState,
+  resetParticipantsConnection
 } = roomSlice.actions;
 export default roomSlice.reducer;
