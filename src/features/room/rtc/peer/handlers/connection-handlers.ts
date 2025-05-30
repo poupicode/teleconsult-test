@@ -10,7 +10,6 @@ export interface IPeerConnection {
     isRoomReady: () => boolean;
     createOffer: () => Promise<void>;
     setDataChannel: (channel: RTCDataChannel) => void;
-    setupDataChannel: (channel: RTCDataChannel) => void;
     getOnConnectionStateChangeCallback: () => ((state: RTCPeerConnectionState) => void) | null;
 }
 
@@ -69,8 +68,9 @@ export function setupPeerConnectionListeners(peerConnection: IPeerConnection, pc
         console.log(`[WebRTC] Received data channel: ${event.channel.label}`);
 
         if (event.channel.label === 'data-channel') {
+            // Assigner le canal reçu - cela déclenchera automatiquement la configuration des événements
             peerConnection.setDataChannel(event.channel);
-            peerConnection.setupDataChannel(event.channel);
+            console.log(`[WebRTC] Data channel assigned and configured`);
         }
     };
 }

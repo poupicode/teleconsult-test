@@ -96,7 +96,7 @@ export class PeerConnection implements IPeerConnection {
         this.checkTurnConfiguration(iceConfig);
 
         // TEST: Vérifier explicitement l'accessibilité du serveur TURN (désactivé pour éviter les erreurs de timeout)
-        // this.testTurnServer('turn:turn.ekami.ch:3478', 'wei', 'toto1234');
+        this.testTurnServer('turn:turn.ekami.ch:3478', 'wei', 'toto1234');
 
         // Initialize signaling
         this.signaling = new SignalingService(roomId, clientId, role);
