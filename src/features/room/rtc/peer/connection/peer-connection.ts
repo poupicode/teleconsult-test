@@ -66,7 +66,7 @@ export class PeerConnection implements IPeerConnection {
     // ICE debugging
     private iceConnectionTimeout: NodeJS.Timeout | null = null;
     private iceStartTime: number = 0;
-    private iceCandidates: {local: RTCIceCandidate[], remote: RTCIceCandidate[]} = {local: [], remote: []};
+    private iceCandidates: { local: RTCIceCandidate[], remote: RTCIceCandidate[] } = { local: [], remote: [] };
     private hasRelay: boolean = false;
 
     // Callbacks
@@ -89,7 +89,7 @@ export class PeerConnection implements IPeerConnection {
         // Get the ICE configuration from the store
         const iceConfig = store.getState().iceConfig.config;
         console.log('[WebRTC] Using ICE configuration:', JSON.stringify(iceConfig));
-        
+
         // Vérifier si les serveurs TURN sont bien configurés
         this.checkTurnConfiguration(iceConfig);
 
@@ -112,7 +112,7 @@ export class PeerConnection implements IPeerConnection {
 
         // Setup peer connection listeners
         this.setupListeners();
-        
+
         // Setup custom ICE debugging
         this.setupIceDebugging();
     }
@@ -123,14 +123,14 @@ export class PeerConnection implements IPeerConnection {
             console.error('[WebRTC] No ICE servers configured!');
             return;
         }
-        
+
         // Recherche des serveurs TURN
         let hasTurnServer = false;
         for (const server of iceConfig.iceServers) {
             if (!server.urls) continue;
-            
+
             const urls = Array.isArray(server.urls) ? server.urls : [server.urls];
-            
+
             for (const url of urls) {
                 if (typeof url === 'string' && url.startsWith('turn:')) {
                     hasTurnServer = true;
@@ -143,7 +143,7 @@ export class PeerConnection implements IPeerConnection {
                 }
             }
         }
-        
+
         if (!hasTurnServer) {
             console.warn('[WebRTC] No TURN servers found in configuration! This will cause connection issues in restrictive networks.');
         }
@@ -152,18 +152,18 @@ export class PeerConnection implements IPeerConnection {
     // Configuration du débogage ICE avancé
     private setupIceDebugging() {
         this.iceStartTime = Date.now();
-        this.iceCandidates = {local: [], remote: []};
+        this.iceCandidates = { local: [], remote: [] };
         this.hasRelay = false;
-        
+
         // Surveiller les candidats ICE locaux
         this.pc.onicecandidate = (event) => {
             if (event.candidate) {
                 this.iceCandidates.local.push(event.candidate);
                 console.log(`[WebRTC-ICE] Local candidate: ${event.candidate.candidate}`);
-                
+
                 // Analyser le candidat
                 this.analyzeIceCandidate(event.candidate, true);
-                
+
                 // Définir un timeout si c'est le premier candidat
                 if (this.iceCandidates.local.length === 1 && !this.iceConnectionTimeout) {
                     this.iceConnectionTimeout = setTimeout(() => {
@@ -177,17 +177,17 @@ export class PeerConnection implements IPeerConnection {
                 console.log('[WebRTC-ICE] Local candidates gathering complete');
             }
         };
-        
+
         // Surveiller les changements d'état de connexion ICE
         this.pc.oniceconnectionstatechange = () => {
             const state = this.pc.iceConnectionState;
             console.log(`[WebRTC-ICE] Connection state changed: ${state}`);
-            
+
             switch (state) {
                 case 'checking':
                     console.log(`[WebRTC-ICE] Started checking candidates. Time elapsed: ${Date.now() - this.iceStartTime}ms`);
                     break;
-                    
+
                 case 'connected':
                 case 'completed':
                     if (this.iceConnectionTimeout) {
@@ -196,11 +196,11 @@ export class PeerConnection implements IPeerConnection {
                     }
                     console.log(`[WebRTC-ICE] Connection established in ${Date.now() - this.iceStartTime}ms`);
                     console.log(`[WebRTC-ICE] Using TURN relay: ${this.hasRelay ? 'Yes' : 'No/Unknown'}`);
-                    
+
                     // Analyser les statistiques détaillées après connexion
                     setTimeout(() => this.getDetailedConnectionStats(), 1000);
                     break;
-                    
+
                 case 'failed':
                     console.error('[WebRTC-ICE] Connection failed. This is likely due to a TURN server issue or network restriction.');
                     this.logIceStats();
@@ -208,19 +208,19 @@ export class PeerConnection implements IPeerConnection {
             }
         };
     }
-    
+
     // Analyse un candidat ICE pour déterminer son type
     private analyzeIceCandidate(candidate: RTCIceCandidate, isLocal: boolean) {
         const candidateStr = candidate.candidate;
         if (!candidateStr) return;
-        
+
         try {
             // Vérifier si c'est un candidat relay (TURN)
             if (candidateStr.includes(' typ relay ')) {
                 this.hasRelay = true;
                 console.log(`[WebRTC-ICE] ${isLocal ? 'Local' : 'Remote'} TURN relay candidate found: ${candidateStr}`);
             }
-            
+
             // Extraire le type de candidat
             const match = candidateStr.match(/ typ ([a-z]+) /);
             if (match) {
@@ -231,7 +231,7 @@ export class PeerConnection implements IPeerConnection {
             console.error('[WebRTC-ICE] Error analyzing candidate:', err);
         }
     }
-    
+
     // Analyse les statistiques de connexion pour comprendre les problèmes
     private async getDetailedConnectionStats() {
         try {
@@ -239,43 +239,43 @@ export class PeerConnection implements IPeerConnection {
                 console.log('[WebRTC-ICE] getStats API not available');
                 return;
             }
-            
+
             const stats = await this.pc.getStats();
             let selectedPair: RTCIceCandidatePairStats | null = null;
             let localCandidate: RTCIceCandidateStats | null = null;
             let remoteCandidate: RTCIceCandidateStats | null = null;
-            
+
             stats.forEach((report: RTCStats) => {
                 if (report.type === 'transport') {
                     console.log('[WebRTC-ICE] Transport:', report);
                 }
-                
+
                 // Trouver la paire de candidats sélectionnée
                 if (report.type === 'candidate-pair' && report.selected === true) {
                     selectedPair = report as RTCIceCandidatePairStats;
                     console.log('[WebRTC-ICE] Selected candidate pair:', report);
                 }
-                
+
                 // Stocker les informations sur les candidats
                 if (report.type === 'local-candidate') {
                     if (selectedPair && report.id === selectedPair.localCandidateId) {
                         localCandidate = report as RTCIceCandidateStats;
                     }
                 }
-                
+
                 if (report.type === 'remote-candidate') {
                     if (selectedPair && report.id === selectedPair.remoteCandidateId) {
                         remoteCandidate = report as RTCIceCandidateStats;
                     }
                 }
             });
-            
+
             // Analyser la paire sélectionnée
             if (selectedPair && localCandidate && remoteCandidate) {
                 console.log('[WebRTC-ICE] Connection established using:');
                 console.log(`[WebRTC-ICE] Local: ${(localCandidate as RTCIceCandidateStats).candidateType} (${(localCandidate as RTCIceCandidateStats).protocol}) - ${(localCandidate as RTCIceCandidateStats).ip}:${(localCandidate as RTCIceCandidateStats).port}`);
                 console.log(`[WebRTC-ICE] Remote: ${(remoteCandidate as RTCIceCandidateStats).candidateType} (${(remoteCandidate as RTCIceCandidateStats).protocol}) - ${(remoteCandidate as RTCIceCandidateStats).ip}:${(remoteCandidate as RTCIceCandidateStats).port}`);
-                
+
                 if ((localCandidate as RTCIceCandidateStats).candidateType === 'relay' || (remoteCandidate as RTCIceCandidateStats).candidateType === 'relay') {
                     console.log('[WebRTC-ICE] Connection using TURN relay');
                     // Identifier quel serveur TURN est utilisé
@@ -286,12 +286,12 @@ export class PeerConnection implements IPeerConnection {
                     console.log('[WebRTC-ICE] Direct connection (no TURN relay)');
                 }
             }
-            
+
         } catch (err) {
             console.error('[WebRTC-ICE] Error getting connection stats:', err);
         }
     }
-    
+
     // Journalise les statistiques ICE pour le débogage
     private logIceStats() {
         console.log('[WebRTC-ICE] === ICE Connection Diagnostics ===');
@@ -300,7 +300,7 @@ export class PeerConnection implements IPeerConnection {
         console.log(`[WebRTC-ICE] Signaling state: ${this.pc.signalingState}`);
         console.log(`[WebRTC-ICE] Local candidates: ${this.iceCandidates.local.length}`);
         console.log(`[WebRTC-ICE] Remote candidates: ${this.iceCandidates.remote.length}`);
-        
+
         // Types de candidats locaux
         const localTypes: CandidateTypeCount = this.iceCandidates.local.reduce((acc: CandidateTypeCount, candidate) => {
             const match = candidate.candidate.match(/ typ ([a-z]+) /);
@@ -311,12 +311,12 @@ export class PeerConnection implements IPeerConnection {
             return acc;
         }, {});
         console.log('[WebRTC-ICE] Local candidate types:', localTypes);
-        
+
         // Vérifier les facteurs courants de défaillance
         if (!this.hasRelay) {
             console.warn('[WebRTC-ICE] No TURN relay candidates found - this often causes connection failures in restrictive networks');
         }
-        
+
         if (this.pc.iceConnectionState === 'failed') {
             console.warn('[WebRTC-ICE] Connection failure may be due to:');
             console.warn('- TURN server inaccessible ou mal configuré');
@@ -324,7 +324,7 @@ export class PeerConnection implements IPeerConnection {
             console.warn('- Ports bloqués par pare-feu');
             console.warn('- Restrictions de réseau trop strictes');
         }
-        
+
         // Afficher la configuration ICE
         const iceConfig = store.getState().iceConfig.config;
         console.log('[WebRTC-ICE] Current ICE configuration:', JSON.stringify(iceConfig));
@@ -333,7 +333,7 @@ export class PeerConnection implements IPeerConnection {
     // Test explicite d'accessibilité au serveur TURN
     private testTurnServer(url: string, username: string, credential: string) {
         console.log(`[TURN-TEST] Testing TURN server: ${url}`);
-        
+
         // Créer une configuration ICE spécifique pour ce test
         const testConfig = {
             iceServers: [{
@@ -343,19 +343,19 @@ export class PeerConnection implements IPeerConnection {
             }],
             iceTransportPolicy: 'relay' as RTCIceTransportPolicy // Force l'utilisation des serveurs TURN uniquement
         };
-        
+
         // Créer une connexion peer temporaire pour tester
         const pc1 = new RTCPeerConnection(testConfig);
         const pc2 = new RTCPeerConnection(testConfig);
-        
+
         // Suivre si des candidats relay sont générés
         let relayFound = false;
-        
+
         // Gérer les candidats ICE générés par pc1
         pc1.onicecandidate = (event) => {
             if (event.candidate) {
                 console.log(`[TURN-TEST] Candidate: ${event.candidate.candidate}`);
-                
+
                 // Vérifier si c'est un candidat relay (TURN)
                 if (event.candidate.candidate.includes(' typ relay ')) {
                     relayFound = true;
@@ -371,7 +371,7 @@ export class PeerConnection implements IPeerConnection {
                     console.log('- Network might be blocking UDP/TCP ports');
                     console.log('- TURN server might have reached its connection limit');
                 }
-                
+
                 // Nettoyer
                 setTimeout(() => {
                     pc1.close();
@@ -379,10 +379,10 @@ export class PeerConnection implements IPeerConnection {
                 }, 5000);
             }
         };
-        
+
         // Configurer le test en créant un canal de données
         const dc = pc1.createDataChannel('turnTest');
-        
+
         pc1.createOffer().then((offer) => {
             return pc1.setLocalDescription(offer);
         }).then(() => {
@@ -391,7 +391,7 @@ export class PeerConnection implements IPeerConnection {
         }).catch((err) => {
             console.error('[TURN-TEST] Error testing TURN server:', err);
         });
-        
+
         // Définir un timeout pour le test au cas où aucun candidat n'est généré
         setTimeout(() => {
             if (!relayFound) {

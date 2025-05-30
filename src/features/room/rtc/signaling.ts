@@ -95,10 +95,18 @@ export class SignalingService {
                 const presences: UserPresence[] = [];
                 Object.values(state).forEach((stateItem: any) => {
                     stateItem.forEach((presence: any) => {
-                        presences.push({
-                            clientId: presence.clientId,
-                            role: presence.role
-                        });
+                        // Log each presence with its properties for debugging
+                        console.log(`[Signaling] Presence detected: clientId=${presence.clientId}, role=${presence.role || 'undefined'}`);
+                        
+                        // Only add presences with valid roles
+                        if (presence.clientId && presence.role) {
+                            presences.push({
+                                clientId: presence.clientId,
+                                role: presence.role
+                            });
+                        } else {
+                            console.log('[Signaling] Ignoring presence without valid clientId or role');
+                        }
                     });
                 });
 
@@ -159,11 +167,29 @@ export class SignalingService {
     }
 
     /**
+     * Returns only participants with valid application roles (patient or practitioner)
+     * This filters out any observers or admin connections without explicit roles
+     */
+    getValidParticipants(): UserPresence[] {
+        return this.roomPresences.filter(p => 
+            p.role === Role.PATIENT || p.role === Role.PRACTITIONER
+        );
+    }
+
+    /**
      * Checks if the room has both patient and practitioner roles present
+     * Note: This only counts users who have connected through this application
+     * and explicitly tracked their presence with a role. Supabase administrators
+     * viewing the channel in the Supabase dashboard are not counted.
      */
     hasPatientAndPractitioner(): boolean {
-        const hasPatient = this.roomPresences.some(p => p.role === Role.PATIENT);
-        const hasPractitioner = this.roomPresences.some(p => p.role === Role.PRACTITIONER);
+        const validParticipants = this.getValidParticipants();
+        const hasPatient = validParticipants.some(p => p.role === Role.PATIENT);
+        const hasPractitioner = validParticipants.some(p => p.role === Role.PRACTITIONER);
+        
+        // Log the count of valid participants for debugging
+        console.log(`[Signaling] Valid participants: ${validParticipants.length} (Patient: ${hasPatient}, Practitioner: ${hasPractitioner})`);
+        
         return hasPatient && hasPractitioner;
     }
 
