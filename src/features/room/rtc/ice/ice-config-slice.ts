@@ -15,7 +15,8 @@ export const DEFAULT_ICE_CONFIG: RTCConfiguration = {
     "iceServers": [
         {
             "urls": [
-                "turn:turn.ekami.ch:3478?transport=tcp" // Utilisation de TCP uniquement pour une meilleure traversée des pare-feu
+                "turn:turn.ekami.ch:3478?transport=tcp",
+                "turn:turn.ekami.ch:3478?transport=udp"
             ],
             "username": "wei",
             "credential": "toto1234"
@@ -23,7 +24,7 @@ export const DEFAULT_ICE_CONFIG: RTCConfiguration = {
     ],
     "iceCandidatePoolSize": 20,
     "iceTransportPolicy": "relay" as RTCIceTransportPolicy // Force l'utilisation exclusive des serveurs TURN (mode relay uniquement)
-                                                          // Cette option peut être retirée si besoin pour revenir au mode par défaut
+    // Cette option peut être retirée si besoin pour revenir au mode par défaut
 };
 
 /**
