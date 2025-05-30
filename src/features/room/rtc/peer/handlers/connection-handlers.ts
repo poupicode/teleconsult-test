@@ -15,18 +15,9 @@ export interface IPeerConnection {
 }
 
 export function setupPeerConnectionListeners(peerConnection: IPeerConnection, pc: RTCPeerConnection) {
-    // Handle ICE candidates
-    pc.onicecandidate = (event) => {
-        if (event.candidate) {
-            console.log(`[WebRTC] New ICE candidate: ${JSON.stringify(event.candidate)}`);
-            peerConnection.getSignaling().sendMessage({
-                type: 'ice-candidate',
-                roomId: peerConnection.getRoomId(),
-                content: event.candidate
-            });
-        }
-    };
-
+    // Note: ICE candidate handling is now managed in setupIceDebugging() to avoid conflicts
+    // This ensures proper debugging and consistent candidate tracking
+    
     // Handle connection state changes
     pc.onconnectionstatechange = () => {
         console.log(`[WebRTC] Connection state changed: ${pc.connectionState}`);
