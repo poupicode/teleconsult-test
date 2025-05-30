@@ -174,20 +174,34 @@ export class PeerConnection implements IPeerConnection {
                 this.analyzeIceCandidate(event.candidate, true);
 
                 // Envoyer les candidats ICE à l'autre pair via le service de signalisation
+                console.log('[WebRTC-ICE] Sending ICE candidate:', event.candidate.candidate);
                 this.signaling.sendMessage({
                     type: 'ice-candidate',
                     roomId: this.roomId,
                     content: event.candidate
                 });
+                
+                // Pour les candidats de type "relay", marquer que nous avons trouvé un candidat TURN
+                if (event.candidate.candidate.includes(' typ relay ')) {
+                    this.hasRelay = true;
+                    console.log('[WebRTC-ICE] Found TURN relay candidate');
+                }
 
                 // Définir un timeout si c'est le premier candidat
                 if (this.iceCandidates.local.length === 1 && !this.iceConnectionTimeout) {
                     this.iceConnectionTimeout = setTimeout(() => {
                         if (this.pc.iceConnectionState !== 'connected' && this.pc.iceConnectionState !== 'completed') {
-                            console.warn('[WebRTC-ICE] Connection timeout after 15s. Current state:', this.pc.iceConnectionState);
+                            console.warn('[WebRTC-ICE] Connection timeout after 30s. Current state:', this.pc.iceConnectionState);
                             this.logIceStats();
+                            
+                            // Tenter de récupérer la connexion si elle est en échec
+                            if (this.pc.iceConnectionState === 'failed' || this.pc.iceConnectionState === 'disconnected') {
+                                console.log('[WebRTC-ICE] Attempting to recover failed connection by re-adding all ICE candidates...');
+                                // Réessayer avec tous les candidats ICE accumulés
+                                this.retryAddingIceCandidates();
+                            }
                         }
-                    }, 15000);
+                    }, 30000);
                 }
             } else {
                 console.log('[WebRTC-ICE] Local candidates gathering complete');
@@ -225,7 +239,7 @@ export class PeerConnection implements IPeerConnection {
         };
     }
 
-    // Analyse un candidat ICE pour déterminer son type
+    // Analyse un candidat ICE pour déterminer son type et détecter les problèmes potentiels
     private analyzeIceCandidate(candidate: RTCIceCandidate, isLocal: boolean) {
         const candidateStr = candidate.candidate;
         if (!candidateStr) return;
@@ -235,6 +249,19 @@ export class PeerConnection implements IPeerConnection {
             if (candidateStr.includes(' typ relay ')) {
                 this.hasRelay = true;
                 console.log(`[WebRTC-ICE] ${isLocal ? 'Local' : 'Remote'} TURN relay candidate found: ${candidateStr}`);
+                
+                // Extraire l'adresse IP du serveur TURN utilisé
+                const ipMatch = candidateStr.match(/([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})/);
+                if (ipMatch) {
+                    console.log(`[WebRTC-ICE] TURN server IP: ${ipMatch[1]}`);
+                }
+                
+                // Vérifier le protocole utilisé (UDP/TCP)
+                if (candidateStr.includes('udp')) {
+                    console.log('[WebRTC-ICE] Using UDP protocol for TURN');
+                } else if (candidateStr.includes('tcp')) {
+                    console.log('[WebRTC-ICE] Using TCP protocol for TURN');
+                }
             }
 
             // Extraire le type de candidat
@@ -242,6 +269,11 @@ export class PeerConnection implements IPeerConnection {
             if (match) {
                 const type = match[1]; // host, srflx, prflx ou relay
                 console.log(`[WebRTC-ICE] ${isLocal ? 'Local' : 'Remote'} candidate type: ${type}`);
+                
+                // Si on reçoit un candidat distant, c'est un bon signe que la communication fonctionne
+                if (!isLocal) {
+                    console.log('[WebRTC-ICE] Successfully received remote candidate - signaling is working');
+                }
             }
         } catch (err) {
             console.error('[WebRTC-ICE] Error analyzing candidate:', err);
@@ -638,6 +670,8 @@ export class PeerConnection implements IPeerConnection {
 
             // Réinitialiser l'état et les collections
             this.readyToNegotiate = false;
+            
+            // S'assurer que les candidats ICE sont correctement nettoyés
             this.iceCandidates = { local: [], remote: [] };
             this.hasRelay = false;
 
@@ -645,6 +679,26 @@ export class PeerConnection implements IPeerConnection {
         } catch (error) {
             console.error('[WebRTC] Error during disconnect:', error);
         }
+    }
+
+    // Tenter de récupérer une connexion en échec en réajoutant tous les candidats ICE
+    private retryAddingIceCandidates() {
+        if (this.iceCandidates.remote.length === 0) {
+            console.log('[WebRTC-ICE] No remote candidates to retry');
+            return;
+        }
+        
+        console.log(`[WebRTC-ICE] Retrying connection with ${this.iceCandidates.remote.length} remote candidates`);
+        
+        // Réessayer d'ajouter tous les candidats ICE distants
+        this.iceCandidates.remote.forEach(async (candidate, index) => {
+            try {
+                await this.pc.addIceCandidate(new RTCIceCandidate(candidate));
+                console.log(`[WebRTC-ICE] Re-added remote candidate ${index + 1}/${this.iceCandidates.remote.length}`);
+            } catch (err) {
+                console.error(`[WebRTC-ICE] Error re-adding candidate ${index + 1}:`, err);
+            }
+        });
     }
 
     // Réinitialiser la connexion RTC peer

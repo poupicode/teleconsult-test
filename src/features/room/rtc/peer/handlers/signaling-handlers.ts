@@ -37,8 +37,19 @@ export async function handleAnswer(pc: RTCPeerConnection, answer: RTCSessionDesc
 
 export async function handleIceCandidate(pc: RTCPeerConnection, candidate: RTCIceCandidateInit) {
     try {
-        await pc.addIceCandidate(new RTCIceCandidate(candidate));
-        console.log('[WebRTC] Added ICE candidate');
+        if (!candidate) {
+            console.warn('[WebRTC] Received null ICE candidate, ignoring');
+            return;
+        }
+        
+        // Vérifier que c'est un candidat valide avant de tenter de l'ajouter
+        if (typeof candidate.candidate === 'string' && candidate.candidate !== '') {
+            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+            console.log('[WebRTC-ICE] ICE candidate added successfully');
+        } else {
+            // Fin de la collecte des candidats
+            console.log('[WebRTC-ICE] End of candidates marker received');
+        }
     } catch (err) {
         console.error('[WebRTC] Error adding ICE candidate:', err);
     }
