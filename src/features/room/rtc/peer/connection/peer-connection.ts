@@ -151,9 +151,18 @@ export class PeerConnection implements IPeerConnection {
 
     // Configuration du débogage ICE avancé
     private setupIceDebugging() {
+        // Nettoyer les timers existants
+        if (this.iceConnectionTimeout) {
+            clearTimeout(this.iceConnectionTimeout);
+            this.iceConnectionTimeout = null;
+        }
+        
+        // Réinitialiser les variables de débogage ICE
         this.iceStartTime = Date.now();
         this.iceCandidates = { local: [], remote: [] };
         this.hasRelay = false;
+
+        console.log('[WebRTC-ICE] Setting up ICE debugging and candidate handling');
 
         // Surveiller les candidats ICE locaux
         this.pc.onicecandidate = (event) => {
@@ -163,7 +172,7 @@ export class PeerConnection implements IPeerConnection {
 
                 // Analyser le candidat
                 this.analyzeIceCandidate(event.candidate, true);
-                
+
                 // Envoyer les candidats ICE à l'autre pair via le service de signalisation
                 this.signaling.sendMessage({
                     type: 'ice-candidate',
@@ -318,7 +327,7 @@ export class PeerConnection implements IPeerConnection {
             return acc;
         }, {});
         console.log('[WebRTC-ICE] Local candidate types:', localTypes);
-        
+
         // Types de candidats distants
         if (this.iceCandidates.remote.length > 0) {
             console.log('[WebRTC-ICE] Remote candidates details:');
@@ -460,7 +469,7 @@ export class PeerConnection implements IPeerConnection {
                     if (message.content) {
                         this.iceCandidates.remote.push(message.content as RTCIceCandidate);
                         this.analyzeIceCandidate(message.content as RTCIceCandidate, false);
-                        
+
                         // Log le nombre de candidats distants pour débogage
                         console.log(`[WebRTC-ICE] Remote candidates count: ${this.iceCandidates.remote.length}`);
                     }
@@ -539,8 +548,19 @@ export class PeerConnection implements IPeerConnection {
     // Connect to signaling service and set up listeners
     async connect() {
         console.log('[WebRTC] Connecting to signaling service');
+        
+        // Réinitialiser l'état avant de se connecter
+        this.readyToNegotiate = false;
+        this.iceCandidates = { local: [], remote: [] };
+        this.hasRelay = false;
+        
+        // Se connecter au service de signalisation
         await this.signaling.connect();
-        this.setupSignalingListeners();
+        
+        // Configurer les écouteurs de signalisation
+        await this.setupSignalingListeners();
+        
+        console.log('[WebRTC] Connected to signaling service and setup completed');
     }
 
     // Créer une offre pour établir la connexion
@@ -593,6 +613,12 @@ export class PeerConnection implements IPeerConnection {
         console.log('[WebRTC] Disconnecting');
 
         try {
+            // Nettoyer les timers
+            if (this.iceConnectionTimeout) {
+                clearTimeout(this.iceConnectionTimeout);
+                this.iceConnectionTimeout = null;
+            }
+            
             // Fermer le canal de données
             this.dataChannelManager.closeDataChannel();
 
@@ -610,8 +636,10 @@ export class PeerConnection implements IPeerConnection {
             console.log('[WebRTC] Disconnecting signaling service');
             await this.signaling.disconnect();
 
-            // Réinitialiser l'état de prêt pour la négociation
+            // Réinitialiser l'état et les collections
             this.readyToNegotiate = false;
+            this.iceCandidates = { local: [], remote: [] };
+            this.hasRelay = false;
 
             console.log('[WebRTC] Disconnection complete');
         } catch (error) {
@@ -626,6 +654,12 @@ export class PeerConnection implements IPeerConnection {
         // Fermer le canal de données
         this.dataChannelManager.closeDataChannel();
 
+        // Nettoyer les timers existants
+        if (this.iceConnectionTimeout) {
+            clearTimeout(this.iceConnectionTimeout);
+            this.iceConnectionTimeout = null;
+        }
+
         // Fermer l'ancienne connexion peer
         this.pc.close();
 
@@ -635,8 +669,15 @@ export class PeerConnection implements IPeerConnection {
         // Recréer une nouvelle connexion peer avec la même configuration
         this.pc = new RTCPeerConnection(iceConfig);
 
-        // Reconfigurer tous les écouteurs d'événements
+        // Réinitialiser les collections de candidats ICE
+        this.iceCandidates = { local: [], remote: [] };
+        this.hasRelay = false;
+
+        // Reconfigurer tous les écouteurs d'événements de base
         this.setupListeners();
+
+        // Reconfigurer le débogage ICE (crucial pour l'envoi des candidats ICE)
+        this.setupIceDebugging();
 
         // Notifier explicitement le changement d'état de connexion, car la nouvelle
         // instance de PeerConnection ne déclenche pas automatiquement l'événement

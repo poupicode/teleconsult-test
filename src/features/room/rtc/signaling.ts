@@ -66,7 +66,7 @@ export class SignalingService {
             .on('broadcast', { event: 'signaling' }, (payload) => {
                 const message = payload.payload as SignalingMessage;
                 console.log(`[Signaling] Received message: ${message.type} from ${message.sender}`);
-                
+
                 // Log plus détaillé pour les candidats ICE
                 if (message.type === 'ice-candidate') {
                     console.log(`[Signaling] Received ICE candidate: ${JSON.stringify(message.content)}`);
@@ -143,7 +143,7 @@ export class SignalingService {
      */
     async sendMessage(message: Omit<SignalingMessage, 'sender'>) {
         console.log(`[Signaling] Sending message: ${message.type}`);
-        
+
         // Log plus détaillé pour les candidats ICE
         if (message.type === 'ice-candidate') {
             console.log(`[Signaling] Sending ICE candidate: ${JSON.stringify(message.content)}`);
