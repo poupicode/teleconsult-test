@@ -66,6 +66,11 @@ export class SignalingService {
             .on('broadcast', { event: 'signaling' }, (payload) => {
                 const message = payload.payload as SignalingMessage;
                 console.log(`[Signaling] Received message: ${message.type} from ${message.sender}`);
+                
+                // Log plus détaillé pour les candidats ICE
+                if (message.type === 'ice-candidate') {
+                    console.log(`[Signaling] Received ICE candidate: ${JSON.stringify(message.content)}`);
+                }
 
                 // Skip messages from self
                 if (message.sender === this.clientId) {
@@ -77,6 +82,8 @@ export class SignalingService {
                 if (!message.receiver || message.receiver === this.clientId) {
                     if (this.messageCallback) {
                         this.messageCallback(message);
+                    } else {
+                        console.warn('[Signaling] Received message but no callback registered to handle it!');
                     }
                 }
             })
@@ -97,7 +104,7 @@ export class SignalingService {
                     stateItem.forEach((presence: any) => {
                         // Log each presence with its properties for debugging
                         console.log(`[Signaling] Presence detected: clientId=${presence.clientId}, role=${presence.role || 'undefined'}`);
-                        
+
                         // Only add presences with valid roles
                         if (presence.clientId && presence.role) {
                             presences.push({
@@ -136,6 +143,11 @@ export class SignalingService {
      */
     async sendMessage(message: Omit<SignalingMessage, 'sender'>) {
         console.log(`[Signaling] Sending message: ${message.type}`);
+        
+        // Log plus détaillé pour les candidats ICE
+        if (message.type === 'ice-candidate') {
+            console.log(`[Signaling] Sending ICE candidate: ${JSON.stringify(message.content)}`);
+        }
 
         const completeMessage = {
             ...message,
@@ -171,7 +183,7 @@ export class SignalingService {
      * This filters out any observers or admin connections without explicit roles
      */
     getValidParticipants(): UserPresence[] {
-        return this.roomPresences.filter(p => 
+        return this.roomPresences.filter(p =>
             p.role === Role.PATIENT || p.role === Role.PRACTITIONER
         );
     }
@@ -186,10 +198,10 @@ export class SignalingService {
         const validParticipants = this.getValidParticipants();
         const hasPatient = validParticipants.some(p => p.role === Role.PATIENT);
         const hasPractitioner = validParticipants.some(p => p.role === Role.PRACTITIONER);
-        
+
         // Log the count of valid participants for debugging
         console.log(`[Signaling] Valid participants: ${validParticipants.length} (Patient: ${hasPatient}, Practitioner: ${hasPractitioner})`);
-        
+
         return hasPatient && hasPractitioner;
     }
 

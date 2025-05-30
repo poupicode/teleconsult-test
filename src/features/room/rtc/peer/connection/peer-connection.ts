@@ -163,6 +163,13 @@ export class PeerConnection implements IPeerConnection {
 
                 // Analyser le candidat
                 this.analyzeIceCandidate(event.candidate, true);
+                
+                // Envoyer les candidats ICE à l'autre pair via le service de signalisation
+                this.signaling.sendMessage({
+                    type: 'ice-candidate',
+                    roomId: this.roomId,
+                    content: event.candidate
+                });
 
                 // Définir un timeout si c'est le premier candidat
                 if (this.iceCandidates.local.length === 1 && !this.iceConnectionTimeout) {
@@ -311,6 +318,16 @@ export class PeerConnection implements IPeerConnection {
             return acc;
         }, {});
         console.log('[WebRTC-ICE] Local candidate types:', localTypes);
+        
+        // Types de candidats distants
+        if (this.iceCandidates.remote.length > 0) {
+            console.log('[WebRTC-ICE] Remote candidates details:');
+            this.iceCandidates.remote.forEach((candidate, index) => {
+                console.log(`[WebRTC-ICE] Remote candidate ${index}:`, candidate);
+            });
+        } else {
+            console.warn('[WebRTC-ICE] No remote candidates received - this is the main reason for connection failure');
+        }
 
         // Vérifier les facteurs courants de défaillance
         if (!this.hasRelay) {
@@ -438,14 +455,18 @@ export class PeerConnection implements IPeerConnection {
                     await handleAnswer(this.pc, message.content as RTCSessionDescriptionInit);
                 }
                 else if (message.type === 'ice-candidate') {
-                    console.log('[WebRTC] Processing ICE candidate');
+                    console.log('[WebRTC] Processing ICE candidate:', JSON.stringify(message.content));
                     // Stocker le candidat distant pour débogage
                     if (message.content) {
                         this.iceCandidates.remote.push(message.content as RTCIceCandidate);
                         this.analyzeIceCandidate(message.content as RTCIceCandidate, false);
+                        
+                        // Log le nombre de candidats distants pour débogage
+                        console.log(`[WebRTC-ICE] Remote candidates count: ${this.iceCandidates.remote.length}`);
                     }
                     // Vérifier que le type est bien un candidat ICE et utiliser un cast de type sécurisé
                     await handleIceCandidate(this.pc, message.content as RTCIceCandidateInit);
+                    console.log('[WebRTC-ICE] ICE candidate added successfully');
                 }
             } catch (err) {
                 console.error('[WebRTC] Error handling signaling message:', err);
