@@ -65,10 +65,6 @@ export class PeerConnection implements IPeerConnection {
     private clientId: string;
     private readyToNegotiate: boolean = false;
 
-    // État de gestion des transitions pour éviter les race conditions
-    private connectionState: 'idle' | 'connecting' | 'connected' | 'disconnecting' | 'waiting_for_stabilization' = 'idle';
-    private pendingResetTimeout: NodeJS.Timeout | null = null;
-
     // ICE debugging
     private iceConnectionTimeout: NodeJS.Timeout | null = null;
     private iceStartTime: number = 0;
@@ -552,14 +548,6 @@ export class PeerConnection implements IPeerConnection {
         this.signaling.onPresenceChange((presences: UserPresence[]) => {
             console.log('[WebRTC] Room presence changed:', presences);
 
-            // Annuler tout timeout de reset en attente lors d'un changement de présence
-            if (this.pendingResetTimeout) {
-                clearTimeout(this.pendingResetTimeout);
-                this.pendingResetTimeout = null;
-                console.log('[WebRTC] Cancelled pending reset due to new presence change');
-                this.connectionState = 'idle';
-            }
-
             // Vérifier si un patient et un praticien sont présents
             const hasPatientAndPractitioner = this.signaling.hasPatientAndPractitioner();
             console.log(`[WebRTC] Room has patient and practitioner: ${hasPatientAndPractitioner}`);
@@ -572,21 +560,13 @@ export class PeerConnection implements IPeerConnection {
                 // Si la salle était prête avant mais ne l'est plus maintenant, cela signifie
                 // qu'un participant s'est déconnecté
                 if (wasReady && !hasPatientAndPractitioner) {
-                    console.log('[WebRTC] A participant disconnected, checking connection state...');
-
-                    // Vérifier qu'on n'est pas déjà en train de traiter une déconnexion
-                    if (this.connectionState === 'waiting_for_stabilization' || this.connectionState === 'disconnecting') {
-                        console.log('[WebRTC] Already handling a disconnection, ignoring this event');
-                        return;
-                    }
+                    console.log('[WebRTC] A participant disconnected, resetting peer connection');
 
                     // Pour le praticien, réinitialiser complètement la connexion
                     if (this.role === Role.PRACTITIONER &&
                         (this.pc.connectionState === 'connected' ||
                             this.pc.connectionState === 'connecting')) {
-                        this.connectionState = 'disconnecting';
                         this.resetPeerConnection();
-                        this.connectionState = 'idle';
                         // La réinitialisation gérera automatiquement la recréation du data channel si nécessaire
                         return; // Sortir tôt pour éviter la logique redondante en bas
                     }
@@ -596,31 +576,18 @@ export class PeerConnection implements IPeerConnection {
                         (this.pc.connectionState === 'connected' ||
                             this.pc.connectionState === 'connecting')) {
                         console.warn('[WebRTC] Practitioner appears disconnected. Waiting before resetting connection...');
-                        
-                        this.connectionState = 'waiting_for_stabilization';
-                        
-                        this.pendingResetTimeout = setTimeout(() => {
-                            // Vérifier que l'état n'a pas changé entre temps
-                            if (this.connectionState !== 'waiting_for_stabilization') {
-                                console.log('[WebRTC] Connection state changed during wait, aborting reset');
-                                return;
-                            }
 
+                        setTimeout(() => {
                             const stillMissing = !this.signaling.hasPatientAndPractitioner();
                             const connectionState = this.pc.connectionState;
 
                             if (stillMissing &&
                                 (connectionState === 'disconnected' || connectionState === 'failed')) {
                                 console.warn('[WebRTC] Practitioner is still absent and connection is not healthy. Resetting...');
-                                this.connectionState = 'disconnecting';
                                 this.resetPeerConnection();
-                                this.connectionState = 'idle';
                             } else {
                                 console.log('[WebRTC] Practitioner reappeared or connection recovered. No reset needed.');
-                                this.connectionState = 'idle';
                             }
-                            
-                            this.pendingResetTimeout = null;
                         }, 3000); // attends 3 secondes avant de décider de reset
 
                         return; // Sortir tôt pour éviter la logique redondante en bas
@@ -633,11 +600,9 @@ export class PeerConnection implements IPeerConnection {
                 }
 
                 // Si la salle est prête et qu'on est le praticien, initialiser la connexion
-                // mais seulement si on n'est pas en train de gérer une déconnexion
-                if (this.readyToNegotiate && this.role === Role.PRACTITIONER && this.connectionState === 'idle') {
+                // mais seulement si on n'a pas fait de reset juste avant
+                if (this.readyToNegotiate && this.role === Role.PRACTITIONER) {
                     console.log('[WebRTC] Room is ready and we are the practitioner, waiting to initiate connection...');
-
-                    this.connectionState = 'connecting';
 
                     // Utiliser setTimeout pour retarder la création du canal de données
                     // Cela donne le temps à la réinitialisation d'être complètement terminée
@@ -645,15 +610,12 @@ export class PeerConnection implements IPeerConnection {
                         // Vérifier que la connexion est toujours valide et que la salle est toujours prête
                         if (this.readyToNegotiate &&
                             this.pc.connectionState !== 'closed' &&
-                            this.pc.signalingState !== 'closed' &&
-                            this.connectionState === 'connecting') {
+                            this.pc.signalingState !== 'closed') {
 
                             console.log('[WebRTC] Creating data channel after delay');
                             this.dataChannelManager.createDataChannel();
-                            this.connectionState = 'connected';
                         } else {
                             console.log('[WebRTC] Connection or room state changed, not creating data channel');
-                            this.connectionState = 'idle';
                         }
                     }, 500); // Délai plus long pour s'assurer que tout est prêt
                 }
@@ -667,7 +629,6 @@ export class PeerConnection implements IPeerConnection {
 
         // Réinitialiser l'état avant de se connecter
         this.readyToNegotiate = false;
-        this.connectionState = 'connecting';
         this.iceCandidates = { local: [], remote: [] };
         this.hasRelay = false;
 
@@ -677,7 +638,6 @@ export class PeerConnection implements IPeerConnection {
         // Configurer les écouteurs de signalisation
         await this.setupSignalingListeners();
 
-        this.connectionState = 'idle';
         console.log('[WebRTC] Connected to signaling service and setup completed');
     }
 
@@ -731,15 +691,6 @@ export class PeerConnection implements IPeerConnection {
         console.log('[WebRTC] Disconnecting from room:', this.roomId);
 
         try {
-            // Annuler tout timeout de reset en attente
-            if (this.pendingResetTimeout) {
-                clearTimeout(this.pendingResetTimeout);
-                this.pendingResetTimeout = null;
-            }
-
-            // Mettre à jour l'état de connexion
-            this.connectionState = 'disconnecting';
-
             // Nettoyer les timers
             if (this.iceConnectionTimeout) {
                 clearTimeout(this.iceConnectionTimeout);
@@ -765,7 +716,6 @@ export class PeerConnection implements IPeerConnection {
 
             // Réinitialiser l'état et les collections
             this.readyToNegotiate = false;
-            this.connectionState = 'idle';
 
             // S'assurer que les candidats ICE sont correctement nettoyés
             this.iceCandidates = { local: [], remote: [] };
