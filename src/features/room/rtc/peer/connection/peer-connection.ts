@@ -95,8 +95,8 @@ export class PeerConnection implements IPeerConnection {
         // Vérifier si les serveurs TURN sont bien configurés
         this.checkTurnConfiguration(iceConfig);
 
-        // TEST: Vérifier explicitement l'accessibilité du serveur TURN (désactivé pour éviter les erreurs de timeout)
-        this.testTurnServer('turn:turn.ekami.ch:3478', 'wei', 'toto1234');
+        // Note: Test TURN désactivé temporairement car il interfère avec la connexion principale
+        // this.testTurnServer('turn:turn.ekami.ch:3478', 'wei', 'toto1234');
 
         // Initialize signaling
         this.signaling = new SignalingService(roomId, clientId, role);
@@ -245,6 +245,23 @@ export class PeerConnection implements IPeerConnection {
                     break;
             }
         };
+    }
+
+    // Méthode pour réessayer d'ajouter tous les candidats ICE en cas d'échec de connexion
+    private async retryAddingIceCandidates() {
+        console.log('[WebRTC-ICE] Retrying to add all accumulated ICE candidates...');
+        
+        // Réessayer d'ajouter tous les candidats distants accumulés
+        for (const candidate of this.iceCandidates.remote) {
+            try {
+                await this.pc.addIceCandidate(new RTCIceCandidate(candidate));
+                console.log('[WebRTC-ICE] Re-added remote ICE candidate:', candidate.candidate);
+            } catch (err) {
+                console.error('[WebRTC-ICE] Failed to re-add remote ICE candidate:', err);
+            }
+        }
+        
+        console.log(`[WebRTC-ICE] Retry complete. ${this.iceCandidates.remote.length} remote candidates re-processed.`);
     }
 
     // Analyse un candidat ICE pour déterminer son type et détecter les problèmes potentiels
@@ -722,26 +739,6 @@ export class PeerConnection implements IPeerConnection {
             });
             store.dispatch({ type: 'webrtc/dataChannelStatusChanged' });
         }
-    }
-
-    // Tenter de récupérer une connexion en échec en réajoutant tous les candidats ICE
-    private retryAddingIceCandidates() {
-        if (this.iceCandidates.remote.length === 0) {
-            console.log('[WebRTC-ICE] No remote candidates to retry');
-            return;
-        }
-
-        console.log(`[WebRTC-ICE] Retrying connection with ${this.iceCandidates.remote.length} remote candidates`);
-
-        // Réessayer d'ajouter tous les candidats ICE distants
-        this.iceCandidates.remote.forEach(async (candidate, index) => {
-            try {
-                await this.pc.addIceCandidate(new RTCIceCandidate(candidate));
-                console.log(`[WebRTC-ICE] Re-added remote candidate ${index + 1}/${this.iceCandidates.remote.length}`);
-            } catch (err) {
-                console.error(`[WebRTC-ICE] Error re-adding candidate ${index + 1}:`, err);
-            }
-        });
     }
 
     // Réinitialiser la connexion RTC peer
