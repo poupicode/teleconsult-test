@@ -19,7 +19,7 @@ export function useDoctorData() {
 
     setDoctorServices((prev) => ({
       ...prev,
-      [service]: measures, // ❗️écrase les anciennes données pour n’afficher que la dernière
+      [service]: measures,
     }));
   };
 

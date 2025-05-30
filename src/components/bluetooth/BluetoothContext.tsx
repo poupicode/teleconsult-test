@@ -1,14 +1,18 @@
 import { useBluetooth } from '../../features/bluetooth/useBluetooth';
 import ServiceCard from './ServiceCard';
 import ButtonConnexionApp from './ButtonConnexionApp';
-import { WebSocketAdapter } from '@/features/bluetooth/WebSocketAdapter';
+import { PeerConnection } from '@/features/room/rtc/peer/connection/peer-connection';
 
-const socket = new WebSocketAdapter('ws://localhost:3001');
+interface BluetoothContextProps {
+  peerConnection: PeerConnection;
+}
 
-export default function BluetoothContext() {
+export default function BluetoothContext({ peerConnection }: BluetoothContextProps) {
   const { status, connectedCards, connect } = useBluetooth({
     onMeasurement: (payload) => {
-      socket.sendMeasurement(payload);
+      if (!peerConnection || !peerConnection.isDataChannelAvailable()) return;
+      const manager = peerConnection.getDataChannelManager();
+      manager.sendMeasurement(payload);
     },
   });
 
