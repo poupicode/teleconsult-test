@@ -64,6 +64,7 @@ export class PeerConnection implements IPeerConnection {
     private roomId: string;
     private clientId: string;
     private readyToNegotiate: boolean = false;
+    private presenceResetTimeout: ReturnType<typeof setTimeout> | null = null;
 
     // ICE debugging
     private iceConnectionTimeout: NodeJS.Timeout | null = null;
@@ -552,6 +553,13 @@ export class PeerConnection implements IPeerConnection {
             const hasPatientAndPractitioner = this.signaling.hasPatientAndPractitioner();
             console.log(`[WebRTC] Room has patient and practitioner: ${hasPatientAndPractitioner}`);
 
+            // Si un reset était prévu mais que les deux sont à nouveau présents, l'annuler
+            if (hasPatientAndPractitioner && this.presenceResetTimeout) {
+                clearTimeout(this.presenceResetTimeout);
+                this.presenceResetTimeout = null;
+                console.log('[WebRTC] Participant reconnected before timeout — reset cancelled');
+            }
+
             // Si le statut a changé, mettre à jour et notifier
             if (this.readyToNegotiate !== hasPatientAndPractitioner) {
                 const wasReady = this.readyToNegotiate;
@@ -568,7 +576,11 @@ export class PeerConnection implements IPeerConnection {
                             this.pc.connectionState === 'connecting')) {
                         console.warn('[WebRTC] Patient appears disconnected. Waiting before resetting connection...');
 
-                        setTimeout(() => {
+                        if (this.presenceResetTimeout) {
+                            clearTimeout(this.presenceResetTimeout);
+                        }
+
+                        this.presenceResetTimeout = setTimeout(() => {
                             const stillMissing = !this.signaling.hasPatientAndPractitioner();
                             const connectionState = this.pc.connectionState;
 
@@ -579,7 +591,9 @@ export class PeerConnection implements IPeerConnection {
                             } else {
                                 console.log('[WebRTC] Patient reappeared or connection recovered. No reset needed.');
                             }
-                        }, 3000); // attends 3 secondes avant de décider de reset
+
+                            this.presenceResetTimeout = null;
+                        }, 3000);
 
                         return; // Sortir tôt pour éviter la logique redondante en bas
                     }
@@ -590,7 +604,11 @@ export class PeerConnection implements IPeerConnection {
                             this.pc.connectionState === 'connecting')) {
                         console.warn('[WebRTC] Practitioner appears disconnected. Waiting before resetting connection...');
 
-                        setTimeout(() => {
+                        if (this.presenceResetTimeout) {
+                            clearTimeout(this.presenceResetTimeout);
+                        }
+
+                        this.presenceResetTimeout = setTimeout(() => {
                             const stillMissing = !this.signaling.hasPatientAndPractitioner();
                             const connectionState = this.pc.connectionState;
 
@@ -601,7 +619,9 @@ export class PeerConnection implements IPeerConnection {
                             } else {
                                 console.log('[WebRTC] Practitioner reappeared or connection recovered. No reset needed.');
                             }
-                        }, 3000); // attends 3 secondes avant de décider de reset
+
+                            this.presenceResetTimeout = null;
+                        }, 3000);
 
                         return; // Sortir tôt pour éviter la logique redondante en bas
                     }
@@ -710,6 +730,12 @@ export class PeerConnection implements IPeerConnection {
                 this.iceConnectionTimeout = null;
             }
 
+            // Nettoyer le timeout de reset de présence
+            if (this.presenceResetTimeout) {
+                clearTimeout(this.presenceResetTimeout);
+                this.presenceResetTimeout = null;
+            }
+
             // Fermer le canal de données
             this.dataChannelManager.closeDataChannel();
 
@@ -778,6 +804,12 @@ export class PeerConnection implements IPeerConnection {
         if (this.iceConnectionTimeout) {
             clearTimeout(this.iceConnectionTimeout);
             this.iceConnectionTimeout = null;
+        }
+
+        // Nettoyer le timeout de reset de présence
+        if (this.presenceResetTimeout) {
+            clearTimeout(this.presenceResetTimeout);
+            this.presenceResetTimeout = null;
         }
 
         // Désactiver tous les gestionnaires d'événements de la connexion peer
