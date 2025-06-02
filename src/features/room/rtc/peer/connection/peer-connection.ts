@@ -80,6 +80,9 @@ export class PeerConnection implements IPeerConnection {
     // Constantes exportées pour compatibilité
     public readonly ROLE = Role;
 
+    // Pour éviter les boucles infinies
+    private hasSentForceReset: boolean = false;
+
     constructor(roomId: string, clientId: string, role: Role) {
         console.log(`[WebRTC] Creating PeerConnection with role: ${role}, roomId: ${roomId}, clientId: ${clientId}`);
         this.roomId = roomId;
@@ -164,6 +167,7 @@ export class PeerConnection implements IPeerConnection {
         this.iceStartTime = Date.now();
         this.iceCandidates = { local: [], remote: [] };
         this.hasRelay = false;
+        this.hasSentForceReset = false; // Reset du flag à chaque nouvelle connexion
 
         console.log('[WebRTC-ICE] Setting up ICE debugging and candidate handling');
 
@@ -233,6 +237,7 @@ export class PeerConnection implements IPeerConnection {
                         clearTimeout(this.iceConnectionTimeout);
                         this.iceConnectionTimeout = null;
                     }
+                    this.hasSentForceReset = false; // Reset du flag si la connexion redevient saine
                     console.log(`[WebRTC-ICE] Connection established in ${Date.now() - this.iceStartTime}ms`);
                     console.log(`[WebRTC-ICE] Using TURN relay: ${this.hasRelay ? 'Yes' : 'No/Unknown'}`);
 
@@ -243,6 +248,21 @@ export class PeerConnection implements IPeerConnection {
                 case 'failed':
                     console.error('[WebRTC-ICE] Connection failed. This is likely due to a TURN server issue or network restriction.');
                     this.logIceStats();
+                    // Envoi du signal de reset global si pas déjà fait
+                    if (!this.hasSentForceReset) {
+                        this.hasSentForceReset = true;
+                        this.signaling.sendMessage({
+                            type: 'force-reset',
+                            roomId: this.roomId,
+                            content: { reason: 'ice-failed' }
+                        }).catch((err) => {
+                            console.error('[WebRTC-ICE] Failed to send force-reset:', err);
+                        });
+                        // On reset aussi localement pour ne pas attendre la réponse
+                        setTimeout(() => {
+                            this.resetPeerConnection();
+                        }, 200);
+                    }
                     break;
             }
         };
@@ -540,6 +560,14 @@ export class PeerConnection implements IPeerConnection {
                     await handleIceCandidate(this.pc, message.content as RTCIceCandidateInit);
                     console.log('[WebRTC-ICE] ICE candidate added successfully');
                 }
+                else if (message.type === 'force-reset') {
+                    console.warn('[WebRTC] Received force-reset signal, resetting peer connection!');
+                    // Protection anti-boucle : ne reset qu'une fois par passage en failed
+                    if (!this.hasSentForceReset) {
+                        this.hasSentForceReset = true;
+                        this.resetPeerConnection();
+                    }
+                }
             } catch (err) {
                 console.error('[WebRTC] Error handling signaling message:', err);
             }
@@ -832,6 +860,7 @@ export class PeerConnection implements IPeerConnection {
         // Réinitialiser les collections de candidats ICE
         this.iceCandidates = { local: [], remote: [] };
         this.hasRelay = false;
+        this.hasSentForceReset = false; // Reset du flag à chaque reset
 
         // NOTE: Ne pas réinitialiser this.readyToNegotiate ici car cet état doit être géré
         // par la logique de présence. Si on le remet à false, cela empêche la reconnexion

@@ -12,11 +12,11 @@ import { Role } from './peer';
  * Represents a signaling message exchanged between peers
  */
 export type SignalingMessage = {
-    type: 'offer' | 'answer' | 'ice-candidate';  // Type of signaling message
+    type: 'offer' | 'answer' | 'ice-candidate' | 'force-reset';  // Ajout de 'force-reset'
     sender: string;                              // Client ID of the sender
     receiver?: string;                           // Optional target client ID
     roomId: string;                              // Room identifier
-    content: RTCSessionDescriptionInit | RTCIceCandidateInit;  // WebRTC specific content
+    content: RTCSessionDescriptionInit | RTCIceCandidateInit | { reason?: string } | null;  // Content générique
     created_at?: Date;                           // Message timestamp
 };
 
