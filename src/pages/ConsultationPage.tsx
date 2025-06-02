@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Button, Collapse } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Collapse, Alert } from 'react-bootstrap';
 import { useSelector, useDispatch } from 'react-redux';
 import RoomBrowser from '@/components/room/RoomBrowser';
 import RoomList from '@/components/room/RoomList';
@@ -10,6 +10,7 @@ import { roomIdUpdated } from '@/features/room/roomSlice';
 import { RoomSupabase } from '@/features/room/roomSupabase';
 import { MdAddIcCall } from 'react-icons/md';
 import { PeerConnection } from '@/features/room/rtc/peer';
+import { useRoomPersistence } from '@/hooks/useRoomPersistence';
 
 export default function ConsultationPage() {
     const userKind = useSelector((state: RootState) => state.user.user_kind);
@@ -18,6 +19,22 @@ export default function ConsultationPage() {
     const [showRoomBrowser, setShowRoomBrowser] = useState(false);
     const [roomName, setRoomName] = useState<string>('');
     const [peerConnection, setPeerConnection] = useState<PeerConnection | null>(null);
+    const [showRestorationMessage, setShowRestorationMessage] = useState(false);
+
+    // Hook de persistance des rooms
+    const { hasPersistedRoom, persistedRoomId } = useRoomPersistence();
+
+    // Afficher un message de restauration si une room a été restaurée
+    useEffect(() => {
+        if (hasPersistedRoom && persistedRoomId) {
+            setShowRestorationMessage(true);
+            // Masquer le message après 5 secondes
+            const timer = setTimeout(() => {
+                setShowRestorationMessage(false);
+            }, 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [hasPersistedRoom, persistedRoomId]);
 
     const handleDisconnect = async () => {
         // Déconnecter explicitement le PeerConnection avant de quitter la salle
@@ -75,6 +92,22 @@ export default function ConsultationPage() {
 
     return (
         <Container fluid className="mt-4">
+            {/* Message de restauration de room */}
+            {showRestorationMessage && (
+                <Row className="mb-3">
+                    <Col>
+                        <Alert 
+                            variant="success" 
+                            dismissible 
+                            onClose={() => setShowRestorationMessage(false)}
+                        >
+                            <Alert.Heading>Consultation restaurée</Alert.Heading>
+                            Vous avez été automatiquement reconnecté à votre consultation précédente.
+                        </Alert>
+                    </Col>
+                </Row>
+            )}
+            
             <Row>
                 {/* Colonne gauche : Espace pour des fonctionnalités futures */}
                 <Col md={3}>
