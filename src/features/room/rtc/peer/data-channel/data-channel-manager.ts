@@ -76,7 +76,7 @@ export class DataChannelManager {
         channel.onerror = (error) => {
             // Vérifier si c'est une fermeture normale par l'autre participant
             const rtcError = (error as RTCErrorEvent).error;
-            if (rtcError && rtcError.name === 'OperationError' && 
+            if (rtcError && rtcError.name === 'OperationError' &&
                 rtcError.message.includes('User-Initiated Abort')) {
                 console.log('[WebRTC] Data channel closed by remote peer (normal)');
             } else {
