@@ -100,19 +100,23 @@ export class SignalingService {
 
                 // Convert presence state to user presences array
                 const presences: UserPresence[] = [];
-                Object.values(state).forEach((stateItem: any) => {
-                    stateItem.forEach((presence: any) => {
+                console.log('[Signaling] Raw presence state keys:', Object.keys(state));
+                Object.entries(state).forEach(([key, stateItem]: [string, any]) => {
+                    console.log(`[Signaling] Processing presence key: ${key}, items:`, stateItem);
+                    stateItem.forEach((presence: any, index: number) => {
                         // Log each presence with its properties for debugging
-                        console.log(`[Signaling] Presence detected: clientId=${presence.clientId}, role=${presence.role || 'undefined'}`);
+                        console.log(`[Signaling] Presence detected [${index}]: clientId=${presence.clientId}, role=${presence.role || 'undefined'}, online_at=${presence.online_at}`);
 
-                        // Only add presences with valid roles
-                        if (presence.clientId && presence.role) {
+                        // Only add presences with valid roles and ensure they are recent/active
+                        if (presence.clientId && presence.role && 
+                            (presence.role === Role.PATIENT || presence.role === Role.PRACTITIONER)) {
                             presences.push({
                                 clientId: presence.clientId,
                                 role: presence.role
                             });
+                            console.log(`[Signaling] Added valid presence: ${presence.clientId} as ${presence.role}`);
                         } else {
-                            console.log('[Signaling] Ignoring presence without valid clientId or role');
+                            console.log(`[Signaling] Ignoring invalid/ghost presence: clientId=${presence.clientId}, role=${presence.role}`);
                         }
                     });
                 });
@@ -201,6 +205,7 @@ export class SignalingService {
 
         // Log the count of valid participants for debugging
         console.log(`[Signaling] Valid participants: ${validParticipants.length} (Patient: ${hasPatient}, Practitioner: ${hasPractitioner})`);
+        console.log(`[Signaling] Valid participants details:`, validParticipants.map(p => `${p.clientId}:${p.role}`));
 
         return hasPatient && hasPractitioner;
     }
@@ -226,6 +231,7 @@ export class SignalingService {
      */
     async disconnect() {
         console.log('[Signaling] Disconnecting from room:', this.roomId);
+        console.log('[Signaling] Client disconnecting:', this.clientId, 'with role:', this.role);
 
         try {
             // Quitter la présence en premier pour s'assurer que les autres participants
@@ -243,8 +249,8 @@ export class SignalingService {
                     console.warn('[Signaling] Error untracking presence:', err);
                 }
 
-                // Wait a moment to ensure the untrack propagates
-                await new Promise(resolve => setTimeout(resolve, 200));
+                // Wait a longer moment to ensure the untrack propagates properly
+                await new Promise(resolve => setTimeout(resolve, 500));
 
                 try {
                     // Vérifier si le canal existe et possède une méthode unsubscribe

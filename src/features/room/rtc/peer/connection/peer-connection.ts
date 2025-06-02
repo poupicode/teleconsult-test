@@ -750,6 +750,7 @@ export class PeerConnection implements IPeerConnection {
     // Close the connection
     async disconnect() {
         console.log('[WebRTC] Disconnecting from room:', this.roomId);
+        console.log('[WebRTC] Client disconnecting:', this.clientId, 'with role:', this.role);
 
         try {
             // Nettoyer les timers
