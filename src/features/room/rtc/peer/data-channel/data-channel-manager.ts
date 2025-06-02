@@ -23,11 +23,14 @@ export class DataChannelManager {
     createDataChannel(): RTCDataChannel | null {
         try {
             if (this.dataChannel) {
-                if (this.dataChannel.readyState !== 'closed') {
-                    console.log('[WebRTC] Data channel already exists and is usable, reusing existing channel');
+                if (this.dataChannel.readyState === 'open') {
+                    console.log('[WebRTC] Data channel already exists and is open, reusing it');
                     return this.dataChannel;
+                } else if (this.dataChannel.readyState === 'closing' || this.dataChannel.readyState === 'connecting') {
+                    console.warn('[WebRTC] Data channel is not usable (state: ' + this.dataChannel.readyState + '), creating new one');
+                    this.closeDataChannel(); // force cleanup
                 } else {
-                    console.warn('[WebRTC] Existing data channel is closed, resetting it');
+                    console.warn('[WebRTC] Existing data channel is closed, creating new one');
                     this.dataChannel = null;
                 }
             }
