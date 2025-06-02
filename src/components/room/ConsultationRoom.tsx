@@ -78,34 +78,12 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
 
   // Cleanup effect - only runs on component unmount
   useEffect(() => {
-    // Handle page unload/refresh to ensure proper cleanup
-    const handleBeforeUnload = (event: Event) => {
-      if (peerConnection) {
-        console.log('[ConsultationRoom] Page unloading, ensuring peer connection cleanup');
-        // Must be synchronous - browsers ignore promises in beforeunload
-        try {
-          // Call disconnect without await - fire and forget for immediate cleanup
-          peerConnection.disconnect();
-        } catch (error) {
-          console.error('[ConsultationRoom] Error during beforeunload cleanup:', error);
-        }
-      }
-    };
-
-    // Add event listener for page unload
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
     return () => {
-      // Remove event listener
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      
-      // Component unmount cleanup
       if (peerConnection) {
-        console.log('[ConsultationRoom] Component unmounting, disconnecting peer connection');
         peerConnection.disconnect();
       }
     };
-  }, [peerConnection]);
+  }, []);
 
   // Expose peerConnection to parent component when it changes
   useEffect(() => {
@@ -182,9 +160,6 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
     }
   };
 
-  // Détermine le rôle opposé pour l'affichage
-  const otherRole = userRole === Role.PRACTITIONER ? 'Patient' : 'Praticien';
-
   return (
     <div className="p-4">
       <h2 className="mb-4">Consultation Room</h2>
@@ -200,12 +175,12 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
             État de la connexion: <strong>{connectionStatus}</strong>
             {roomReady && (
               <Badge bg="success" className="ms-2">
-                Salle prête ({otherRole} connecté)
+                Salle prête ({userRole === Role.PRACTITIONER ? 'Patient connecté' : 'Praticien connecté'})
               </Badge>
             )}
             {!roomReady && (
               <Badge bg="warning" className="ms-2">
-                En attente du {otherRole.toLowerCase()}
+                En attente {userRole === Role.PRACTITIONER ? 'du patient' : 'du praticien'}
               </Badge>
             )}
           </Alert>

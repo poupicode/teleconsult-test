@@ -12,11 +12,11 @@ import { Role } from './peer';
  * Represents a signaling message exchanged between peers
  */
 export type SignalingMessage = {
-    type: 'offer' | 'answer' | 'ice-candidate' | 'force-reset';  // Ajout de 'force-reset'
+    type: 'offer' | 'answer' | 'ice-candidate';  // Type of signaling message
     sender: string;                              // Client ID of the sender
     receiver?: string;                           // Optional target client ID
     roomId: string;                              // Room identifier
-    content: RTCSessionDescriptionInit | RTCIceCandidateInit | { reason?: string } | null;  // Content générique
+    content: RTCSessionDescriptionInit | RTCIceCandidateInit;  // WebRTC specific content
     created_at?: Date;                           // Message timestamp
 };
 
@@ -100,23 +100,19 @@ export class SignalingService {
 
                 // Convert presence state to user presences array
                 const presences: UserPresence[] = [];
-                console.log('[Signaling] Raw presence state keys:', Object.keys(state));
-                Object.entries(state).forEach(([key, stateItem]: [string, any]) => {
-                    console.log(`[Signaling] Processing presence key: ${key}, items:`, stateItem);
-                    stateItem.forEach((presence: any, index: number) => {
+                Object.values(state).forEach((stateItem: any) => {
+                    stateItem.forEach((presence: any) => {
                         // Log each presence with its properties for debugging
-                        console.log(`[Signaling] Presence detected [${index}]: clientId=${presence.clientId}, role=${presence.role || 'undefined'}, online_at=${presence.online_at}`);
+                        console.log(`[Signaling] Presence detected: clientId=${presence.clientId}, role=${presence.role || 'undefined'}`);
 
-                        // Only add presences with valid roles and ensure they are recent/active
-                        if (presence.clientId && presence.role && 
-                            (presence.role === Role.PATIENT || presence.role === Role.PRACTITIONER)) {
+                        // Only add presences with valid roles
+                        if (presence.clientId && presence.role) {
                             presences.push({
                                 clientId: presence.clientId,
                                 role: presence.role
                             });
-                            console.log(`[Signaling] Added valid presence: ${presence.clientId} as ${presence.role}`);
                         } else {
-                            console.log(`[Signaling] Ignoring invalid/ghost presence: clientId=${presence.clientId}, role=${presence.role}`);
+                            console.log('[Signaling] Ignoring presence without valid clientId or role');
                         }
                     });
                 });
@@ -205,7 +201,6 @@ export class SignalingService {
 
         // Log the count of valid participants for debugging
         console.log(`[Signaling] Valid participants: ${validParticipants.length} (Patient: ${hasPatient}, Practitioner: ${hasPractitioner})`);
-        console.log(`[Signaling] Valid participants details:`, validParticipants.map(p => `${p.clientId}:${p.role}`));
 
         return hasPatient && hasPractitioner;
     }
@@ -231,7 +226,6 @@ export class SignalingService {
      */
     async disconnect() {
         console.log('[Signaling] Disconnecting from room:', this.roomId);
-        console.log('[Signaling] Client disconnecting:', this.clientId, 'with role:', this.role);
 
         try {
             // Quitter la présence en premier pour s'assurer que les autres participants
@@ -249,8 +243,8 @@ export class SignalingService {
                     console.warn('[Signaling] Error untracking presence:', err);
                 }
 
-                // Wait a longer moment to ensure the untrack propagates properly
-                await new Promise(resolve => setTimeout(resolve, 500));
+                // Wait a moment to ensure the untrack propagates
+                await new Promise(resolve => setTimeout(resolve, 200));
 
                 try {
                     // Vérifier si le canal existe et possède une méthode unsubscribe
