@@ -23,8 +23,13 @@ export class DataChannelManager {
     createDataChannel(): RTCDataChannel | null {
         try {
             if (this.dataChannel) {
-                console.log('[WebRTC] Data channel already exists, reusing existing channel');
-                return this.dataChannel;
+                if (this.dataChannel.readyState !== 'closed') {
+                    console.log('[WebRTC] Data channel already exists and is usable, reusing existing channel');
+                    return this.dataChannel;
+                } else {
+                    console.warn('[WebRTC] Existing data channel is closed, resetting it');
+                    this.dataChannel = null;
+                }
             }
 
             // Récupérer la connexion actuelle au moment de créer le canal
@@ -186,7 +191,7 @@ export class DataChannelManager {
             this.dataChannel.onmessage = null;
 
             console.log(`[WebRTC] Closing data channel for room: ${this.roomId}`);
-            
+
             try {
                 // Check the state before closing to avoid errors
                 if (this.dataChannel.readyState !== 'closed') {
@@ -199,12 +204,19 @@ export class DataChannelManager {
                 console.error('[WebRTC] Error while closing data channel:', err);
             } finally {
                 this.dataChannel = null;
-                
+
                 // Forcer une mise à jour de l'interface pour notifier les composants
                 // que le canal n'est plus disponible
                 store.dispatch({ type: 'webrtc/dataChannelStatusChanged' });
                 console.log('[WebRTC] DataChannel reference cleared');
+                this.onChatMessageCallback = null;
             }
         }
+    }
+
+    // Forcer la fermeture du data channel avec une raison
+    forceCloseDataChannel(reason?: string) {
+        console.warn(`[WebRTC] Forcing data channel closure. Reason: ${reason}`);
+        this.closeDataChannel();
     }
 }
