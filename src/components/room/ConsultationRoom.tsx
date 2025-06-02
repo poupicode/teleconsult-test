@@ -160,6 +160,9 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
     }
   };
 
+  // Détermine le rôle opposé pour l'affichage
+  const otherRole = userRole === Role.PRACTITIONER ? 'Patient' : 'Praticien';
+
   return (
     <div className="p-4">
       <h2 className="mb-4">Consultation Room</h2>
@@ -175,12 +178,12 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
             État de la connexion: <strong>{connectionStatus}</strong>
             {roomReady && (
               <Badge bg="success" className="ms-2">
-                Salle prête ({userRole === Role.PRACTITIONER ? 'Patient connecté' : 'Praticien connecté'})
+                Salle prête ({otherRole} connecté)
               </Badge>
             )}
             {!roomReady && (
               <Badge bg="warning" className="ms-2">
-                En attente {userRole === Role.PRACTITIONER ? 'du patient' : 'du praticien'}
+                En attente du {otherRole.toLowerCase()}
               </Badge>
             )}
           </Alert>
