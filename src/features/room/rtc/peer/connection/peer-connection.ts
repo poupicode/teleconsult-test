@@ -558,6 +558,8 @@ export class PeerConnection implements IPeerConnection {
                 clearTimeout(this.presenceResetTimeout);
                 this.presenceResetTimeout = null;
                 console.log('[WebRTC] Participant reconnected before timeout — reset cancelled');
+                console.log('[WebRTC] Resuming existing connection, no need to reinitialize');
+                return; // Sortir immédiatement car on récupère la connexion existante
             }
 
             // Si le statut a changé, mettre à jour et notifier
@@ -637,18 +639,25 @@ export class PeerConnection implements IPeerConnection {
                 if (this.readyToNegotiate && this.role === Role.PRACTITIONER) {
                     console.log('[WebRTC] Room is ready and we are the practitioner, waiting to initiate connection...');
 
+                    // Vérifier si un DataChannel existe déjà
+                    if (this.dataChannelManager.isDataChannelAvailable()) {
+                        console.log('[WebRTC] DataChannel already exists and is available, no need to create a new one');
+                        return; // Pas besoin de créer un nouveau canal
+                    }
+
                     // Utiliser setTimeout pour retarder la création du canal de données
                     // Cela donne le temps à la réinitialisation d'être complètement terminée
                     setTimeout(() => {
                         // Vérifier que la connexion est toujours valide et que la salle est toujours prête
                         if (this.readyToNegotiate &&
                             this.pc.connectionState !== 'closed' &&
-                            this.pc.signalingState !== 'closed') {
+                            this.pc.signalingState !== 'closed' &&
+                            !this.dataChannelManager.isDataChannelAvailable()) { // Vérifier à nouveau
 
                             console.log('[WebRTC] Creating data channel after delay');
                             this.dataChannelManager.createDataChannel();
                         } else {
-                            console.log('[WebRTC] Connection or room state changed, not creating data channel');
+                            console.log('[WebRTC] Connection or room state changed, or DataChannel already exists, not creating data channel');
                         }
                     }, 500); // Délai plus long pour s'assurer que tout est prêt
                 }

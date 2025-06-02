@@ -23,7 +23,7 @@ export class DataChannelManager {
     createDataChannel(): RTCDataChannel | null {
         try {
             if (this.dataChannel) {
-                console.log('[WebRTC] Data channel already exists');
+                console.log('[WebRTC] Data channel already exists, reusing existing channel');
                 return this.dataChannel;
             }
 
