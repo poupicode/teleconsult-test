@@ -639,27 +639,34 @@ export class PeerConnection implements IPeerConnection {
                 if (this.readyToNegotiate && this.role === Role.PRACTITIONER) {
                     console.log('[WebRTC] Room is ready and we are the practitioner, waiting to initiate connection...');
 
-                    // Vérifier si un DataChannel existe déjà
-                    if (this.dataChannelManager.isDataChannelAvailable()) {
-                        console.log('[WebRTC] DataChannel already exists and is available, no need to create a new one');
-                        return; // Pas besoin de créer un nouveau canal
+                    const shouldReset =
+                        this.pc.connectionState === 'disconnected' ||
+                        this.pc.connectionState === 'failed' ||
+                        this.pc.signalingState === 'closed';
+
+                    if (shouldReset) {
+                        console.warn('[WebRTC] PeerConnection is not healthy, forcing reset...');
+                        this.resetPeerConnection();
+                        return;
                     }
 
-                    // Utiliser setTimeout pour retarder la création du canal de données
-                    // Cela donne le temps à la réinitialisation d'être complètement terminée
+                    if (this.dataChannelManager.isDataChannelAvailable()) {
+                        console.log('[WebRTC] DataChannel already exists and is available, no need to create a new one');
+                        return;
+                    }
+
                     setTimeout(() => {
-                        // Vérifier que la connexion est toujours valide et que la salle est toujours prête
                         if (this.readyToNegotiate &&
                             this.pc.connectionState !== 'closed' &&
                             this.pc.signalingState !== 'closed' &&
-                            !this.dataChannelManager.isDataChannelAvailable()) { // Vérifier à nouveau
+                            !this.dataChannelManager.isDataChannelAvailable()) {
 
                             console.log('[WebRTC] Creating data channel after delay');
                             this.dataChannelManager.createDataChannel();
                         } else {
                             console.log('[WebRTC] Connection or room state changed, or DataChannel already exists, not creating data channel');
                         }
-                    }, 500); // Délai plus long pour s'assurer que tout est prêt
+                    }, 500);
                 }
             }
         });
