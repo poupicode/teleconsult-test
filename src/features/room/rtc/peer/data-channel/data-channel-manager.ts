@@ -74,7 +74,14 @@ export class DataChannelManager {
         };
 
         channel.onerror = (error) => {
-            console.error('[WebRTC] Data channel error:', error);
+            // Vérifier si c'est une fermeture normale par l'autre participant
+            const rtcError = (error as RTCErrorEvent).error;
+            if (rtcError && rtcError.name === 'OperationError' && 
+                rtcError.message.includes('User-Initiated Abort')) {
+                console.log('[WebRTC] Data channel closed by remote peer (normal)');
+            } else {
+                console.error('[WebRTC] Data channel error:', error);
+            }
             // Forcer une mise à jour de l'interface
             store.dispatch({ type: 'webrtc/dataChannelStatusChanged' });
         };
@@ -104,6 +111,11 @@ export class DataChannelManager {
                         if (this.onChatMessageCallback) {
                             this.onChatMessageCallback(chatMessage);
                         }
+                        break;
+
+                    case 'channel_closing':
+                        console.log('[WebRTC] Remote peer is closing data channel gracefully');
+                        // Pas besoin de faire quoi que ce soit, le canal va se fermer naturellement
                         break;
 
                     // Ajouter d'autres types de messages ici
@@ -187,6 +199,15 @@ export class DataChannelManager {
     // Fermer le canal de données
     closeDataChannel() {
         if (this.dataChannel) {
+            // Envoyer un message de fermeture gracieuse avant de fermer
+            try {
+                if (this.dataChannel.readyState === 'open') {
+                    this.sendDataChannelMessage('channel_closing', { reason: 'graceful_shutdown' });
+                }
+            } catch (err) {
+                console.warn('[WebRTC] Could not send closing message:', err);
+            }
+
             // Désactiver les gestionnaires d'événements avant de fermer pour éviter les erreurs
             this.dataChannel.onopen = null;
             this.dataChannel.onclose = null;
