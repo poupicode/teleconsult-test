@@ -129,13 +129,14 @@ export class PeerConnection implements IPeerConnection {
             this.role
         );
 
-        // Initialize Perfect Negotiation
+        // Initialize Perfect Negotiation with reference to this PeerConnection instance
         this.perfectNegotiation = new PerfectNegotiation(
             this.pc,
             this.signaling,
             this.roomId,
             this.clientId,
-            this.role
+            this.role,
+            this // Pass reference to PeerConnection for DataChannel triggering
         );
 
         // Register callback for connection state changes
@@ -233,7 +234,7 @@ export class PeerConnection implements IPeerConnection {
                 case 'failed':
                     console.error('[WebRTC-ICE] Connection failed. This is likely due to a TURN server issue or network restriction.');
                     this.logIceStats();
-                    
+
                     // Try Perfect Negotiation automatic reconnection if both peers are still present
                     if (this.signaling.hasPatientAndPractitioner()) {
                         console.log('[WebRTC-ICE] Both peers present, attempting Perfect Negotiation reconnection...');
@@ -247,10 +248,10 @@ export class PeerConnection implements IPeerConnection {
 
                 case 'disconnected':
                     console.warn('[WebRTC-ICE] Connection disconnected, monitoring for recovery...');
-                    
+
                     // Give Perfect Negotiation time to handle reconnection automatically
                     setTimeout(() => {
-                        if (this.pc.iceConnectionState === 'disconnected' && 
+                        if (this.pc.iceConnectionState === 'disconnected' &&
                             this.signaling.hasPatientAndPractitioner()) {
                             console.log('[WebRTC-ICE] Still disconnected with both peers present, attempting Perfect Negotiation reconnection...');
                             this.perfectNegotiation.attemptReconnection();
@@ -549,19 +550,19 @@ export class PeerConnection implements IPeerConnection {
                     // Only reset if connection is truly failed and patient is still absent
                     if (this.role === Role.PRACTITIONER) {
                         // Check if connection failed while patient is absent
-                        const connectionFailed = this.pc.connectionState === 'failed' || 
-                                               (this.pc.connectionState === 'disconnected' && 
-                                                this.pc.iceConnectionState === 'failed');
-                        
+                        const connectionFailed = this.pc.connectionState === 'failed' ||
+                            (this.pc.connectionState === 'disconnected' &&
+                                this.pc.iceConnectionState === 'failed');
+
                         const patientAbsent = !this.signaling.hasPatientAndPractitioner();
-                        
+
                         if (connectionFailed && patientAbsent) {
                             console.warn('[WebRTC] Connection failed and patient absent. Resetting immediately...');
                             this.resetPeerConnection();
                             return;
                         }
-                        
-                        if (patientAbsent && 
+
+                        if (patientAbsent &&
                             (this.pc.connectionState === 'connected' || this.pc.connectionState === 'connecting')) {
                             console.warn('[WebRTC] Patient absent but connection still active. Waiting before reset...');
 
@@ -571,7 +572,7 @@ export class PeerConnection implements IPeerConnection {
 
                             this.presenceResetTimeout = setTimeout(() => {
                                 const stillMissing = !this.signaling.hasPatientAndPractitioner();
-                                
+
                                 if (stillMissing) {
                                     console.warn('[WebRTC] Patient still absent after timeout. Resetting...');
                                     this.resetPeerConnection();
@@ -590,19 +591,19 @@ export class PeerConnection implements IPeerConnection {
                     // Only reset if connection is truly failed and practitioner is still absent
                     if (this.role === Role.PATIENT) {
                         // Check if connection failed while practitioner is absent
-                        const connectionFailed = this.pc.connectionState === 'failed' || 
-                                               (this.pc.connectionState === 'disconnected' && 
-                                                this.pc.iceConnectionState === 'failed');
-                        
+                        const connectionFailed = this.pc.connectionState === 'failed' ||
+                            (this.pc.connectionState === 'disconnected' &&
+                                this.pc.iceConnectionState === 'failed');
+
                         const practitionerAbsent = !this.signaling.hasPatientAndPractitioner();
-                        
+
                         if (connectionFailed && practitionerAbsent) {
                             console.warn('[WebRTC] Connection failed and practitioner absent. Resetting immediately...');
                             this.resetPeerConnection();
                             return;
                         }
-                        
-                        if (practitionerAbsent && 
+
+                        if (practitionerAbsent &&
                             (this.pc.connectionState === 'connected' || this.pc.connectionState === 'connecting')) {
                             console.warn('[WebRTC] Practitioner absent but connection still active. Waiting before reset...');
 
@@ -612,7 +613,7 @@ export class PeerConnection implements IPeerConnection {
 
                             this.presenceResetTimeout = setTimeout(() => {
                                 const stillMissing = !this.signaling.hasPatientAndPractitioner();
-                                
+
                                 if (stillMissing) {
                                     console.warn('[WebRTC] Practitioner still absent after timeout. Resetting...');
                                     this.resetPeerConnection();
@@ -639,25 +640,12 @@ export class PeerConnection implements IPeerConnection {
                     const roleInfo = this.perfectNegotiation.getRoleInfo();
                     debugLog(`[WebRTC] Room ready for P2P connection. Role info:`, roleInfo);
                     
-                    // Only the impolite peer (first to arrive) should create the data channel
-                    if (!roleInfo.isPolite && !this.dataChannelManager.isDataChannelAvailable()) {
-                        debugLog('[WebRTC] Impolite peer creating data channel to initiate P2P connection...');
-                        
-                        setTimeout(() => {
-                            if (this.readyToNegotiate &&
-                                this.pc.connectionState !== 'closed' &&
-                                this.pc.signalingState !== 'closed' &&
-                                !this.dataChannelManager.isDataChannelAvailable()) {
-
-                                debugLog('[WebRTC] Creating data channel for P2P initiation');
-                                this.dataChannelManager.createDataChannel();
-                            } else {
-                                debugLog('[WebRTC] Connection state changed or DataChannel already exists, skipping creation');
-                            }
-                        }, 500);
-                    } else if (roleInfo.isPolite) {
-                        debugLog('[WebRTC] Polite peer waiting for impolite peer to initiate connection...');
-                    }
+                    // Perfect Negotiation will handle all connection initiation automatically
+                    debugLog(`[WebRTC] Perfect Negotiation enabled - role: ${roleInfo.isPolite ? 'polite' : 'impolite'}`);
+                    debugLog('[WebRTC] DataChannel creation will be handled by Perfect Negotiation via negotiationneeded events');
+                    
+                    // Notify Perfect Negotiation that room is ready
+                    this.perfectNegotiation.onRoomReady();
                 }
             }
         });
@@ -683,14 +671,10 @@ export class PeerConnection implements IPeerConnection {
 
     // Créer une offre pour établir la connexion
     async createOffer() {
-        console.log('[WebRTC] Creating offer via Perfect Negotiation');
-        // Note: Perfect Negotiation handles offer creation automatically via negotiationneeded event
-        // This method is kept for compatibility but the actual logic is in PerfectNegotiation
-        // Force trigger negotiation if needed
-        if (this.pc.connectionState === 'new' && this.readyToNegotiate) {
-            // Create a data channel to trigger negotiation
-            this.dataChannelManager.createDataChannel();
-        }
+        console.log('[WebRTC] Note: Perfect Negotiation handles all offer creation automatically');
+        console.log('[WebRTC] This method is kept for compatibility but offer creation is managed by Perfect Negotiation');
+        // Perfect Negotiation handles all offer creation via negotiationneeded events
+        // No manual intervention needed - the pattern will handle everything automatically
     }
 
     // Configure les événements pour le dataChannel
@@ -861,7 +845,8 @@ export class PeerConnection implements IPeerConnection {
             this.signaling,
             this.roomId,
             this.clientId,
-            this.role
+            this.role,
+            this // Pass reference to PeerConnection for DataChannel triggering
         );
 
         // Register callback for connection state changes
@@ -894,24 +879,11 @@ export class PeerConnection implements IPeerConnection {
         const hasPatientAndPractitioner = this.signaling.hasPatientAndPractitioner();
         debugLog(`[WebRTC] After reset, room has patient and practitioner: ${hasPatientAndPractitioner}`);
 
+        // Perfect Negotiation will handle all reconnection and data channel creation automatically
         if (hasPatientAndPractitioner) {
             const roleInfo = this.perfectNegotiation.getRoleInfo();
-            debugLog('[WebRTC] Room ready after reset, P2P role info:', roleInfo);
-
-            // Only the impolite peer (first to arrive) should create data channel after reset
-            if (!roleInfo.isPolite) {
-                debugLog('[WebRTC] Impolite peer scheduling data channel creation after reset');
-
-                // Petit délai pour s'assurer que tous les listeners sont bien configurés
-                setTimeout(() => {
-                    if (this.pc.connectionState !== 'closed' && this.pc.signalingState !== 'closed') {
-                        debugLog('[WebRTC] Creating data channel after reset (P2P initiation)');
-                        this.dataChannelManager.createDataChannel();
-                    }
-                }, 200);
-            } else {
-                debugLog('[WebRTC] Polite peer waiting after reset for impolite peer to initiate...');
-            }
+            debugLog('[WebRTC] Room ready after reset, Perfect Negotiation will handle connection initiation');
+            debugLog('[WebRTC] P2P role info:', roleInfo);
         }
 
         // Notifier explicitement le changement d'état de connexion, car la nouvelle
@@ -967,5 +939,12 @@ export class PeerConnection implements IPeerConnection {
 
     isAttemptingReconnection(): boolean {
         return this.perfectNegotiation.isAttemptingReconnection();
+    }
+
+    // Public method for Perfect Negotiation to trigger DataChannel creation
+    // This is the ONLY way DataChannel should be created - through Perfect Negotiation
+    triggerDataChannelCreation(): void {
+        console.log('[WebRTC] Perfect Negotiation triggering DataChannel creation');
+        this.dataChannelManager.createDataChannel();
     }
 }

@@ -33,34 +33,37 @@ export class PerfectNegotiation {
     private roomId: string;
     private clientId: string;
     private role: Role;
-    
+
     // Perfect negotiation specific state
     private negotiationRole: NegotiationRole;
     private negotiationState: NegotiationState;
-    
+
     // Callbacks
     private onConnectionStateChange?: (state: RTCPeerConnectionState) => void;
+    private peerConnection?: any; // Reference to PeerConnection instance for DataChannel triggering
 
     constructor(
         pc: RTCPeerConnection,
         signaling: SignalingService,
         roomId: string,
         clientId: string,
-        role: Role
+        role: Role,
+        peerConnection?: any // Optional PeerConnection reference
     ) {
         this.pc = pc;
         this.signaling = signaling;
         this.roomId = roomId;
         this.clientId = clientId;
         this.role = role;
-        
+        this.peerConnection = peerConnection;
+
         // Initialize negotiation state
         this.negotiationState = {
             makingOffer: false,
             ignoreOffer: false,
             isSettingRemoteAnswerPending: false
         };
-        
+
         // Determine negotiation role based on arrival order for true P2P
         // The first to arrive becomes impolite (initiator)
         // The second to arrive becomes polite (waiter)
@@ -68,10 +71,13 @@ export class PerfectNegotiation {
         this.negotiationRole = {
             isPolite: !this.isFirstToArrive()
         };
-        
+
         debugLog(`[PerfectNegotiation] Initialized with role: ${role}, isPolite: ${this.negotiationRole.isPolite}`);
-        
+
         this.setupEventHandlers();
+        
+        // If we're the impolite peer and room is ready, trigger DataChannel creation
+        this.checkInitialConnectionTrigger();
     }
 
     /**
@@ -91,17 +97,17 @@ export class PerfectNegotiation {
         this.pc.onnegotiationneeded = async () => {
             try {
                 debugLog(`[PerfectNegotiation] Negotiation needed, isPolite: ${this.negotiationRole.isPolite}`);
-                
+
                 this.negotiationState.makingOffer = true;
                 await this.pc.setLocalDescription();
-                
+
                 debugLog('[PerfectNegotiation] Created offer, sending via signaling');
                 await this.signaling.sendMessage({
                     type: 'offer',
                     roomId: this.roomId,
                     content: this.pc.localDescription!
                 });
-                
+
             } catch (err) {
                 debugError('[PerfectNegotiation] Error during negotiation:', err);
             } finally {
@@ -155,25 +161,25 @@ export class PerfectNegotiation {
      */
     private async handleDescription(message: SignalingMessage) {
         const description = message.content as RTCSessionDescriptionInit;
-        
+
         if (description.type === 'offer') {
             // Perfect Negotiation collision detection logic
-            const readyForOffer = !this.negotiationState.makingOffer && 
+            const readyForOffer = !this.negotiationState.makingOffer &&
                 (this.pc.signalingState === "stable" || this.negotiationState.isSettingRemoteAnswerPending);
-            
+
             const offerCollision = !readyForOffer;
-            
+
             this.negotiationState.ignoreOffer = !this.negotiationRole.isPolite && offerCollision;
-            
+
             if (this.negotiationState.ignoreOffer) {
                 debugLog('[PerfectNegotiation] Ignoring offer due to collision (impolite peer)');
                 return;
             }
-            
+
             // Handle the offer
             this.negotiationState.isSettingRemoteAnswerPending = false;
             await this.pc.setRemoteDescription(description);
-            
+
             // Create and send answer
             await this.pc.setLocalDescription();
             await this.signaling.sendMessage({
@@ -181,14 +187,14 @@ export class PerfectNegotiation {
                 roomId: this.roomId,
                 content: this.pc.localDescription!
             });
-            
+
             debugLog('[PerfectNegotiation] Processed offer and sent answer');
-            
+
         } else if (description.type === 'answer') {
             this.negotiationState.isSettingRemoteAnswerPending = true;
             await this.pc.setRemoteDescription(description);
             this.negotiationState.isSettingRemoteAnswerPending = false;
-            
+
             debugLog('[PerfectNegotiation] Processed answer');
         }
     }
@@ -198,7 +204,7 @@ export class PerfectNegotiation {
      */
     private async handleIceCandidate(message: SignalingMessage) {
         const candidate = message.content as RTCIceCandidateInit;
-        
+
         try {
             await this.pc.addIceCandidate(candidate);
             debugLog('[PerfectNegotiation] Added ICE candidate');
@@ -220,7 +226,7 @@ export class PerfectNegotiation {
             const allParticipants = this.signaling.getValidParticipants();
             const otherParticipants = allParticipants.filter(p => p.clientId !== this.clientId);
             const isFirst = otherParticipants.length === 0;
-            
+
             debugLog(`[PerfectNegotiation] Arrival check: ${isFirst ? 'FIRST' : 'SECOND'} to arrive (other participants: ${otherParticipants.length})`);
             return isFirst;
         } catch (error) {
@@ -250,11 +256,11 @@ export class PerfectNegotiation {
      * Based on connection state and room occupancy
      */
     private isPeerGone(): boolean {
-        const isDisconnected = this.pc.connectionState === 'disconnected' || 
-                              this.pc.connectionState === 'failed' ||
-                              this.pc.iceConnectionState === 'disconnected' ||
-                              this.pc.iceConnectionState === 'failed';
-        
+        const isDisconnected = this.pc.connectionState === 'disconnected' ||
+            this.pc.connectionState === 'failed' ||
+            this.pc.iceConnectionState === 'disconnected' ||
+            this.pc.iceConnectionState === 'failed';
+
         return isDisconnected && this.isAloneInRoom();
     }
 
@@ -275,12 +281,12 @@ export class PerfectNegotiation {
     private setupConnectionStateHandler() {
         this.pc.onconnectionstatechange = () => {
             debugLog(`[PerfectNegotiation] Connection state: ${this.pc.connectionState}`);
-            
+
             // Handle intelligent role switching when peer disconnects
             if (this.pc.connectionState === 'disconnected' || this.pc.connectionState === 'failed') {
                 this.handleRoleSwitch();
             }
-            
+
             if (this.onConnectionStateChange) {
                 this.onConnectionStateChange(this.pc.connectionState);
             }
@@ -322,19 +328,19 @@ export class PerfectNegotiation {
      */
     public async attemptReconnection(): Promise<void> {
         debugLog('[PerfectNegotiation] Attempting automatic reconnection...');
-        
+
         // Only attempt reconnection if we're in a stable state
         if (this.pc.signalingState !== 'stable' && this.pc.signalingState !== 'closed') {
             debugWarn('[PerfectNegotiation] Cannot attempt reconnection in current signaling state:', this.pc.signalingState);
             return;
         }
-        
+
         // Handle intelligent role switching before attempting reconnection
         this.handleRoleSwitch();
-        
+
         // Reset negotiation state for clean reconnection
         this.resetNegotiationState();
-        
+
         // Only impolite peer initiates reconnection
         if (!this.negotiationRole.isPolite) {
             debugLog('[PerfectNegotiation] Impolite peer initiating reconnection offer...');
@@ -405,23 +411,64 @@ export class PerfectNegotiation {
     }
 
     /**
+     * Method called when room becomes ready (both participants present)
+     * This allows Perfect Negotiation to trigger connection when needed
+     */
+    public onRoomReady(): void {
+        debugLog('[PerfectNegotiation] Room became ready, checking connection trigger');
+        this.checkInitialConnectionTrigger();
+    }
+
+    /**
+     * Check if initial connection should be triggered for impolite peer
+     * Called during initialization to start connection if conditions are met
+     */
+    private checkInitialConnectionTrigger(): void {
+        // Only impolite peer should trigger initial connection
+        if (this.negotiationRole.isPolite) {
+            debugLog('[PerfectNegotiation] Polite peer waiting for connection initiation');
+            return;
+        }
+
+        // Check if both peers are present and ready
+        try {
+            const allParticipants = this.signaling.getValidParticipants();
+            const bothPresent = allParticipants.length >= 2;
+            
+            if (bothPresent && this.peerConnection?.triggerDataChannelCreation) {
+                debugLog('[PerfectNegotiation] Impolite peer triggering initial DataChannel creation');
+                // Small delay to ensure everything is properly set up
+                setTimeout(() => {
+                    if (this.pc.connectionState !== 'closed' && this.pc.signalingState !== 'closed') {
+                        this.peerConnection.triggerDataChannelCreation();
+                    }
+                }, 100);
+            } else {
+                debugLog('[PerfectNegotiation] Not ready for initial connection trigger yet');
+            }
+        } catch (error) {
+            debugWarn('[PerfectNegotiation] Could not check initial connection conditions:', error);
+        }
+    }
+
+    /**
      * Clean up and destroy Perfect Negotiation instance
      * Should be called before discarding the instance to prevent memory leaks
      */
     public destroy() {
         debugLog('[PerfectNegotiation] Destroying instance and cleaning up...');
-        
+
         // Clear all event handlers
         this.pc.onnegotiationneeded = null;
         this.pc.onicecandidate = null;
         this.pc.onconnectionstatechange = null;
-        
+
         // Reset negotiation state
         this.resetNegotiationState();
-        
+
         // Clear callback
         this.onConnectionStateChange = undefined;
-        
+
         debugLog('[PerfectNegotiation] Cleanup complete');
     }
 }
