@@ -37,7 +37,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       setSession(session);
       setLocalUser(session?.user ?? null);
-      setLoading(false);
 
       if (session) {
         dispatch(setAuthenticated(true));
@@ -65,6 +64,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         dispatch(setAuthenticated(false));
         dispatch(clearUser());
       }
+      
+      // Marquer le loading comme terminé APRÈS tous les appels async
+      setLoading(false);
 
     };
 
