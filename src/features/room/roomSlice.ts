@@ -40,7 +40,7 @@ const loadPersistedRoomState = (): RoomState => {
   } catch (error) {
     console.warn('[RoomSlice] Failed to load persisted room state:', error);
   }
-  
+
   return {
     roomId: null,
     userRole: null,

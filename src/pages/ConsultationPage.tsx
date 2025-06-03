@@ -22,25 +22,26 @@ export default function ConsultationPage() {
     const [showRestorationMessage, setShowRestorationMessage] = useState(false);
 
     // Hook de persistance des rooms
-    const { hasPersistedRoom, persistedRoomId } = useRoomPersistence();
+    const { hasPersistedRoom, persistedRoomId, wasRoomRestored, restoredRoomId, clearRestorationFlag } = useRoomPersistence();
 
     // Afficher un message de restauration si une room a été restaurée
     useEffect(() => {
-        if (hasPersistedRoom && persistedRoomId) {
+        if (wasRoomRestored && restoredRoomId) {
             setShowRestorationMessage(true);
             // Masquer le message après 5 secondes
             const timer = setTimeout(() => {
                 setShowRestorationMessage(false);
+                clearRestorationFlag();
             }, 5000);
             return () => clearTimeout(timer);
         }
-    }, [hasPersistedRoom, persistedRoomId]);
+    }, [wasRoomRestored, restoredRoomId, clearRestorationFlag]);
 
     const handleDisconnect = async () => {
         // Déconnecter explicitement le PeerConnection avant de quitter la salle
         if (peerConnection) {
             console.log('[ConsultationPage] Déconnexion explicite du PeerConnection');
-            
+
             try {
                 // Attendre que la déconnexion soit terminée avant de mettre à jour le state
                 await peerConnection.disconnect();
@@ -96,9 +97,9 @@ export default function ConsultationPage() {
             {showRestorationMessage && (
                 <Row className="mb-3">
                     <Col>
-                        <Alert 
-                            variant="success" 
-                            dismissible 
+                        <Alert
+                            variant="success"
+                            dismissible
                             onClose={() => setShowRestorationMessage(false)}
                         >
                             <Alert.Heading>Consultation restaurée</Alert.Heading>
@@ -107,7 +108,7 @@ export default function ConsultationPage() {
                     </Col>
                 </Row>
             )}
-            
+
             <Row>
                 {/* Colonne gauche : Espace pour des fonctionnalités futures */}
                 <Col md={3}>
