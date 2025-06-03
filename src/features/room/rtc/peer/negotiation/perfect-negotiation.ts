@@ -79,12 +79,11 @@ export class PerfectNegotiation {
             isPolite: true
         };
 
-        debugLog(`[PerfectNegotiation] Initialized with business role: ${role}, starting coordination...`);
+        debugLog(`[PerfectNegotiation] Initialized with business role: ${role}`);
 
         this.setupEventHandlers();
 
-        // Start role coordination process
-        this.startRoleCoordination();
+        // Role coordination will be started after signaling connection is established
     }
 
     /**
@@ -557,6 +556,15 @@ export class PerfectNegotiation {
         this.onConnectionStateChange = undefined;
 
         debugLog('[PerfectNegotiation] Cleanup complete');
+    }
+
+    /**
+     * Initialize role coordination after signaling service is connected
+     * This must be called after the signaling service connection is established
+     */
+    public initializeRoleCoordination(): void {
+        debugLog('[PerfectNegotiation] Starting role coordination after signaling connection established');
+        this.startRoleCoordination();
     }
 
     /**

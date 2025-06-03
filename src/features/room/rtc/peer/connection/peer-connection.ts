@@ -666,6 +666,9 @@ export class PeerConnection implements IPeerConnection {
         // Configurer les écouteurs de signalisation
         await this.setupSignalingListeners();
 
+        // Initialize role coordination now that signaling is connected
+        this.perfectNegotiation.initializeRoleCoordination();
+
         console.log('[WebRTC] Connected to signaling service and setup completed');
     }
 
@@ -855,6 +858,9 @@ export class PeerConnection implements IPeerConnection {
                 this.onConnectionStateChangeCallback(state);
             }
         });
+
+        // Initialize role coordination since signaling is already connected
+        this.perfectNegotiation.initializeRoleCoordination();
 
         // Update data channel manager with new peer connection
         this.dataChannelManager = new DataChannelManager(
