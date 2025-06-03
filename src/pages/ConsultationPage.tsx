@@ -22,11 +22,17 @@ export default function ConsultationPage() {
     const [peerConnection, setPeerConnection] = useState<PeerConnection | null>(null);
     const [showRestorationMessage, setShowRestorationMessage] = useState(false);
 
-    // Hook de persistance des rooms avec détection de retour rapide
-    const { hasPersistedRoom, persistedRoomId, wasRoomRestored, restoredRoomId, isQuickReturn, clearRestorationFlag } = useRoomPersistence();
+    // Hook de persistance des rooms avec détection de retour rapide - TEMPORAIREMENT DÉSACTIVÉ
+    // const { hasPersistedRoom, persistedRoomId, wasRoomRestored, restoredRoomId, isQuickReturn, clearRestorationFlag } = useRoomPersistence();
+    
+    // Version simplifiée pour debug
+    const wasRoomRestored = false;
+    const restoredRoomId = null;
+    const isQuickReturn = false;
+    const clearRestorationFlag = () => {};
 
-    // Hook pour enregistrer les départs de page
-    useBeforeUnload();
+    // Hook pour enregistrer les départs de page - temporairement désactivé pour debug
+    // useBeforeUnload();
 
     // Afficher un message de restauration si une room a été restaurée
     useEffect(() => {
@@ -109,7 +115,7 @@ export default function ConsultationPage() {
                             <Alert.Heading>
                                 {isQuickReturn ? "Retour rapide détecté" : "Consultation restaurée"}
                             </Alert.Heading>
-                            {isQuickReturn 
+                            {isQuickReturn
                                 ? "Vous avez été automatiquement reconnecté à votre consultation après un retour rapide."
                                 : "Vous avez été automatiquement reconnecté à votre consultation précédente."
                             }

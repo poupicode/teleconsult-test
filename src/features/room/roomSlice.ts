@@ -37,12 +37,12 @@ const loadPersistedRoomState = (): RoomState => {
     if (persistedState) {
       const parsed = JSON.parse(persistedState);
       console.log('[RoomSlice] Loaded persisted room state:', parsed);
-      
+
       // Time-based room persistence configuration
       const ROOM_PERSISTENCE_TIMEOUT = 5 * 60 * 1000; // 5 minutes - maximum persistence time
       const QUICK_RETURN_WINDOW = 30 * 1000; // 30 seconds - quick return window
       const now = Date.now();
-      
+
       if (!parsed.lastActivity) {
         console.log('[RoomSlice] No lastActivity timestamp, clearing old state');
         localStorage.removeItem('roomState');
@@ -53,9 +53,9 @@ const loadPersistedRoomState = (): RoomState => {
           participants: []
         };
       }
-      
+
       const timeSinceLastActivity = now - parsed.lastActivity;
-      
+
       // Check if the persisted state is too old (beyond max persistence time)
       if (timeSinceLastActivity > ROOM_PERSISTENCE_TIMEOUT) {
         console.log('[RoomSlice] Persisted room state is too old, clearing it');
@@ -67,10 +67,10 @@ const loadPersistedRoomState = (): RoomState => {
           participants: []
         };
       }
-      
+
       // Check if this is a quick return (within the quick return window)
       const isQuickReturn = timeSinceLastActivity <= QUICK_RETURN_WINDOW;
-      
+
       // Only restore room if it's a quick return
       if (isQuickReturn) {
         console.log(`[RoomSlice] Quick return detected (${timeSinceLastActivity}ms ago), restoring room state`);

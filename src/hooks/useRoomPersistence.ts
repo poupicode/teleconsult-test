@@ -12,7 +12,6 @@ import { RoomSupabase } from '@/features/room/roomSupabase';
 export const useRoomPersistence = () => {
     const dispatch = useDispatch();
     const roomId = useSelector((state: RootState) => state.room.roomId);
-    const wasQuickReturn = useSelector((state: RootState) => state.room.wasQuickReturn);
     const [wasRoomRestored, setWasRoomRestored] = useState(false);
     const [restoredRoomId, setRestoredRoomId] = useState<string | null>(null);
     const [isQuickReturn, setIsQuickReturn] = useState(false);
@@ -20,42 +19,40 @@ export const useRoomPersistence = () => {
 
     useEffect(() => {
         const validatePersistedRoomState = async () => {
+            console.log('[RoomPersistence] useEffect called, hasInitialized:', hasInitialized.current, 'roomId:', roomId);
+            
             // Éviter de s'exécuter plusieurs fois
             if (hasInitialized.current) {
+                console.log('[RoomPersistence] Already initialized, skipping');
                 return;
             }
             hasInitialized.current = true;
 
             if (!roomId) {
+                console.log('[RoomPersistence] No roomId found, skipping validation');
                 return;
             }
 
-            // Check if this was a quick return restoration
-            if (wasQuickReturn) {
-                console.log('[RoomPersistence] Quick return detected - room was restored from recent departure');
-                setIsQuickReturn(true);
-                // Clear the quick return flag after processing
-                dispatch(clearQuickReturnFlag());
-            }
-
-            console.log('[RoomPersistence] Validating persisted room:', roomId);
+            console.log('[RoomPersistence] Starting validation for room:', roomId);
 
             try {
+                console.log('[RoomPersistence] Fetching room from database...');
                 // Vérifier si la room existe toujours dans la base de données
                 const room = await RoomSupabase.getRoom(roomId);
                 const roomExists = room !== null;
 
-                console.log(`[RoomPersistence] Room ${roomId} exists:`, roomExists);
+                console.log(`[RoomPersistence] Room ${roomId} exists:`, roomExists, 'room data:', room);
 
                 // Valider l'état persisté
                 dispatch(validatePersistedRoom({ roomExists }));
 
                 if (roomExists) {
-                    const restorationType = wasQuickReturn ? 'quick return' : 'regular persistence';
-                    console.log(`[RoomPersistence] Successfully restored room via ${restorationType}: ${room?.short_name} (${roomId})`);
+                    console.log(`[RoomPersistence] Successfully restored room: ${room?.short_name} (${roomId})`);
                     // Marquer que la room a été restaurée
                     setWasRoomRestored(true);
                     setRestoredRoomId(roomId);
+                } else {
+                    console.log('[RoomPersistence] Room does not exist, state will be cleared');
                 }
             } catch (error) {
                 console.error('[RoomPersistence] Error validating persisted room:', error);
@@ -64,8 +61,15 @@ export const useRoomPersistence = () => {
             }
         };
 
-        // Valider seulement au montage du composant (après reload)
-        validatePersistedRoomState();
+        // Petite temporisation pour s'assurer que le Redux store est complètement initialisé
+        const timeoutId = setTimeout(() => {
+            console.log('[RoomPersistence] Delayed validation triggered');
+            validatePersistedRoomState();
+        }, 100);
+
+        return () => {
+            clearTimeout(timeoutId);
+        };
     }, []); // Dépendance vide pour s'exécuter seulement au montage
 
     return {

@@ -139,7 +139,7 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
           const negotiationState = peer.getPerfectNegotiationState();
           const isPolite = negotiationState.isPolite;
           setNegotiationRole(isPolite ? 'polite' : 'impolite');
-          
+
           if (isPolite) {
             console.log('[ConsultationRoom] Room is ready and we are the polite peer (second to arrive), waiting for impolite peer to initialize...');
 
