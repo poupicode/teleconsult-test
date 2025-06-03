@@ -13,7 +13,9 @@ function HomePage() {
 
   return (
     <>
-      <Header variant="public" title="Bienvenue" />
+      <Header variant="public">
+        <h1>Bienvenue</h1>
+      </Header>
       <div className="container ps-5 pe-5 mt-2 w-100">
         {session ? (
           <>

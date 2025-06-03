@@ -116,6 +116,7 @@ export default function ConsultationPage() {
     useState<PraticienInformationsFormData | null>(null);
 
   // Pour afficher les informations du patient et du praticien dans la console une fois qu'elles sont définies par le formulaire
+  //  A enlever en production
   useEffect(() => {
     if (praticienInformations) {
       console.log("Informations praticien :", praticienInformations);
@@ -152,12 +153,17 @@ export default function ConsultationPage() {
         {/* Colonne centrale : Consultation Room */}
         <Col md={9}>
           {/* Composant Header de tableau de bord */}
-          <Header
-            variant="dashboard"
-            title={`Information du ${
-              userKind === "patient" ? "patient" : "praticien"
-            }`}
-          />
+          <Header variant="dashboard">
+            {!isConsultationTab ? (
+              <h1>{`Information du ${
+                userKind === "patient" ? "patient" : "praticien"
+              }`}</h1>
+            ) : (
+              <>
+                {/* Mettre les éléments du header de la page de consultation */}
+              </>
+            )}
+          </Header>
           {/* Si l'onglet de consultation n'est pas actif (du menu latéral), afficher le formulaire d'entrée d'informations */}
           {!isConsultationTab ? (
             <InformationsForm
