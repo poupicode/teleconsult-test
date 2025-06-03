@@ -233,4 +233,62 @@ export class PerfectNegotiation {
         };
         console.log('[PerfectNegotiation] Negotiation state reset');
     }
+
+    /**
+     * Attempt automatic reconnection with Perfect Negotiation
+     * This method can be called when connection fails to trigger a new negotiation
+     */
+    public async attemptReconnection(): Promise<void> {
+        console.log('[PerfectNegotiation] Attempting automatic reconnection...');
+        
+        // Only attempt reconnection if we're in a stable state
+        if (this.pc.signalingState !== 'stable' && this.pc.signalingState !== 'closed') {
+            console.warn('[PerfectNegotiation] Cannot attempt reconnection in current signaling state:', this.pc.signalingState);
+            return;
+        }
+        
+        // Reset negotiation state for clean reconnection
+        this.resetNegotiationState();
+        
+        // For impolite peer (practitioner), create a new offer to restart negotiation
+        if (!this.negotiationRole.isPolite) {
+            console.log('[PerfectNegotiation] Impolite peer initiating reconnection offer...');
+            try {
+                this.negotiationState.makingOffer = true;
+                await this.pc.setLocalDescription();
+                console.log('[PerfectNegotiation] Reconnection offer created, sending via signaling');
+                await this.signaling.sendMessage({
+                    type: 'offer',
+                    roomId: this.roomId,
+                    content: this.pc.localDescription!
+                });
+            } catch (err) {
+                console.error('[PerfectNegotiation] Error during reconnection attempt:', err);
+            } finally {
+                this.negotiationState.makingOffer = false;
+            }
+        } else {
+            console.log('[PerfectNegotiation] Polite peer waiting for reconnection offer from remote...');
+        }
+    }
+
+    /**
+     * Check if Perfect Negotiation is currently attempting reconnection
+     */
+    public isAttemptingReconnection(): boolean {
+        return this.negotiationState.makingOffer;
+    }
+
+    /**
+     * Get current negotiation state for debugging
+     */
+    public getDetailedNegotiationState() {
+        return {
+            ...this.negotiationState,
+            connectionState: this.pc.connectionState,
+            iceConnectionState: this.pc.iceConnectionState,
+            signalingState: this.pc.signalingState,
+            role: this.negotiationRole.isPolite ? 'polite' : 'impolite'
+        };
+    }
 }
