@@ -37,6 +37,7 @@ export class PerfectNegotiation {
     // Perfect negotiation specific state
     private negotiationRole: NegotiationRole;
     private negotiationState: NegotiationState;
+    private hasTriggeredInitialConnection: boolean = false; // Prevent double triggering
 
     // Callbacks
     private onConnectionStateChange?: (state: RTCPeerConnectionState) => void;
@@ -243,7 +244,10 @@ export class PerfectNegotiation {
             const otherParticipants = allParticipants.filter(p => p.clientId !== this.clientId);
             const isFirst = otherParticipants.length === 0;
 
-            debugLog(`[PerfectNegotiation] Arrival check: ${isFirst ? 'FIRST' : 'SECOND'} to arrive (other participants: ${otherParticipants.length})`);
+            debugLog(`[PerfectNegotiation] Arrival check for ${this.role} (${this.clientId}): ${isFirst ? 'FIRST' : 'SECOND'} to arrive`);
+            debugLog(`[PerfectNegotiation] All participants: ${allParticipants.length}, Others: ${otherParticipants.length}`);
+            debugLog(`[PerfectNegotiation] Other participant IDs: ${otherParticipants.map(p => p.clientId).join(', ')}`);
+            
             return isFirst;
         } catch (error) {
             debugWarn('[PerfectNegotiation] Could not determine arrival order, falling back to role-based assignment');
@@ -335,7 +339,9 @@ export class PerfectNegotiation {
             ignoreOffer: false,
             isSettingRemoteAnswerPending: false
         };
-        debugLog('[PerfectNegotiation] Negotiation state reset');
+        // Reset trigger flag to allow reconnection attempts
+        this.hasTriggeredInitialConnection = false;
+        debugLog('[PerfectNegotiation] Negotiation state reset, can trigger connection again');
     }
 
     /**
@@ -419,10 +425,11 @@ export class PerfectNegotiation {
         return {
             isPolite: this.negotiationRole.isPolite,
             businessRole: this.role,
-            arrivalOrder: this.isFirstToArrive() ? 'first' : 'second',
+            arrivalOrder: this.negotiationRole.isPolite ? 'second' : 'first', // Role is permanent, don't re-check
             participantsCount: participants.length,
             isAloneInRoom: this.isAloneInRoom(),
-            canInitiate: !this.negotiationRole.isPolite
+            canInitiate: !this.negotiationRole.isPolite,
+            hasTriggered: this.hasTriggeredInitialConnection
         };
     }
 
@@ -431,7 +438,20 @@ export class PerfectNegotiation {
      * This allows Perfect Negotiation to trigger connection when needed
      */
     public onRoomReady(): void {
-        debugLog('[PerfectNegotiation] Room became ready, checking connection trigger');
+        debugLog('[PerfectNegotiation] Room became ready, checking if we should trigger connection');
+        
+        // CRITICAL: Only trigger if we're impolite AND haven't already triggered
+        if (this.negotiationRole.isPolite) {
+            debugLog('[PerfectNegotiation] Polite peer - waiting for impolite peer to initiate');
+            return;
+        }
+
+        if (this.hasTriggeredInitialConnection) {
+            debugLog('[PerfectNegotiation] ⚠️ Already triggered connection, skipping to prevent double triggering');
+            return;
+        }
+
+        debugLog('[PerfectNegotiation] ✅ Impolite peer triggering connection from onRoomReady()');
         this.checkInitialConnectionTrigger();
     }
 
@@ -440,9 +460,15 @@ export class PerfectNegotiation {
      * Called during initialization to start connection if conditions are met
      */
     private checkInitialConnectionTrigger(): void {
-        // Only impolite peer should trigger initial connection
+        // CRITICAL: Only impolite peer should trigger initial connection
         if (this.negotiationRole.isPolite) {
-            debugLog('[PerfectNegotiation] Polite peer waiting for connection initiation');
+            debugLog('[PerfectNegotiation] Polite peer NEVER triggers connection - waiting for impolite peer');
+            return;
+        }
+
+        // Prevent double triggering
+        if (this.hasTriggeredInitialConnection) {
+            debugLog('[PerfectNegotiation] ⚠️ Connection already triggered, preventing duplicate');
             return;
         }
 
@@ -451,8 +477,13 @@ export class PerfectNegotiation {
             const allParticipants = this.signaling.getValidParticipants();
             const bothPresent = allParticipants.length >= 2;
 
+            debugLog(`[PerfectNegotiation] Impolite peer checking trigger conditions: bothPresent=${bothPresent}, participants=${allParticipants.length}`);
+
             if (bothPresent && this.peerConnection?.triggerDataChannelCreation) {
-                debugLog('[PerfectNegotiation] Impolite peer triggering initial DataChannel creation');
+                // Mark as triggered BEFORE triggering to prevent race conditions
+                this.hasTriggeredInitialConnection = true;
+                
+                debugLog('[PerfectNegotiation] ✅ IMPOLITE PEER TRIGGERING DataChannel creation (SHOULD ONLY HAPPEN ONCE PER ROOM!)');
                 // Small delay to ensure everything is properly set up
                 setTimeout(() => {
                     if (this.pc.connectionState !== 'closed' && this.pc.signalingState !== 'closed') {
@@ -460,7 +491,7 @@ export class PerfectNegotiation {
                     }
                 }, 100);
             } else {
-                debugLog('[PerfectNegotiation] Not ready for initial connection trigger yet');
+                debugLog('[PerfectNegotiation] Not ready for initial connection trigger yet or missing peerConnection reference');
             }
         } catch (error) {
             debugWarn('[PerfectNegotiation] Could not check initial connection conditions:', error);
