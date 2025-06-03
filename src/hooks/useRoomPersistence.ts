@@ -20,7 +20,7 @@ export const useRoomPersistence = () => {
     useEffect(() => {
         const validatePersistedRoomState = async () => {
             console.log('[RoomPersistence] useEffect called, hasInitialized:', hasInitialized.current, 'roomId:', roomId);
-            
+
             // Éviter de s'exécuter plusieurs fois
             if (hasInitialized.current) {
                 console.log('[RoomPersistence] Already initialized, skipping');
