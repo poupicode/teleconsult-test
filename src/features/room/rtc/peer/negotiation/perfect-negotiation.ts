@@ -75,7 +75,7 @@ export class PerfectNegotiation {
         debugLog(`[PerfectNegotiation] Initialized with role: ${role}, isPolite: ${this.negotiationRole.isPolite}`);
 
         this.setupEventHandlers();
-        
+
         // If we're the impolite peer and room is ready, trigger DataChannel creation
         this.checkInitialConnectionTrigger();
     }
@@ -108,11 +108,13 @@ export class PerfectNegotiation {
                     content: this.pc.localDescription!
                 });
 
+                debugLog('[PerfectNegotiation] Offer sent successfully, waiting for answer...');
+
             } catch (err) {
                 debugError('[PerfectNegotiation] Error during negotiation:', err);
-            } finally {
-                this.negotiationState.makingOffer = false;
+                this.negotiationState.makingOffer = false; // Only reset on error
             }
+            // Note: makingOffer stays true until we receive an answer or error
         };
     }
 
@@ -163,6 +165,8 @@ export class PerfectNegotiation {
         const description = message.content as RTCSessionDescriptionInit;
 
         if (description.type === 'offer') {
+            debugLog(`[PerfectNegotiation] Received offer, current state: makingOffer=${this.negotiationState.makingOffer}, signalingState=${this.pc.signalingState}`);
+            
             // Perfect Negotiation collision detection logic
             const readyForOffer = !this.negotiationState.makingOffer &&
                 (this.pc.signalingState === "stable" || this.negotiationState.isSettingRemoteAnswerPending);
@@ -172,8 +176,16 @@ export class PerfectNegotiation {
             this.negotiationState.ignoreOffer = !this.negotiationRole.isPolite && offerCollision;
 
             if (this.negotiationState.ignoreOffer) {
-                debugLog('[PerfectNegotiation] Ignoring offer due to collision (impolite peer)');
+                debugLog('[PerfectNegotiation] IGNORING offer due to collision (impolite peer)');
                 return;
+            }
+
+            debugLog('[PerfectNegotiation] ACCEPTING offer and creating answer');
+
+            // If we were making an offer but we're polite, we need to rollback
+            if (this.negotiationRole.isPolite && this.negotiationState.makingOffer) {
+                debugLog('[PerfectNegotiation] Polite peer rolling back own offer to accept incoming offer');
+                this.negotiationState.makingOffer = false;
             }
 
             // Handle the offer
@@ -191,11 +203,15 @@ export class PerfectNegotiation {
             debugLog('[PerfectNegotiation] Processed offer and sent answer');
 
         } else if (description.type === 'answer') {
+            debugLog('[PerfectNegotiation] Received answer');
             this.negotiationState.isSettingRemoteAnswerPending = true;
             await this.pc.setRemoteDescription(description);
             this.negotiationState.isSettingRemoteAnswerPending = false;
+            
+            // We received an answer, so we're no longer making an offer
+            this.negotiationState.makingOffer = false;
 
-            debugLog('[PerfectNegotiation] Processed answer');
+            debugLog('[PerfectNegotiation] Processed answer, negotiation complete');
         }
     }
 
@@ -434,7 +450,7 @@ export class PerfectNegotiation {
         try {
             const allParticipants = this.signaling.getValidParticipants();
             const bothPresent = allParticipants.length >= 2;
-            
+
             if (bothPresent && this.peerConnection?.triggerDataChannelCreation) {
                 debugLog('[PerfectNegotiation] Impolite peer triggering initial DataChannel creation');
                 // Small delay to ensure everything is properly set up

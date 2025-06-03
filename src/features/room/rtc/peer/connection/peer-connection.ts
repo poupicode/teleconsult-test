@@ -639,11 +639,11 @@ export class PeerConnection implements IPeerConnection {
                 if (this.readyToNegotiate) {
                     const roleInfo = this.perfectNegotiation.getRoleInfo();
                     debugLog(`[WebRTC] Room ready for P2P connection. Role info:`, roleInfo);
-                    
+
                     // Perfect Negotiation will handle all connection initiation automatically
                     debugLog(`[WebRTC] Perfect Negotiation enabled - role: ${roleInfo.isPolite ? 'polite' : 'impolite'}`);
                     debugLog('[WebRTC] DataChannel creation will be handled by Perfect Negotiation via negotiationneeded events');
-                    
+
                     // Notify Perfect Negotiation that room is ready
                     this.perfectNegotiation.onRoomReady();
                 }
