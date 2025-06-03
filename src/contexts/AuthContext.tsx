@@ -41,7 +41,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (session) {
         dispatch(setAuthenticated(true));
-        
+
         // Récupérer le user_kind depuis la base de données au lieu des user_metadata
         ProfileService.getUserProfile(session.user.id).then(profile => {
           dispatch(setUser({
@@ -72,7 +72,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLocalUser(session?.user ?? null);
       if (session && session.user) {
         dispatch(setAuthenticated(true));
-        
+
         // Récupérer le user_kind depuis la base de données au lieu des user_metadata
         ProfileService.getUserProfile(session.user.id).then(profile => {
           dispatch(setUser({
@@ -106,18 +106,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setLocalUser(null);
     dispatch(setAuthenticated(false));
     dispatch(clearUser());
-    
+
     // Nettoyage pour éviter la persistance des données
     localStorage.removeItem('roomState');
     localStorage.removeItem('quickRoomPersist');
-    
+
     // Nettoyer les tokens Supabase
     Object.keys(localStorage).forEach(key => {
       if (key.startsWith('sb-') && key.includes('-auth-token')) {
         localStorage.removeItem(key);
       }
     });
-    
+
     console.log('[AuthContext] Logout and cleanup completed');
   };
 

@@ -581,7 +581,7 @@ export class PeerConnection implements IPeerConnection {
                                 }
 
                                 this.presenceResetTimeout = null;
-                            }, 5000); // Longer timeout to allow for Perfect Negotiation recovery
+                            }, 3000); // Longer timeout to allow for Perfect Negotiation recovery
 
                             return;
                         }
