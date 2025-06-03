@@ -10,8 +10,8 @@ import { roomIdUpdated } from '@/features/room/roomSlice';
 import { RoomSupabase } from '@/features/room/roomSupabase';
 import { MdAddIcCall } from 'react-icons/md';
 import { PeerConnection } from '@/features/room/rtc/peer';
-import { useRoomPersistence } from '@/hooks/useRoomPersistence';
-import { useBeforeUnload } from '@/hooks/useBeforeUnload';
+import { useSimpleRoomPersistence } from '@/hooks/useSimpleRoomPersistence';
+import { useSimpleBeforeUnload } from '@/hooks/useSimpleBeforeUnload';
 
 export default function ConsultationPage() {
     const userKind = useSelector((state: RootState) => state.user.user_kind);
@@ -22,17 +22,11 @@ export default function ConsultationPage() {
     const [peerConnection, setPeerConnection] = useState<PeerConnection | null>(null);
     const [showRestorationMessage, setShowRestorationMessage] = useState(false);
 
-    // Hook de persistance des rooms avec détection de retour rapide - TEMPORAIREMENT DÉSACTIVÉ
-    // const { hasPersistedRoom, persistedRoomId, wasRoomRestored, restoredRoomId, isQuickReturn, clearRestorationFlag } = useRoomPersistence();
-    
-    // Version simplifiée pour debug
-    const wasRoomRestored = false;
-    const restoredRoomId = null;
-    const isQuickReturn = false;
-    const clearRestorationFlag = () => {};
+    // Hook de persistance des rooms avec détection de retour rapide (version simplifiée)
+    const { wasRoomRestored, restoredRoomId, isQuickReturn, saveForQuickReturn, clearRestorationFlag } = useSimpleRoomPersistence();
 
-    // Hook pour enregistrer les départs de page - temporairement désactivé pour debug
-    // useBeforeUnload();
+    // Hook pour enregistrer les départs de page (version simplifiée)
+    useSimpleBeforeUnload(saveForQuickReturn);
 
     // Afficher un message de restauration si une room a été restaurée
     useEffect(() => {
