@@ -61,11 +61,12 @@ export class PerfectNegotiation {
             isSettingRemoteAnswerPending: false
         };
         
-        // Determine negotiation role based on business role
-        // Patient is polite, Practitioner is impolite
-        // This could also be determined by who joins first, random number, etc.
+        // Determine negotiation role based on arrival order for true P2P
+        // The first to arrive becomes impolite (initiator)
+        // The second to arrive becomes polite (waiter)
+        // This creates a truly peer-to-peer system where either side can initiate
         this.negotiationRole = {
-            isPolite: this.role === Role.PATIENT
+            isPolite: !this.isFirstToArrive()
         };
         
         debugLog(`[PerfectNegotiation] Initialized with role: ${role}, isPolite: ${this.negotiationRole.isPolite}`);
@@ -210,11 +211,76 @@ export class PerfectNegotiation {
     }
 
     /**
-     * Handle connection state changes
+     * Check if this peer is the first to arrive in the room
+     * Used to determine initial negotiation role for true P2P
+     */
+    private isFirstToArrive(): boolean {
+        try {
+            // Get other valid participants (excluding ourselves)
+            const allParticipants = this.signaling.getValidParticipants();
+            const otherParticipants = allParticipants.filter(p => p.clientId !== this.clientId);
+            const isFirst = otherParticipants.length === 0;
+            
+            debugLog(`[PerfectNegotiation] Arrival check: ${isFirst ? 'FIRST' : 'SECOND'} to arrive (other participants: ${otherParticipants.length})`);
+            return isFirst;
+        } catch (error) {
+            debugWarn('[PerfectNegotiation] Could not determine arrival order, falling back to role-based assignment');
+            // Fallback to original role-based assignment if arrival detection fails
+            return this.role !== Role.PATIENT;
+        }
+    }
+
+    /**
+     * Check if this peer is currently alone in the room
+     * Used for intelligent role switching when peer disconnects
+     */
+    private isAloneInRoom(): boolean {
+        try {
+            const allParticipants = this.signaling.getValidParticipants();
+            const otherParticipants = allParticipants.filter(p => p.clientId !== this.clientId);
+            return otherParticipants.length === 0;
+        } catch (error) {
+            debugWarn('[PerfectNegotiation] Could not check room occupancy');
+            return false;
+        }
+    }
+
+    /**
+     * Check if the remote peer appears to have disconnected
+     * Based on connection state and room occupancy
+     */
+    private isPeerGone(): boolean {
+        const isDisconnected = this.pc.connectionState === 'disconnected' || 
+                              this.pc.connectionState === 'failed' ||
+                              this.pc.iceConnectionState === 'disconnected' ||
+                              this.pc.iceConnectionState === 'failed';
+        
+        return isDisconnected && this.isAloneInRoom();
+    }
+
+    /**
+     * Handle intelligent role switching when impolite peer disconnects
+     * This ensures connection recovery in P2P scenarios
+     */
+    private handleRoleSwitch(): void {
+        if (this.negotiationRole.isPolite && this.isPeerGone()) {
+            debugLog('[PerfectNegotiation] Impolite peer disconnected, switching to impolite role for recovery');
+            this.negotiationRole.isPolite = false;
+        }
+    }
+
+    /**
+     * Enhanced connection state handler with intelligent role switching
      */
     private setupConnectionStateHandler() {
         this.pc.onconnectionstatechange = () => {
             debugLog(`[PerfectNegotiation] Connection state: ${this.pc.connectionState}`);
+            
+            // Handle intelligent role switching when peer disconnects
+            if (this.pc.connectionState === 'disconnected' || this.pc.connectionState === 'failed') {
+                this.handleRoleSwitch();
+            }
+            
             if (this.onConnectionStateChange) {
                 this.onConnectionStateChange(this.pc.connectionState);
             }
@@ -251,7 +317,7 @@ export class PerfectNegotiation {
     }
 
     /**
-     * Attempt automatic reconnection with Perfect Negotiation
+     * Attempt automatic reconnection with Perfect Negotiation and intelligent role switching
      * This method can be called when connection fails to trigger a new negotiation
      */
     public async attemptReconnection(): Promise<void> {
@@ -263,10 +329,13 @@ export class PerfectNegotiation {
             return;
         }
         
+        // Handle intelligent role switching before attempting reconnection
+        this.handleRoleSwitch();
+        
         // Reset negotiation state for clean reconnection
         this.resetNegotiationState();
         
-        // For impolite peer (practitioner), create a new offer to restart negotiation
+        // Only impolite peer initiates reconnection
         if (!this.negotiationRole.isPolite) {
             debugLog('[PerfectNegotiation] Impolite peer initiating reconnection offer...');
             try {
@@ -304,7 +373,34 @@ export class PerfectNegotiation {
             connectionState: this.pc.connectionState,
             iceConnectionState: this.pc.iceConnectionState,
             signalingState: this.pc.signalingState,
-            role: this.negotiationRole.isPolite ? 'polite' : 'impolite'
+            role: this.negotiationRole.isPolite ? 'polite' : 'impolite',
+            businessRole: this.role,
+            participantsInRoom: this.signaling.getValidParticipants().length,
+            isAlone: this.isAloneInRoom()
+        };
+    }
+
+    /**
+     * Force a role switch (for testing or emergency recovery)
+     * Use with caution - this bypasses the automatic role detection
+     */
+    public forceRoleSwitch(newRole: 'polite' | 'impolite'): void {
+        debugLog(`[PerfectNegotiation] Forcing role switch from ${this.negotiationRole.isPolite ? 'polite' : 'impolite'} to ${newRole}`);
+        this.negotiationRole.isPolite = newRole === 'polite';
+    }
+
+    /**
+     * Get current role assignment information
+     */
+    public getRoleInfo() {
+        const participants = this.signaling.getValidParticipants();
+        return {
+            isPolite: this.negotiationRole.isPolite,
+            businessRole: this.role,
+            arrivalOrder: this.isFirstToArrive() ? 'first' : 'second',
+            participantsCount: participants.length,
+            isAloneInRoom: this.isAloneInRoom(),
+            canInitiate: !this.negotiationRole.isPolite
         };
     }
 
