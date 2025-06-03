@@ -8,7 +8,9 @@ const AuthPage = () => {
   const [isRegistering, setIsRegistering] = useState(false);
   return (
     <>
-      <Header variant="public" title={!isRegistering ? "Connexion" : "Inscription"} />
+      <Header variant="public">
+        <h1>{!isRegistering ? "Connexion" : "Inscription"}</h1>
+      </Header>
       <Container className="d-flex justify-content-center w-100 mt-4">
         <LoginRegister onIsRegistering={(val : boolean) => setIsRegistering(val)} />
       </Container>
