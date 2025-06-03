@@ -1,18 +1,21 @@
 /**
- * Hook for managing room state persistence
+ * Hook for managing room state persistence with quick return detection
  * Handles restoring room state after page reload and validating persisted rooms
+ * Only restores rooms when users return quickly after page reload
  */
 import { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/app/store';
-import { validatePersistedRoom } from '@/features/room/roomSlice';
+import { validatePersistedRoom, clearQuickReturnFlag } from '@/features/room/roomSlice';
 import { RoomSupabase } from '@/features/room/roomSupabase';
 
 export const useRoomPersistence = () => {
     const dispatch = useDispatch();
     const roomId = useSelector((state: RootState) => state.room.roomId);
+    const wasQuickReturn = useSelector((state: RootState) => state.room.wasQuickReturn);
     const [wasRoomRestored, setWasRoomRestored] = useState(false);
     const [restoredRoomId, setRestoredRoomId] = useState<string | null>(null);
+    const [isQuickReturn, setIsQuickReturn] = useState(false);
     const hasInitialized = useRef(false);
 
     useEffect(() => {
@@ -25,6 +28,14 @@ export const useRoomPersistence = () => {
 
             if (!roomId) {
                 return;
+            }
+
+            // Check if this was a quick return restoration
+            if (wasQuickReturn) {
+                console.log('[RoomPersistence] Quick return detected - room was restored from recent departure');
+                setIsQuickReturn(true);
+                // Clear the quick return flag after processing
+                dispatch(clearQuickReturnFlag());
             }
 
             console.log('[RoomPersistence] Validating persisted room:', roomId);
@@ -40,7 +51,8 @@ export const useRoomPersistence = () => {
                 dispatch(validatePersistedRoom({ roomExists }));
 
                 if (roomExists) {
-                    console.log(`[RoomPersistence] Successfully restored room: ${room?.short_name} (${roomId})`);
+                    const restorationType = wasQuickReturn ? 'quick return' : 'regular persistence';
+                    console.log(`[RoomPersistence] Successfully restored room via ${restorationType}: ${room?.short_name} (${roomId})`);
                     // Marquer que la room a été restaurée
                     setWasRoomRestored(true);
                     setRestoredRoomId(roomId);
@@ -61,10 +73,12 @@ export const useRoomPersistence = () => {
         persistedRoomId: roomId,
         wasRoomRestored,
         restoredRoomId,
+        isQuickReturn, // New: indicates if this was a quick return restoration
         // Fonction pour réinitialiser le flag de restauration
         clearRestorationFlag: () => {
             setWasRoomRestored(false);
             setRestoredRoomId(null);
+            setIsQuickReturn(false);
         }
     };
 };

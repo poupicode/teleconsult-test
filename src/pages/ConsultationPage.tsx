@@ -11,6 +11,7 @@ import { RoomSupabase } from '@/features/room/roomSupabase';
 import { MdAddIcCall } from 'react-icons/md';
 import { PeerConnection } from '@/features/room/rtc/peer';
 import { useRoomPersistence } from '@/hooks/useRoomPersistence';
+import { useBeforeUnload } from '@/hooks/useBeforeUnload';
 
 export default function ConsultationPage() {
     const userKind = useSelector((state: RootState) => state.user.user_kind);
@@ -21,8 +22,11 @@ export default function ConsultationPage() {
     const [peerConnection, setPeerConnection] = useState<PeerConnection | null>(null);
     const [showRestorationMessage, setShowRestorationMessage] = useState(false);
 
-    // Hook de persistance des rooms
-    const { hasPersistedRoom, persistedRoomId, wasRoomRestored, restoredRoomId, clearRestorationFlag } = useRoomPersistence();
+    // Hook de persistance des rooms avec détection de retour rapide
+    const { hasPersistedRoom, persistedRoomId, wasRoomRestored, restoredRoomId, isQuickReturn, clearRestorationFlag } = useRoomPersistence();
+
+    // Hook pour enregistrer les départs de page
+    useBeforeUnload();
 
     // Afficher un message de restauration si une room a été restaurée
     useEffect(() => {
@@ -98,12 +102,17 @@ export default function ConsultationPage() {
                 <Row className="mb-3">
                     <Col>
                         <Alert
-                            variant="success"
+                            variant={isQuickReturn ? "info" : "success"}
                             dismissible
                             onClose={() => setShowRestorationMessage(false)}
                         >
-                            <Alert.Heading>Consultation restaurée</Alert.Heading>
-                            Vous avez été automatiquement reconnecté à votre consultation précédente.
+                            <Alert.Heading>
+                                {isQuickReturn ? "Retour rapide détecté" : "Consultation restaurée"}
+                            </Alert.Heading>
+                            {isQuickReturn 
+                                ? "Vous avez été automatiquement reconnecté à votre consultation après un retour rapide."
+                                : "Vous avez été automatiquement reconnecté à votre consultation précédente."
+                            }
                         </Alert>
                     </Col>
                 </Row>

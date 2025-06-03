@@ -24,10 +24,12 @@ interface RoomState {
   userRole: Role | null;
   userId: string | null;
   participants: Participant[];
+  lastActivity?: number; // Timestamp when the room state was last saved
+  wasQuickReturn?: boolean; // Flag indicating if this was restored from a quick return
 }
 
 /**
- * Load persisted room state from localStorage
+ * Load persisted room state from localStorage with quick return logic
  */
 const loadPersistedRoomState = (): RoomState => {
   try {
@@ -35,7 +37,58 @@ const loadPersistedRoomState = (): RoomState => {
     if (persistedState) {
       const parsed = JSON.parse(persistedState);
       console.log('[RoomSlice] Loaded persisted room state:', parsed);
-      return parsed;
+      
+      // Time-based room persistence configuration
+      const ROOM_PERSISTENCE_TIMEOUT = 5 * 60 * 1000; // 5 minutes - maximum persistence time
+      const QUICK_RETURN_WINDOW = 30 * 1000; // 30 seconds - quick return window
+      const now = Date.now();
+      
+      if (!parsed.lastActivity) {
+        console.log('[RoomSlice] No lastActivity timestamp, clearing old state');
+        localStorage.removeItem('roomState');
+        return {
+          roomId: null,
+          userRole: null,
+          userId: null,
+          participants: []
+        };
+      }
+      
+      const timeSinceLastActivity = now - parsed.lastActivity;
+      
+      // Check if the persisted state is too old (beyond max persistence time)
+      if (timeSinceLastActivity > ROOM_PERSISTENCE_TIMEOUT) {
+        console.log('[RoomSlice] Persisted room state is too old, clearing it');
+        localStorage.removeItem('roomState');
+        return {
+          roomId: null,
+          userRole: null,
+          userId: null,
+          participants: []
+        };
+      }
+      
+      // Check if this is a quick return (within the quick return window)
+      const isQuickReturn = timeSinceLastActivity <= QUICK_RETURN_WINDOW;
+      
+      // Only restore room if it's a quick return
+      if (isQuickReturn) {
+        console.log(`[RoomSlice] Quick return detected (${timeSinceLastActivity}ms ago), restoring room state`);
+        return {
+          ...parsed,
+          // Mark this as a quick return restoration
+          wasQuickReturn: true
+        };
+      } else {
+        console.log(`[RoomSlice] User returned after ${timeSinceLastActivity}ms (not a quick return), clearing room state`);
+        localStorage.removeItem('roomState');
+        return {
+          roomId: null,
+          userRole: null,
+          userId: null,
+          participants: []
+        };
+      }
     }
   } catch (error) {
     console.warn('[RoomSlice] Failed to load persisted room state:', error);
@@ -56,8 +109,13 @@ const saveRoomState = (state: RoomState) => {
   try {
     // Only save if there's an active room
     if (state.roomId) {
-      localStorage.setItem('roomState', JSON.stringify(state));
-      console.log('[RoomSlice] Saved room state to localStorage:', state);
+      const stateToSave = {
+        ...state,
+        lastActivity: Date.now(), // Add timestamp when saving
+        wasQuickReturn: undefined // Clear quick return flag when saving
+      };
+      localStorage.setItem('roomState', JSON.stringify(stateToSave));
+      console.log('[RoomSlice] Saved room state to localStorage:', stateToSave);
     } else {
       // Clear localStorage if no active room
       localStorage.removeItem('roomState');
@@ -65,6 +123,29 @@ const saveRoomState = (state: RoomState) => {
     }
   } catch (error) {
     console.warn('[RoomSlice] Failed to save room state:', error);
+  }
+};
+
+/**
+ * Save departure timestamp for quick return detection
+ */
+const saveDepartureTimestamp = () => {
+  try {
+    const persistedState = localStorage.getItem('roomState');
+    if (persistedState) {
+      const parsed = JSON.parse(persistedState);
+      if (parsed.roomId) {
+        // Update lastActivity to current time when user is leaving
+        const updatedState = {
+          ...parsed,
+          lastActivity: Date.now()
+        };
+        localStorage.setItem('roomState', JSON.stringify(updatedState));
+        console.log('[RoomSlice] Updated departure timestamp for room persistence');
+      }
+    }
+  } catch (error) {
+    console.warn('[RoomSlice] Failed to save departure timestamp:', error);
   }
 };
 
@@ -167,6 +248,21 @@ const roomSlice = createSlice({
         saveRoomState(state);
       }
     },
+
+    /**
+     * Enregistre le timestamp de départ pour la détection de retour rapide
+     */
+    recordDeparture(state) {
+      // Save departure timestamp without changing the state
+      saveDepartureTimestamp();
+    },
+
+    /**
+     * Nettoie le flag de retour rapide après traitement
+     */
+    clearQuickReturnFlag(state) {
+      state.wasQuickReturn = undefined;
+    },
   },
 });
 
@@ -180,6 +276,8 @@ export const {
   resetRoom,
   cleanupRoomState,
   resetParticipantsConnection,
-  validatePersistedRoom
+  validatePersistedRoom,
+  recordDeparture,
+  clearQuickReturnFlag
 } = roomSlice.actions;
 export default roomSlice.reducer;
