@@ -633,39 +633,31 @@ export class PeerConnection implements IPeerConnection {
                     this.onRoomReadyCallback(this.readyToNegotiate);
                 }
 
-                // Si la salle est prête et qu'on est le praticien, initialiser la connexion
-                // mais seulement si on n'a pas fait de reset juste avant
-                if (this.readyToNegotiate && this.role === Role.PRACTITIONER) {
-                    console.log('[WebRTC] Room is ready and we are the practitioner, waiting to initiate connection...');
+                // Perfect Negotiation P2P: Let the first to arrive initiate, regardless of business role
+                // The negotiation is now handled entirely by Perfect Negotiation based on arrival order
+                if (this.readyToNegotiate) {
+                    const roleInfo = this.perfectNegotiation.getRoleInfo();
+                    debugLog(`[WebRTC] Room ready for P2P connection. Role info:`, roleInfo);
+                    
+                    // Only the impolite peer (first to arrive) should create the data channel
+                    if (!roleInfo.isPolite && !this.dataChannelManager.isDataChannelAvailable()) {
+                        debugLog('[WebRTC] Impolite peer creating data channel to initiate P2P connection...');
+                        
+                        setTimeout(() => {
+                            if (this.readyToNegotiate &&
+                                this.pc.connectionState !== 'closed' &&
+                                this.pc.signalingState !== 'closed' &&
+                                !this.dataChannelManager.isDataChannelAvailable()) {
 
-                    const shouldReset =
-                        this.pc.connectionState === 'disconnected' ||
-                        this.pc.connectionState === 'failed' ||
-                        this.pc.signalingState === 'closed';
-
-                    if (shouldReset) {
-                        console.warn('[WebRTC] PeerConnection is not healthy, forcing reset...');
-                        this.resetPeerConnection();
-                        return;
+                                debugLog('[WebRTC] Creating data channel for P2P initiation');
+                                this.dataChannelManager.createDataChannel();
+                            } else {
+                                debugLog('[WebRTC] Connection state changed or DataChannel already exists, skipping creation');
+                            }
+                        }, 500);
+                    } else if (roleInfo.isPolite) {
+                        debugLog('[WebRTC] Polite peer waiting for impolite peer to initiate connection...');
                     }
-
-                    if (this.dataChannelManager.isDataChannelAvailable()) {
-                        console.log('[WebRTC] DataChannel already exists and is available, no need to create a new one');
-                        return;
-                    }
-
-                    setTimeout(() => {
-                        if (this.readyToNegotiate &&
-                            this.pc.connectionState !== 'closed' &&
-                            this.pc.signalingState !== 'closed' &&
-                            !this.dataChannelManager.isDataChannelAvailable()) {
-
-                            console.log('[WebRTC] Creating data channel after delay');
-                            this.dataChannelManager.createDataChannel();
-                        } else {
-                            console.log('[WebRTC] Connection or room state changed, or DataChannel already exists, not creating data channel');
-                        }
-                    }, 500);
                 }
             }
         });
@@ -898,20 +890,28 @@ export class PeerConnection implements IPeerConnection {
         this.setupIceDebugging();
 
         // Vérifier si la salle est prête pour la négociation après la réinitialisation
-        // Si c'est le cas et qu'on est le praticien, déclencher immédiatement la création du data channel
+        // Perfect Negotiation P2P: Let arrival order determine who initiates, not business role
         const hasPatientAndPractitioner = this.signaling.hasPatientAndPractitioner();
-        console.log(`[WebRTC] After reset, room has patient and practitioner: ${hasPatientAndPractitioner}`);
+        debugLog(`[WebRTC] After reset, room has patient and practitioner: ${hasPatientAndPractitioner}`);
 
-        if (hasPatientAndPractitioner && this.role === Role.PRACTITIONER) {
-            console.log('[WebRTC] Room is ready after reset, scheduling data channel creation');
+        if (hasPatientAndPractitioner) {
+            const roleInfo = this.perfectNegotiation.getRoleInfo();
+            debugLog('[WebRTC] Room ready after reset, P2P role info:', roleInfo);
 
-            // Petit délai pour s'assurer que tous les listeners sont bien configurés
-            setTimeout(() => {
-                if (this.pc.connectionState !== 'closed' && this.pc.signalingState !== 'closed') {
-                    console.log('[WebRTC] Creating data channel after reset');
-                    this.dataChannelManager.createDataChannel();
-                }
-            }, 200);
+            // Only the impolite peer (first to arrive) should create data channel after reset
+            if (!roleInfo.isPolite) {
+                debugLog('[WebRTC] Impolite peer scheduling data channel creation after reset');
+
+                // Petit délai pour s'assurer que tous les listeners sont bien configurés
+                setTimeout(() => {
+                    if (this.pc.connectionState !== 'closed' && this.pc.signalingState !== 'closed') {
+                        debugLog('[WebRTC] Creating data channel after reset (P2P initiation)');
+                        this.dataChannelManager.createDataChannel();
+                    }
+                }, 200);
+            } else {
+                debugLog('[WebRTC] Polite peer waiting after reset for impolite peer to initiate...');
+            }
         }
 
         // Notifier explicitement le changement d'état de connexion, car la nouvelle
