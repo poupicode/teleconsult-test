@@ -7,7 +7,7 @@ import { cleanupRoomState, resetParticipantsConnection } from '../../../roomSlic
 import { Role, ChatMessage } from '../models/types';
 import { DataChannelManager } from '../data-channel/data-channel-manager';
 import { setupPeerConnectionListeners, IPeerConnection } from '../handlers/connection-handlers';
-import { handleOffer, handleAnswer, handleIceCandidate, createOffer } from '../handlers/signaling-handlers';
+import { PerfectNegotiation } from '../negotiation/perfect-negotiation';
 
 
 // Interfaces pour les statistiques WebRTC
@@ -60,6 +60,7 @@ export class PeerConnection implements IPeerConnection {
     private pc: RTCPeerConnection;
     private signaling: SignalingService;
     private dataChannelManager: DataChannelManager;
+    private perfectNegotiation: PerfectNegotiation;
     private role: Role;
     private roomId: string;
     private clientId: string;
@@ -112,6 +113,22 @@ export class PeerConnection implements IPeerConnection {
             this.clientId,
             this.role
         );
+
+        // Initialize Perfect Negotiation
+        this.perfectNegotiation = new PerfectNegotiation(
+            this.pc,
+            this.signaling,
+            this.roomId,
+            this.clientId,
+            this.role
+        );
+
+        // Register callback for connection state changes
+        this.perfectNegotiation.onConnectionStateChanged((state) => {
+            if (this.onConnectionStateChangeCallback) {
+                this.onConnectionStateChangeCallback(state);
+            }
+        });
 
         // Setup peer connection listeners
         this.setupListeners();
@@ -501,49 +518,9 @@ export class PeerConnection implements IPeerConnection {
     private async setupSignalingListeners() {
         console.log('[WebRTC] Setting up signaling listeners');
 
-        // Écouter les messages de signalisation
-        this.signaling.onMessage(async (message: SignalingMessage) => {
-            console.log(`[WebRTC] Received signaling message type: ${message.type}`, message);
-
-            try {
-                if (message.sender === this.clientId) {
-                    console.log('[WebRTC] Ignoring message from self');
-                    return; // Ignore messages from self
-                }
-
-                if (message.type === 'offer') {
-                    console.log('[WebRTC] Processing offer');
-                    // Vérifier que le type est bien une offre et utiliser un cast de type sécurisé
-                    await handleOffer(this.pc, message.content as RTCSessionDescriptionInit, this.signaling, this.roomId);
-                }
-                else if (message.type === 'answer') {
-                    console.log('[WebRTC] Processing answer');
-                    // Vérifier que le type est bien une réponse et utiliser un cast de type sécurisé
-                    await handleAnswer(this.pc, message.content as RTCSessionDescriptionInit);
-                }
-                else if (message.type === 'ice-candidate') {
-                    console.log('[WebRTC] Processing ICE candidate:', JSON.stringify(message.content));
-
-                    // RÉCEPTION CRITIQUE: Stocker et traiter le candidat distant
-                    if (message.content) {
-                        const candidate = message.content as RTCIceCandidate;
-                        this.iceCandidates.remote.push(candidate);
-
-                        // Analyser le candidat distant pour les diagnostics
-                        this.analyzeIceCandidate(candidate, false);
-
-                        // Log crucial pour le suivi du nombre de candidats distants
-                        console.log(`[WebRTC-ICE] Remote candidates count: ${this.iceCandidates.remote.length}`);
-                    }
-
-                    // Traiter le candidat ICE via le handler dédié
-                    await handleIceCandidate(this.pc, message.content as RTCIceCandidateInit);
-                    console.log('[WebRTC-ICE] ICE candidate added successfully');
-                }
-            } catch (err) {
-                console.error('[WebRTC] Error handling signaling message:', err);
-            }
-        });
+        // Note: Signaling message handling is now managed by Perfect Negotiation
+        // The PerfectNegotiation class handles all offer/answer/ice-candidate messages
+        // This eliminates race conditions and implements proper collision detection
 
         // Écouter les changements de présence dans la salle
         this.signaling.onPresenceChange((presences: UserPresence[]) => {
@@ -692,7 +669,14 @@ export class PeerConnection implements IPeerConnection {
 
     // Créer une offre pour établir la connexion
     async createOffer() {
-        await createOffer(this.pc, this.signaling, this.roomId);
+        console.log('[WebRTC] Creating offer via Perfect Negotiation');
+        // Note: Perfect Negotiation handles offer creation automatically via negotiationneeded event
+        // This method is kept for compatibility but the actual logic is in PerfectNegotiation
+        // Force trigger negotiation if needed
+        if (this.pc.connectionState === 'new' && this.readyToNegotiate) {
+            // Create a data channel to trigger negotiation
+            this.dataChannelManager.createDataChannel();
+        }
     }
 
     // Configure les événements pour le dataChannel
@@ -848,6 +832,30 @@ export class PeerConnection implements IPeerConnection {
         // Réinitialiser les collections de candidats ICE
         this.iceCandidates = { local: [], remote: [] };
         this.hasRelay = false;
+
+        // Reinitialize Perfect Negotiation with the new peer connection
+        this.perfectNegotiation = new PerfectNegotiation(
+            this.pc,
+            this.signaling,
+            this.roomId,
+            this.clientId,
+            this.role
+        );
+
+        // Register callback for connection state changes
+        this.perfectNegotiation.onConnectionStateChanged((state) => {
+            if (this.onConnectionStateChangeCallback) {
+                this.onConnectionStateChangeCallback(state);
+            }
+        });
+
+        // Update data channel manager with new peer connection
+        this.dataChannelManager = new DataChannelManager(
+            () => this.pc,
+            this.roomId,
+            this.clientId,
+            this.role
+        );
 
         // NOTE: Ne pas réinitialiser this.readyToNegotiate ici car cet état doit être géré
         // par la logique de présence. Si on le remet à false, cela empêche la reconnexion

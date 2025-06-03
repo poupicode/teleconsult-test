@@ -39,21 +39,8 @@ export function setupPeerConnectionListeners(peerConnection: IPeerConnection, pc
         console.log(`[WebRTC] Signaling state: ${pc.signalingState}`);
     };
 
-    // Handle negotiation needed
-    pc.onnegotiationneeded = async () => {
-        try {
-            console.log(`[WebRTC] Negotiation needed, role: ${peerConnection.getRole()}`);
-
-            // Vérifier si on est prêt pour la négociation (patient et praticien présents)
-            if (peerConnection.isRoomReady() && peerConnection.getRole() === Role.PRACTITIONER) {
-                await peerConnection.createOffer();
-            } else {
-                console.log('[WebRTC] Not ready to negotiate yet or not a practitioner');
-            }
-        } catch (err) {
-            console.error('[WebRTC] Error during negotiation:', err);
-        }
-    };
+    // Note: negotiationneeded handler is managed by Perfect Negotiation
+    // Perfect Negotiation handles all offer/answer logic to prevent race conditions
 
     // Écouter les data channels entrants (pour le patient)
     pc.ondatachannel = (event) => {
