@@ -35,7 +35,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       // Récupérer le profil depuis la base de données pour avoir le user_kind à jour
       const profile = await ProfileService.getUserProfile(authUser.id);
-      
+
       dispatch(setAuthenticated(true));
       dispatch(setUser({
         id: authUser.id,
@@ -69,7 +69,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       } else {
         dispatch(setAuthenticated(false));
         dispatch(clearUser());
-        
+
         // Nettoyer tous les états si aucune session n'est trouvée
         dispatch(resetRoom());
         dispatch(clearAllMessages());
@@ -87,7 +87,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       } else {
         dispatch(setAuthenticated(false));
         dispatch(clearUser());
-        
+
         // Nettoyer tous les états lors de la perte de session
         dispatch(resetRoom());
         dispatch(clearAllMessages());
@@ -106,11 +106,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setLocalUser(null);
     dispatch(setAuthenticated(false));
     dispatch(clearUser());
-    
+
     // Nettoyer complètement tous les états lors de la déconnexion
     dispatch(resetRoom());
     dispatch(clearAllMessages());
-    
+
     // Nettoyer le localStorage des rooms
     localStorage.removeItem('roomState');
   };

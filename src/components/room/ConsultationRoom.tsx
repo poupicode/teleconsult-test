@@ -19,6 +19,7 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
   const [peerConnection, setPeerConnection] = useState<PeerConnection | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<string>('disconnected');
   const [roomReady, setRoomReady] = useState<boolean>(false);
+  const [negotiationRole, setNegotiationRole] = useState<'polite' | 'impolite' | null>(null);
 
   // Référence pour suivre la salle précédemment connectée
   const previousRoomIdRef = useRef<string | null>(null);
@@ -54,6 +55,7 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
           setPeerConnection(null);
           setConnectionStatus('disconnected');
           setRoomReady(false);
+          setNegotiationRole(null);
         };
 
         disconnect();
@@ -73,6 +75,7 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
       setPeerConnection(null);
       setConnectionStatus('disconnected');
       setRoomReady(false);
+      setNegotiationRole(null);
     }
   }, [roomId, userId, userRole]);
 
@@ -104,6 +107,7 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
       // Désactiver tous les callbacks et l'état actuel avant de déconnecter
       setConnectionStatus('disconnecting');
       setRoomReady(false);
+      setNegotiationRole(null);
 
       // Déconnecter proprement la connexion existante
       await peerConnection.disconnect();
@@ -129,19 +133,28 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
       peer.onRoomReady((isReady) => {
         setRoomReady(isReady);
 
-        // Optimisation pour les patients: si la salle devient prête et que l'utilisateur est un patient,
-        // attendons quelques instants que le praticien ait bien réinitialisé sa connexion
-        if (isReady && userRole === Role.PATIENT) {
-          console.log('[ConsultationRoom] Room is ready and we are the patient, waiting for practitioner to initialize...');
+        // Perfect Negotiation: si la salle devient prête et que nous sommes le peer poli,
+        // attendons quelques instants que le peer impoli ait initialisé la connexion
+        if (isReady) {
+          const negotiationState = peer.getPerfectNegotiationState();
+          const isPolite = negotiationState.isPolite;
+          setNegotiationRole(isPolite ? 'polite' : 'impolite');
+          
+          if (isPolite) {
+            console.log('[ConsultationRoom] Room is ready and we are the polite peer (second to arrive), waiting for impolite peer to initialize...');
 
-          // Petit délai pour s'assurer que le praticien est prêt à négocier
-          // Nous n'avons pas besoin de reconnecter le service de signalisation ici,
-          // car cela pourrait créer une boucle infinie
-          setTimeout(() => {
-            console.log('[ConsultationRoom] Patient is now ready to receive connection from practitioner');
-            // Le praticien va détecter notre présence naturellement, 
-            // pas besoin de forcer une reconnexion qui pourrait causer une boucle
-          }, 1000);
+            // Petit délai pour s'assurer que le peer impoli est prêt à négocier
+            // Perfect Negotiation gère automatiquement qui initie la connexion
+            setTimeout(() => {
+              console.log('[ConsultationRoom] Polite peer is now ready to receive connection from impolite peer');
+              // Le peer impoli va détecter notre présence et initier la connexion automatiquement
+              // via Perfect Negotiation - pas besoin d'intervention manuelle
+            }, 1000);
+          } else {
+            console.log('[ConsultationRoom] Room is ready and we are the impolite peer (first to arrive), Perfect Negotiation will handle connection initiation');
+          }
+        } else {
+          setNegotiationRole(null);
         }
       });
 
@@ -176,11 +189,21 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
             {roomReady && (
               <Badge bg="success" className="ms-2">
                 Salle prête ({userRole === Role.PRACTITIONER ? 'Patient connecté' : 'Praticien connecté'})
+                {negotiationRole && (
+                  <span className="ms-1">
+                    - Rôle de négociation: {negotiationRole === 'polite' ? 'Poli (attend)' : 'Impoli (initie)'}
+                  </span>
+                )}
               </Badge>
             )}
             {!roomReady && (
               <Badge bg="warning" className="ms-2">
                 En attente {userRole === Role.PRACTITIONER ? 'du patient' : 'du praticien'}
+                {negotiationRole && (
+                  <span className="ms-1">
+                    - Rôle: {negotiationRole === 'polite' ? 'Poli' : 'Impoli'}
+                  </span>
+                )}
               </Badge>
             )}
           </Alert>
