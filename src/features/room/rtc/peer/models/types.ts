@@ -32,16 +32,6 @@ export interface NegotiationState {
 }
 
 /**
- * Role coordination state for preventing double impolite peers
- */
-export interface RoleCoordinationState {
-    roleRequested: boolean;          // Have we requested the impolite role?
-    roleConfirmed: boolean;          // Has our role been confirmed?
-    remoteImpoliteDetected: boolean; // Have we detected another impolite peer?
-    coordinationTimeout: NodeJS.Timeout | null; // Timeout for role coordination
-}
-
-/**
  * Interface for general DataChannel messages
  */
 export interface DataChannelMessage {

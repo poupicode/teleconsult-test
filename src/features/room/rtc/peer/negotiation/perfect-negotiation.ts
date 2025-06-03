@@ -8,8 +8,8 @@
  * by assigning asymmetric roles to peers that are independent of business logic.
  */
 
-import { SignalingService, SignalingMessage, RoleCoordinationContent } from '../../signaling';
-import { Role, NegotiationRole, NegotiationState, RoleCoordinationState } from '../models/types';
+import { SignalingService, SignalingMessage } from '../../signaling';
+import { Role, NegotiationRole, NegotiationState } from '../models/types';
 
 // Debug logging control - set to false in production
 const DEBUG_LOGS = import.meta.env.DEV || false;
@@ -37,7 +37,6 @@ export class PerfectNegotiation {
     // Perfect negotiation specific state
     private negotiationRole: NegotiationRole;
     private negotiationState: NegotiationState;
-    private roleCoordination: RoleCoordinationState;
     private hasTriggeredInitialConnection: boolean = false; // Prevent double triggering
 
     // Callbacks
@@ -66,24 +65,20 @@ export class PerfectNegotiation {
             isSettingRemoteAnswerPending: false
         };
 
-        // Initialize role coordination state
-        this.roleCoordination = {
-            roleRequested: false,
-            roleConfirmed: false,
-            remoteImpoliteDetected: false,
-            coordinationTimeout: null
-        };
-
-        // Start with polite role by default, will be determined through coordination
+        // Determine negotiation role based on arrival order for true P2P
+        // The first to arrive becomes impolite (initiator)
+        // The second to arrive becomes polite (waiter)
+        // This creates a truly peer-to-peer system where either side can initiate
         this.negotiationRole = {
-            isPolite: true
+            isPolite: !this.isFirstToArrive()
         };
 
-        debugLog(`[PerfectNegotiation] Initialized with business role: ${role}`);
+        debugLog(`[PerfectNegotiation] Initialized with role: ${role}, isPolite: ${this.negotiationRole.isPolite}`);
 
         this.setupEventHandlers();
 
-        // Role coordination will be started after signaling connection is established
+        // If we're the impolite peer and room is ready, trigger DataChannel creation
+        this.checkInitialConnectionTrigger();
     }
 
     /**
@@ -157,8 +152,6 @@ export class PerfectNegotiation {
                     await this.handleDescription(message);
                 } else if (message.type === 'ice-candidate') {
                     await this.handleIceCandidate(message);
-                } else if (message.type === 'role-claim' || message.type === 'role-release' || message.type === 'role-conflict') {
-                    this.handleRoleCoordinationMessage(message);
                 }
             } catch (err) {
                 debugError('[PerfectNegotiation] Error handling signaling message:', err);
@@ -297,15 +290,8 @@ export class PerfectNegotiation {
      */
     private handleRoleSwitch(): void {
         if (this.negotiationRole.isPolite && this.isPeerGone()) {
-            debugLog('[PerfectNegotiation] Impolite peer disconnected, attempting to claim impolite role for recovery');
-            
-            // Reset coordination state and try to claim impolite role
-            this.roleCoordination.remoteImpoliteDetected = false;
-            this.roleCoordination.roleRequested = false;
-            this.roleCoordination.roleConfirmed = false;
-            
-            // Claim the impolite role
-            this.claimImpoliteRole();
+            debugLog('[PerfectNegotiation] Impolite peer disconnected, switching to impolite role for recovery');
+            this.negotiationRole.isPolite = false;
         }
     }
 
@@ -439,12 +425,10 @@ export class PerfectNegotiation {
         return {
             isPolite: this.negotiationRole.isPolite,
             businessRole: this.role,
-            roleRequested: this.roleCoordination.roleRequested,
-            roleConfirmed: this.roleCoordination.roleConfirmed,
-            remoteImpoliteDetected: this.roleCoordination.remoteImpoliteDetected,
+            arrivalOrder: this.negotiationRole.isPolite ? 'second' : 'first', // Role is permanent, don't re-check
             participantsCount: participants.length,
             isAloneInRoom: this.isAloneInRoom(),
-            canInitiate: !this.negotiationRole.isPolite && this.roleCoordination.roleConfirmed,
+            canInitiate: !this.negotiationRole.isPolite,
             hasTriggered: this.hasTriggeredInitialConnection
         };
     }
@@ -521,29 +505,6 @@ export class PerfectNegotiation {
     public destroy() {
         debugLog('[PerfectNegotiation] Destroying instance and cleaning up...');
 
-        // If we're impolite, send role-release message to inform other peers
-        if (!this.negotiationRole.isPolite && this.roleCoordination.roleConfirmed) {
-            const coordinationContent: RoleCoordinationContent = {
-                requestedRole: 'polite',
-                clientId: this.clientId,
-                timestamp: Date.now()
-            };
-
-            this.signaling.sendMessage({
-                type: 'role-release',
-                roomId: this.roomId,
-                content: coordinationContent
-            }).catch(error => {
-                debugError('[PerfectNegotiation] Failed to send role-release:', error);
-            });
-        }
-
-        // Clear coordination timeout
-        if (this.roleCoordination.coordinationTimeout) {
-            clearTimeout(this.roleCoordination.coordinationTimeout);
-            this.roleCoordination.coordinationTimeout = null;
-        }
-
         // Clear all event handlers
         this.pc.onnegotiationneeded = null;
         this.pc.onicecandidate = null;
@@ -556,174 +517,5 @@ export class PerfectNegotiation {
         this.onConnectionStateChange = undefined;
 
         debugLog('[PerfectNegotiation] Cleanup complete');
-    }
-
-    /**
-     * Initialize role coordination after signaling service is connected
-     * This must be called after the signaling service connection is established
-     */
-    public initializeRoleCoordination(): void {
-        debugLog('[PerfectNegotiation] Starting role coordination after signaling connection established');
-        this.startRoleCoordination();
-    }
-
-    /**
-     * Initiate role coordination process to determine who becomes impolite
-     */
-    private startRoleCoordination() {
-        // If we're first to arrive, claim impolite role
-        if (this.isFirstToArrive()) {
-            debugLog('[PerfectNegotiation] First to arrive - claiming impolite role');
-            this.claimImpoliteRole();
-        } else {
-            debugLog('[PerfectNegotiation] Not first to arrive - staying polite for now');
-            // Set timeout to claim impolite role if no one else does
-            this.roleCoordination.coordinationTimeout = setTimeout(() => {
-                if (!this.roleCoordination.remoteImpoliteDetected) {
-                    debugLog('[PerfectNegotiation] No impolite peer detected after timeout - claiming role');
-                    this.claimImpoliteRole();
-                }
-            }, 1000); // 1 second timeout
-        }
-    }
-
-    /**
-     * Claim the impolite role by sending a role-claim message
-     */
-    private claimImpoliteRole() {
-        if (this.roleCoordination.roleRequested) {
-            debugLog('[PerfectNegotiation] Already requested impolite role');
-            return;
-        }
-
-        this.roleCoordination.roleRequested = true;
-        
-        const coordinationContent: RoleCoordinationContent = {
-            requestedRole: 'impolite',
-            clientId: this.clientId,
-            timestamp: Date.now()
-        };
-
-        debugLog('[PerfectNegotiation] Sending role-claim message');
-        this.signaling.sendMessage({
-            type: 'role-claim',
-            roomId: this.roomId,
-            content: coordinationContent
-        }).catch(error => {
-            debugError('[PerfectNegotiation] Failed to send role-claim:', error);
-        });
-
-        // Set timeout for role confirmation
-        this.roleCoordination.coordinationTimeout = setTimeout(() => {
-            if (!this.roleCoordination.roleConfirmed) {
-                // No conflicts detected, confirm our role
-                this.confirmImpoliteRole();
-            }
-        }, 500); // 500ms timeout for conflicts
-    }
-
-    /**
-     * Confirm impolite role and start connection process
-     */
-    private confirmImpoliteRole() {
-        this.negotiationRole.isPolite = false;
-        this.roleCoordination.roleConfirmed = true;
-        
-        debugLog('[PerfectNegotiation] ✅ Confirmed as IMPOLITE peer');
-        
-        // Clear timeout
-        if (this.roleCoordination.coordinationTimeout) {
-            clearTimeout(this.roleCoordination.coordinationTimeout);
-            this.roleCoordination.coordinationTimeout = null;
-        }
-
-        // Check if we should trigger initial connection
-        this.checkInitialConnectionTrigger();
-    }
-
-    /**
-     * Handle role coordination conflicts using clientId comparison
-     */
-    private handleRoleConflict(remoteClientId: string) {
-        debugLog(`[PerfectNegotiation] Role conflict detected with ${remoteClientId}`);
-        
-        // Use deterministic comparison: lower clientId wins impolite role
-        if (this.clientId < remoteClientId) {
-            debugLog('[PerfectNegotiation] ✅ Won conflict - keeping impolite role');
-            this.confirmImpoliteRole();
-        } else {
-            debugLog('[PerfectNegotiation] ❌ Lost conflict - becoming polite');
-            this.becomePolite();
-            
-            // Send role-conflict message to inform the other peer
-            const coordinationContent: RoleCoordinationContent = {
-                requestedRole: 'polite',
-                clientId: this.clientId,
-                timestamp: Date.now()
-            };
-
-            this.signaling.sendMessage({
-                type: 'role-conflict',
-                roomId: this.roomId,
-                content: coordinationContent
-            });
-        }
-    }
-
-    /**
-     * Become polite peer
-     */
-    private becomePolite() {
-        this.negotiationRole.isPolite = true;
-        this.roleCoordination.roleConfirmed = true;
-        this.roleCoordination.remoteImpoliteDetected = true;
-        
-        debugLog('[PerfectNegotiation] ✅ Confirmed as POLITE peer');
-        
-        // Clear timeout
-        if (this.roleCoordination.coordinationTimeout) {
-            clearTimeout(this.roleCoordination.coordinationTimeout);
-            this.roleCoordination.coordinationTimeout = null;
-        }
-    }
-
-    /**
-     * Handle incoming role coordination messages
-     */
-    private handleRoleCoordinationMessage(message: SignalingMessage) {
-        const content = message.content as RoleCoordinationContent;
-        
-        if (message.type === 'role-claim') {
-            debugLog(`[PerfectNegotiation] Received role-claim from ${content.clientId}`);
-            
-            this.roleCoordination.remoteImpoliteDetected = true;
-            
-            if (this.roleCoordination.roleRequested && !this.roleCoordination.roleConfirmed) {
-                // We both want impolite role - resolve conflict
-                this.handleRoleConflict(content.clientId);
-            } else if (!this.roleCoordination.roleRequested) {
-                // We hadn't claimed yet - let them have it
-                this.becomePolite();
-            }
-            
-        } else if (message.type === 'role-release') {
-            debugLog(`[PerfectNegotiation] Received role-release from ${content.clientId}`);
-            
-            this.roleCoordination.remoteImpoliteDetected = false;
-            
-            // If we're polite and the impolite peer disconnected, we can claim the role
-            if (this.negotiationRole.isPolite && !this.roleCoordination.roleRequested) {
-                debugLog('[PerfectNegotiation] Impolite peer disconnected - claiming role');
-                this.claimImpoliteRole();
-            }
-            
-        } else if (message.type === 'role-conflict') {
-            debugLog(`[PerfectNegotiation] Received role-conflict from ${content.clientId}`);
-            
-            // The other peer is acknowledging they lost the conflict
-            if (!this.roleCoordination.roleConfirmed) {
-                this.confirmImpoliteRole();
-            }
-        }
     }
 }

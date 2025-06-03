@@ -9,23 +9,14 @@ import { supabase } from '@/lib/supabaseClient';
 import { Role } from './peer';
 
 /**
- * Role coordination message content
- */
-export type RoleCoordinationContent = {
-    requestedRole: 'impolite' | 'polite';
-    clientId: string;
-    timestamp: number;
-};
-
-/**
  * Represents a signaling message exchanged between peers
  */
 export type SignalingMessage = {
-    type: 'offer' | 'answer' | 'ice-candidate' | 'role-claim' | 'role-release' | 'role-conflict';  // Type of signaling message
+    type: 'offer' | 'answer' | 'ice-candidate';  // Type of signaling message
     sender: string;                              // Client ID of the sender
     receiver?: string;                           // Optional target client ID
     roomId: string;                              // Room identifier
-    content: RTCSessionDescriptionInit | RTCIceCandidateInit | RoleCoordinationContent;  // WebRTC specific content
+    content: RTCSessionDescriptionInit | RTCIceCandidateInit;  // WebRTC specific content
     created_at?: Date;                           // Message timestamp
 };
 
