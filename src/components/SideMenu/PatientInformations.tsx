@@ -20,7 +20,7 @@ const PatientInformations = ({ patientInformations } : InformationsFormData) => 
   return (
     <Card className="mb-3">
       <Card.Body>
-        <Card.Title className="color-red">Patient</Card.Title>
+        <Card.Title as={"h3"} className="color-red fs-5">Patient</Card.Title>
         <hr className="mb-3" />
         <ul>
           <li className="mb-2">

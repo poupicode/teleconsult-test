@@ -1,23 +1,35 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { RootState } from '@/app/store';
-import { RoomSupabase } from '../../features/room/roomSupabase';
-import { PeerConnection, Role } from '../../features/room/rtc/peer';
-import { participantJoined, userIdSet, userRoleSet } from '../../features/room/roomSlice';
-import { v4 as uuidv4 } from 'uuid';
-import { Alert, Badge } from 'react-bootstrap';
+import React, { useEffect, useState, useRef } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import { RootState } from "@/app/store";
+import { RoomSupabase } from "../../features/room/roomSupabase";
+import { PeerConnection, Role } from "../../features/room/rtc/peer";
+import {
+  participantJoined,
+  userIdSet,
+  userRoleSet,
+} from "../../features/room/roomSlice";
+import { v4 as uuidv4 } from "uuid";
+import { Alert, Badge } from "react-bootstrap";
+import RoomInformations from "./RoomInformations";
 
 interface ConsultationRoomProps {
   onPeerConnectionReady?: (peerConnection: PeerConnection) => void;
 }
 
-export default function ConsultationRoom({ onPeerConnectionReady }: ConsultationRoomProps) {
+export default function ConsultationRoom({
+  onPeerConnectionReady,
+}: ConsultationRoomProps) {
   const dispatch = useDispatch();
-  const { roomId, userRole, userId } = useSelector((state: RootState) => state.room);
+  const { roomId, userRole, userId } = useSelector(
+    (state: RootState) => state.room
+  );
   const userKind = useSelector((state: RootState) => state.user.user_kind);
 
-  const [peerConnection, setPeerConnection] = useState<PeerConnection | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<string>('disconnected');
+  const [peerConnection, setPeerConnection] = useState<PeerConnection | null>(
+    null
+  );
+  const [connectionStatus, setConnectionStatus] =
+    useState<string>("disconnected");
   const [roomReady, setRoomReady] = useState<boolean>(false);
 
   // Référence pour suivre la salle précédemment connectée
@@ -32,7 +44,8 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
 
     // Set user role based on user kind
     if (userKind && !userRole) {
-      const role = userKind === 'practitioner' ? Role.PRACTITIONER : Role.PATIENT;
+      const role =
+        userKind === "practitioner" ? Role.PRACTITIONER : Role.PATIENT;
       dispatch(userRoleSet(role));
     }
   }, [userId, userRole, userKind, dispatch]);
@@ -45,7 +58,7 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
       if (peerConnection) {
         peerConnection.disconnect();
         setPeerConnection(null);
-        setConnectionStatus('disconnected');
+        setConnectionStatus("disconnected");
         setRoomReady(false);
       }
     }
@@ -63,7 +76,7 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
     } else if (!roomId && peerConnection) {
       peerConnection.disconnect();
       setPeerConnection(null);
-      setConnectionStatus('disconnected');
+      setConnectionStatus("disconnected");
       setRoomReady(false);
     }
 
@@ -110,14 +123,18 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
         // Optimisation pour les patients: si la salle devient prête et que l'utilisateur est un patient,
         // attendons quelques instants que le praticien ait bien réinitialisé sa connexion
         if (isReady && userRole === Role.PATIENT) {
-          console.log('[ConsultationRoom] Room is ready and we are the patient, waiting for practitioner to initialize...');
+          console.log(
+            "[ConsultationRoom] Room is ready and we are the patient, waiting for practitioner to initialize..."
+          );
 
           // Petit délai pour s'assurer que le praticien est prêt à négocier
           // Nous n'avons pas besoin de reconnecter le service de signalisation ici,
           // car cela pourrait créer une boucle infinie
           setTimeout(() => {
-            console.log('[ConsultationRoom] Patient is now ready to receive connection from practitioner');
-            // Le praticien va détecter notre présence naturellement, 
+            console.log(
+              "[ConsultationRoom] Patient is now ready to receive connection from practitioner"
+            );
+            // Le praticien va détecter notre présence naturellement,
             // pas besoin de forcer une reconnexion qui pourrait causer une boucle
           }, 1000);
         }
@@ -127,43 +144,71 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
       await peer.connect();
 
       // Add the participant to the store
-      dispatch(participantJoined({
-        id: userId,
-        role: userRole,
-        isConnected: true
-      }));
-
+      dispatch(
+        participantJoined({
+          id: userId,
+          role: userRole,
+          isConnected: true,
+        })
+      );
     } catch (error) {
-      console.error('Error setting up WebRTC:', error);
+      console.error("Error setting up WebRTC:", error);
     }
   };
 
   return (
-    <div className="p-4">
-      <h2 className="mb-4">Consultation Room</h2>
-
-      {!roomId ? (
-        <Alert variant="info">
-          Veuillez sélectionner ou créer une salle pour démarrer une consultation.
-        </Alert>
-      ) : (
-        <>
-          <Alert variant={connectionStatus === 'connected' ? 'success' :
-            connectionStatus === 'connecting' ? 'warning' : 'danger'}>
-            État de la connexion: <strong>{connectionStatus}</strong>
-            {roomReady && (
-              <Badge bg="success" className="ms-2">
-                Salle prête ({userRole === Role.PRACTITIONER ? 'Patient connecté' : 'Praticien connecté'})
-              </Badge>
-            )}
-            {!roomReady && (
-              <Badge bg="warning" className="ms-2">
-                En attente {userRole === Role.PRACTITIONER ? 'du patient' : 'du praticien'}
-              </Badge>
-            )}
+    <div
+      className="h-100 top-0 position-absolute"
+      style={{ width: "100%", flex: "0 0 80%", maxWidth: "80%" }}
+    >
+      <div
+        style={{ marginTop: "8.5em", height: "60%", overflowY: "auto" }}
+        className="ps-3 pe-3"
+      >
+        {!roomId ? (
+          // Remplacer et mettre ici l'affichage/interface de création de salle
+          // ou de sélection de salle
+          <Alert variant="info">
+            Veuillez sélectionner ou créer une salle pour démarrer une
+            consultation.
           </Alert>
-        </>
-      )}
+        ) : (
+          <>
+            {/* Ici, la barre d'informations de la salle de consultation (en bas de l'écran et qui est en position absolute) */}
+            <RoomInformations roomReady={roomReady} userRole={userRole} />
+
+            {/* Mettre ici l'affichage des données */}
+            <Alert
+              variant={
+                connectionStatus === "connected"
+                  ? "success"
+                  : connectionStatus === "connecting"
+                  ? "warning"
+                  : "danger"
+              }
+            >
+              État de la connexion: <strong>{connectionStatus}</strong>
+              {roomReady && (
+                <Badge bg="success" className="ms-2">
+                  Salle prête (
+                  {userRole === Role.PRACTITIONER
+                    ? "Patient connecté"
+                    : "Praticien connecté"}
+                  )
+                </Badge>
+              )}
+              {/* {!roomReady && (
+                <Badge bg="warning" className="ms-2">
+                  En attente{" "}
+                  {userRole === Role.PRACTITIONER
+                    ? "du patient"
+                    : "du praticien"}
+                </Badge>
+              )} */}
+            </Alert>
+          </>
+        )}
+      </div>
     </div>
   );
 }

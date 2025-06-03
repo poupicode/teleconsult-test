@@ -1,5 +1,13 @@
 import { useState, useEffect, use } from "react";
-import { Container, Row, Col, Card, Button, Collapse } from "react-bootstrap";
+import {
+  Container,
+  Row,
+  Col,
+  Card,
+  Button,
+  Collapse,
+  ListGroup,
+} from "react-bootstrap";
 import { useSelector, useDispatch } from "react-redux";
 import RoomBrowser from "@/components/room/RoomBrowser";
 import RoomList from "@/components/room/RoomList";
@@ -151,16 +159,38 @@ export default function ConsultationPage() {
         </Col>
 
         {/* Colonne centrale : Consultation Room */}
-        <Col md={9}>
+        <Col className="p-0" style={{ flex: "0 0 80%", maxWidth: "80%" }}>
           {/* Composant Header de tableau de bord */}
           <Header variant="dashboard">
             {!isConsultationTab ? (
-              <h1>{`Information du ${
-                userKind === "patient" ? "patient" : "praticien"
-              }`}</h1>
+              // Si on est dans l'onglet "Information patient/praticien"
+              // Afficher le titre en fonction du type d'utilisateur (patient ou praticien)
+              <h1>
+                {`Information du ${
+                  userKind === "patient" ? "patient" : "praticien"
+                }`}
+              </h1>
+            ) : !roomId ? (
+              // Si on est dans l'onglet "Consultation" mais qu'aucune salle n'est sélectionnée
+              // Afficher pour le patient le titre "Choisissez une salle"
+              // Afficher pour le praticien le titre "Choisissez une salle" avec les 2 boutons de création/suppression de salle
+              <div className="d-flex flex-row align-items-center justify-content-between">
+                <h1>Choisissez une salle de consultation</h1>
+                {userKind === "practitioner" && (
+                  <>
+                    {/* Mettre les éléments du praticien sur la création/suppression de salle */}
+                  </>
+                )}
+              </div>
+            ) : userKind === "practitioner" ? (
+              // Si on est dans l'onglet "Consultation", qu'une salle a été choisie et que l'utilisateur est un praticien
+              // Afficher le titre "Salle de téléconsultation"
+              <h1>Salle de téléconsultation</h1>
             ) : (
+              // Si on est dans l'onglet "Consultation", qu'une salle a été choisie et que l'utilisateur est un patient
+              // Afficher les éléments de connexion bluetooth côté patient et les informations des appareils
               <>
-                {/* Mettre les éléments du header de la page de consultation */}
+                {/* Elements de connexion bluetooth côté patient et informations appreils */}
               </>
             )}
           </Header>
@@ -177,22 +207,23 @@ export default function ConsultationPage() {
               isInformationsEntered={isInformationsEntered}
             />
           ) : (
-            // Si l'onglet de consultation est actif (du menu latéral), afficher : (mettre ici toute la logique de la page de consultation : création de salle, affichage de la consultation, chat, etc.)
+            // Si l'onglet de consultation est actif (du menu latéral), afficher : (mettre dans ConsultationRoom toute la logique de la page de consultation : création de salle, affichage de la consultation, chat, etc.)
+            // Le bouton de création de salle pour le praticien à mettre dans le header
             <>
-              {userKind === "patient" && peerConnection && (
+              <ConsultationRoom
+                onPeerConnectionReady={handlePeerConnectionReady}
+              />
+
+              {/* Composant de gestion des données Bluetooth */}
+              {/* {userKind === "patient" && peerConnection && (
                 <BluetoothContext peerConnection={peerConnection} />
               )}
               {userKind === "practitioner" && peerConnection && (
                 <DoctorInterface peerConnection={peerConnection} />
-              )}
-              <Card className="mb-3">
-                <Card.Body>
-                  <ConsultationRoom
-                    onPeerConnectionReady={handlePeerConnectionReady}
-                  />
-                </Card.Body>
-              </Card>
-              <Card className="mb-3">
+              )} */}
+
+
+              {/* <Card className="mb-3">
                 <Card.Header>
                   {userKind === "practitioner" && (
                     <>
@@ -215,10 +246,10 @@ export default function ConsultationPage() {
                   )}
                 </Card.Header>
                 <Card.Body>
-                  <Card.Title>Consultation en cours</Card.Title>
+                  <Card.Title>Consultation en cours</Card.Title> */}
 
-                  {/* Affichage de l'ID de la room ou "n/a" si aucune room */}
-                  <div className="mb-3 p-2 bg-light rounded border">
+              {/* Affichage de l'ID de la room ou "n/a" si aucune room */}
+              {/* <div className="mb-3 p-2 bg-light rounded border">
                     <p className="mb-1">
                       <strong>Salle : {roomName || "n/a"}</strong>
                     </p>
@@ -236,10 +267,10 @@ export default function ConsultationPage() {
                         Quitter la consultation
                       </Button>
                     )}
-                  </div>
+                  </div> */}
 
-                  {/* Bouton de création de salle pour les praticiens */}
-                  {userKind === "practitioner" && !roomId && (
+              {/* Bouton de création de salle pour les praticiens */}
+              {/* {userKind === "practitioner" && !roomId && (
                     <Button
                       variant="primary"
                       onClick={onCreateRoomClick}
@@ -247,19 +278,19 @@ export default function ConsultationPage() {
                     >
                       <MdAddIcCall className="me-1" /> Créer une salle
                     </Button>
-                  )}
+                  )} */}
 
-                  {/* Liste des rooms pour les patients (toujours visible) */}
-                  {userKind === "patient" && <RoomList />}
+              {/* Liste des rooms pour les patients (toujours visible) */}
+              {/* {userKind === "patient" && <RoomList />}
                 </Card.Body>
-              </Card>
+              </Card> */}
 
               {/* Nouvelle carte pour le chatbox sous la consultation en cours */}
-              {roomId && (
+              {/* {roomId && (
                 <Card className="mb-3">
                   <ChatBox peerConnection={peerConnection} />
                 </Card>
-              )}
+              )} */}
             </>
           )}
         </Col>
