@@ -11,6 +11,22 @@
 import { SignalingService, SignalingMessage } from '../../signaling';
 import { Role, NegotiationRole, NegotiationState } from '../models/types';
 
+// Debug logging control - set to false in production
+const DEBUG_LOGS = import.meta.env.DEV || false;
+
+// Conditional logging functions
+const debugLog = (message: string, ...args: any[]) => {
+    if (DEBUG_LOGS) console.log(message, ...args);
+};
+
+const debugWarn = (message: string, ...args: any[]) => {
+    if (DEBUG_LOGS) console.warn(message, ...args);
+};
+
+const debugError = (message: string, ...args: any[]) => {
+    console.error(message, ...args); // Always log errors
+};
+
 export class PerfectNegotiation {
     private pc: RTCPeerConnection;
     private signaling: SignalingService;
@@ -52,7 +68,7 @@ export class PerfectNegotiation {
             isPolite: this.role === Role.PATIENT
         };
         
-        console.log(`[PerfectNegotiation] Initialized with role: ${role}, isPolite: ${this.negotiationRole.isPolite}`);
+        debugLog(`[PerfectNegotiation] Initialized with role: ${role}, isPolite: ${this.negotiationRole.isPolite}`);
         
         this.setupEventHandlers();
     }
@@ -73,12 +89,12 @@ export class PerfectNegotiation {
     private setupNegotiationNeededHandler() {
         this.pc.onnegotiationneeded = async () => {
             try {
-                console.log(`[PerfectNegotiation] Negotiation needed, isPolite: ${this.negotiationRole.isPolite}`);
+                debugLog(`[PerfectNegotiation] Negotiation needed, isPolite: ${this.negotiationRole.isPolite}`);
                 
                 this.negotiationState.makingOffer = true;
                 await this.pc.setLocalDescription();
                 
-                console.log('[PerfectNegotiation] Created offer, sending via signaling');
+                debugLog('[PerfectNegotiation] Created offer, sending via signaling');
                 await this.signaling.sendMessage({
                     type: 'offer',
                     roomId: this.roomId,
@@ -86,7 +102,7 @@ export class PerfectNegotiation {
                 });
                 
             } catch (err) {
-                console.error('[PerfectNegotiation] Error during negotiation:', err);
+                debugError('[PerfectNegotiation] Error during negotiation:', err);
             } finally {
                 this.negotiationState.makingOffer = false;
             }
@@ -99,13 +115,13 @@ export class PerfectNegotiation {
     private setupIceCandidateHandler() {
         this.pc.onicecandidate = ({ candidate }) => {
             if (candidate) {
-                console.log('[PerfectNegotiation] Sending ICE candidate');
+                debugLog('[PerfectNegotiation] Sending ICE candidate');
                 this.signaling.sendMessage({
                     type: 'ice-candidate',
                     roomId: this.roomId,
                     content: candidate
                 }).catch(error => {
-                    console.error('[PerfectNegotiation] Failed to send ICE candidate:', error);
+                    debugError('[PerfectNegotiation] Failed to send ICE candidate:', error);
                 });
             }
         };
@@ -128,7 +144,7 @@ export class PerfectNegotiation {
                     await this.handleIceCandidate(message);
                 }
             } catch (err) {
-                console.error('[PerfectNegotiation] Error handling signaling message:', err);
+                debugError('[PerfectNegotiation] Error handling signaling message:', err);
             }
         });
     }
@@ -149,7 +165,7 @@ export class PerfectNegotiation {
             this.negotiationState.ignoreOffer = !this.negotiationRole.isPolite && offerCollision;
             
             if (this.negotiationState.ignoreOffer) {
-                console.log('[PerfectNegotiation] Ignoring offer due to collision (impolite peer)');
+                debugLog('[PerfectNegotiation] Ignoring offer due to collision (impolite peer)');
                 return;
             }
             
@@ -165,14 +181,14 @@ export class PerfectNegotiation {
                 content: this.pc.localDescription!
             });
             
-            console.log('[PerfectNegotiation] Processed offer and sent answer');
+            debugLog('[PerfectNegotiation] Processed offer and sent answer');
             
         } else if (description.type === 'answer') {
             this.negotiationState.isSettingRemoteAnswerPending = true;
             await this.pc.setRemoteDescription(description);
             this.negotiationState.isSettingRemoteAnswerPending = false;
             
-            console.log('[PerfectNegotiation] Processed answer');
+            debugLog('[PerfectNegotiation] Processed answer');
         }
     }
 
@@ -184,12 +200,12 @@ export class PerfectNegotiation {
         
         try {
             await this.pc.addIceCandidate(candidate);
-            console.log('[PerfectNegotiation] Added ICE candidate');
+            debugLog('[PerfectNegotiation] Added ICE candidate');
         } catch (err) {
             if (!this.negotiationState.ignoreOffer) {
                 throw err;
             }
-            console.log('[PerfectNegotiation] Ignored ICE candidate error due to offer collision');
+            debugLog('[PerfectNegotiation] Ignored ICE candidate error due to offer collision');
         }
     }
 
@@ -198,7 +214,7 @@ export class PerfectNegotiation {
      */
     private setupConnectionStateHandler() {
         this.pc.onconnectionstatechange = () => {
-            console.log(`[PerfectNegotiation] Connection state: ${this.pc.connectionState}`);
+            debugLog(`[PerfectNegotiation] Connection state: ${this.pc.connectionState}`);
             if (this.onConnectionStateChange) {
                 this.onConnectionStateChange(this.pc.connectionState);
             }
@@ -231,7 +247,7 @@ export class PerfectNegotiation {
             ignoreOffer: false,
             isSettingRemoteAnswerPending: false
         };
-        console.log('[PerfectNegotiation] Negotiation state reset');
+        debugLog('[PerfectNegotiation] Negotiation state reset');
     }
 
     /**
@@ -239,11 +255,11 @@ export class PerfectNegotiation {
      * This method can be called when connection fails to trigger a new negotiation
      */
     public async attemptReconnection(): Promise<void> {
-        console.log('[PerfectNegotiation] Attempting automatic reconnection...');
+        debugLog('[PerfectNegotiation] Attempting automatic reconnection...');
         
         // Only attempt reconnection if we're in a stable state
         if (this.pc.signalingState !== 'stable' && this.pc.signalingState !== 'closed') {
-            console.warn('[PerfectNegotiation] Cannot attempt reconnection in current signaling state:', this.pc.signalingState);
+            debugWarn('[PerfectNegotiation] Cannot attempt reconnection in current signaling state:', this.pc.signalingState);
             return;
         }
         
@@ -252,23 +268,23 @@ export class PerfectNegotiation {
         
         // For impolite peer (practitioner), create a new offer to restart negotiation
         if (!this.negotiationRole.isPolite) {
-            console.log('[PerfectNegotiation] Impolite peer initiating reconnection offer...');
+            debugLog('[PerfectNegotiation] Impolite peer initiating reconnection offer...');
             try {
                 this.negotiationState.makingOffer = true;
                 await this.pc.setLocalDescription();
-                console.log('[PerfectNegotiation] Reconnection offer created, sending via signaling');
+                debugLog('[PerfectNegotiation] Reconnection offer created, sending via signaling');
                 await this.signaling.sendMessage({
                     type: 'offer',
                     roomId: this.roomId,
                     content: this.pc.localDescription!
                 });
             } catch (err) {
-                console.error('[PerfectNegotiation] Error during reconnection attempt:', err);
+                debugError('[PerfectNegotiation] Error during reconnection attempt:', err);
             } finally {
                 this.negotiationState.makingOffer = false;
             }
         } else {
-            console.log('[PerfectNegotiation] Polite peer waiting for reconnection offer from remote...');
+            debugLog('[PerfectNegotiation] Polite peer waiting for reconnection offer from remote...');
         }
     }
 
@@ -290,5 +306,26 @@ export class PerfectNegotiation {
             signalingState: this.pc.signalingState,
             role: this.negotiationRole.isPolite ? 'polite' : 'impolite'
         };
+    }
+
+    /**
+     * Clean up and destroy Perfect Negotiation instance
+     * Should be called before discarding the instance to prevent memory leaks
+     */
+    public destroy() {
+        debugLog('[PerfectNegotiation] Destroying instance and cleaning up...');
+        
+        // Clear all event handlers
+        this.pc.onnegotiationneeded = null;
+        this.pc.onicecandidate = null;
+        this.pc.onconnectionstatechange = null;
+        
+        // Reset negotiation state
+        this.resetNegotiationState();
+        
+        // Clear callback
+        this.onConnectionStateChange = undefined;
+        
+        debugLog('[PerfectNegotiation] Cleanup complete');
     }
 }

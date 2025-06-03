@@ -9,6 +9,21 @@ import { DataChannelManager } from '../data-channel/data-channel-manager';
 import { setupPeerConnectionListeners, IPeerConnection } from '../handlers/connection-handlers';
 import { PerfectNegotiation } from '../negotiation/perfect-negotiation';
 
+// Debug logging control - set to false in production
+const DEBUG_LOGS = import.meta.env.DEV || false;
+
+// Conditional logging functions
+const debugLog = (message: string, ...args: any[]) => {
+    if (DEBUG_LOGS) console.log(message, ...args);
+};
+
+const debugWarn = (message: string, ...args: any[]) => {
+    if (DEBUG_LOGS) console.warn(message, ...args);
+};
+
+const debugError = (message: string, ...args: any[]) => {
+    console.error(message, ...args); // Always log errors
+};
 
 // Interfaces pour les statistiques WebRTC
 interface RTCStatsReport {
@@ -82,7 +97,7 @@ export class PeerConnection implements IPeerConnection {
     public readonly ROLE = Role;
 
     constructor(roomId: string, clientId: string, role: Role) {
-        console.log(`[WebRTC] Creating PeerConnection with role: ${role}, roomId: ${roomId}, clientId: ${clientId}`);
+        debugLog(`[WebRTC] Creating PeerConnection with role: ${role}, roomId: ${roomId}, clientId: ${clientId}`);
         this.roomId = roomId;
         this.clientId = clientId;
         this.role = role;
@@ -92,7 +107,7 @@ export class PeerConnection implements IPeerConnection {
 
         // Get the ICE configuration from the store
         const iceConfig = store.getState().iceConfig.config;
-        console.log('[WebRTC] Using ICE configuration:', JSON.stringify(iceConfig));
+        debugLog('[WebRTC] Using ICE configuration:', JSON.stringify(iceConfig));
 
         // Vérifier si les serveurs TURN sont bien configurés
         this.checkTurnConfiguration(iceConfig);
@@ -184,63 +199,13 @@ export class PeerConnection implements IPeerConnection {
 
         console.log('[WebRTC-ICE] Setting up ICE debugging and candidate handling');
 
-        // ====== HANDLER PRINCIPAL POUR LES CANDIDATS ICE LOCAUX ======
-        // Ce handler centralise toute la logique ICE pour éviter les conflits
-        this.pc.onicecandidate = (event) => {
-            if (event.candidate) {
-                // Stocker le candidat local pour le débogage
-                this.iceCandidates.local.push(event.candidate);
+        // ====== ICE DEBUGGING ET MONITORING ======
+        // Note: ICE candidate handling is now managed by Perfect Negotiation
+        // This section only handles debugging and monitoring
+        console.log('[WebRTC-ICE] Setting up ICE debugging and monitoring');
 
-                // Logs détaillés pour le suivi
-                console.log(`[WebRTC-ICE] Local candidate: ${event.candidate.candidate}`);
-                console.log('[WebRTC-ICE] Sending ICE candidate:', event.candidate.candidate);
-
-                // Analyser le candidat pour les diagnostics
-                this.analyzeIceCandidate(event.candidate, true);
-
-                // ENVOI CRUCIAL: Transmettre le candidat via signaling
-                this.signaling.sendMessage({
-                    type: 'ice-candidate',
-                    roomId: this.roomId,
-                    content: event.candidate
-                }).catch(error => {
-                    console.error('[WebRTC-ICE] Failed to send ICE candidate:', error);
-                });
-
-                // Pour les candidats de type "relay", marquer que nous avons trouvé un candidat TURN
-                if (event.candidate.candidate.includes(' typ relay ')) {
-                    this.hasRelay = true;
-                    console.log('[WebRTC-ICE] Found TURN relay candidate');
-                }
-
-                // Définir un timeout si c'est le premier candidat
-                if (this.iceCandidates.local.length === 1 && !this.iceConnectionTimeout) {
-                    this.iceConnectionTimeout = setTimeout(() => {
-                        if (this.pc.iceConnectionState !== 'connected' && this.pc.iceConnectionState !== 'completed') {
-                            console.warn('[WebRTC-ICE] Connection timeout after 30s. Current state:', this.pc.iceConnectionState);
-                            this.logIceStats();
-
-                            // Try Perfect Negotiation automatic reconnection for failed connections
-                            if (this.pc.iceConnectionState === 'failed' || this.pc.iceConnectionState === 'disconnected') {
-                                console.log('[WebRTC-ICE] Attempting Perfect Negotiation reconnection...');
-                                // First try Perfect Negotiation reconnection
-                                this.perfectNegotiation.attemptReconnection();
-                                
-                                // Fallback to ICE candidate retry if Perfect Negotiation doesn't help
-                                setTimeout(() => {
-                                    if (this.pc.iceConnectionState === 'failed' || this.pc.iceConnectionState === 'disconnected') {
-                                        console.log('[WebRTC-ICE] Perfect Negotiation didn\'t recover, trying ICE candidate retry...');
-                                        this.retryAddingIceCandidates();
-                                    }
-                                }, 3000);
-                            }
-                        }
-                    }, 30000);
-                }
-            } else {
-                console.log('[WebRTC-ICE] Local candidates gathering complete');
-            }
-        };
+        // Let Perfect Negotiation handle ICE candidates, we just monitor
+        // No pc.onicecandidate here to avoid conflicts with Perfect Negotiation
 
         // Surveiller les changements d'état de connexion ICE
         this.pc.oniceconnectionstatechange = () => {
@@ -796,7 +761,11 @@ export class PeerConnection implements IPeerConnection {
             // Fermer le canal de données
             this.dataChannelManager.closeDataChannel();
 
+            // Clean up Perfect Negotiation
+            this.perfectNegotiation.destroy();
+
             // Désactiver tous les gestionnaires d'événements de la connexion peer
+            // Note: Perfect Negotiation already cleaned its handlers, but we ensure cleanup
             this.pc.onicecandidate = null;
             this.pc.onconnectionstatechange = null;
             this.pc.oniceconnectionstatechange = null;
@@ -857,6 +826,9 @@ export class PeerConnection implements IPeerConnection {
         // Fermer le canal de données
         this.dataChannelManager.closeDataChannel();
 
+        // Clean up old Perfect Negotiation instance
+        this.perfectNegotiation.destroy();
+
         // Nettoyer les timers existants
         if (this.iceConnectionTimeout) {
             clearTimeout(this.iceConnectionTimeout);
@@ -870,6 +842,7 @@ export class PeerConnection implements IPeerConnection {
         }
 
         // Désactiver tous les gestionnaires d'événements de la connexion peer
+        // Note: Perfect Negotiation already cleaned its handlers, but we ensure cleanup
         this.pc.onicecandidate = null;
         this.pc.onconnectionstatechange = null;
         this.pc.oniceconnectionstatechange = null;
