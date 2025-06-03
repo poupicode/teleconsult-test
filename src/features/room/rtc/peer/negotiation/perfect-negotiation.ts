@@ -167,7 +167,7 @@ export class PerfectNegotiation {
 
         if (description.type === 'offer') {
             debugLog(`[PerfectNegotiation] Received offer, current state: makingOffer=${this.negotiationState.makingOffer}, signalingState=${this.pc.signalingState}`);
-            
+
             // Perfect Negotiation collision detection logic
             const readyForOffer = !this.negotiationState.makingOffer &&
                 (this.pc.signalingState === "stable" || this.negotiationState.isSettingRemoteAnswerPending);
@@ -208,7 +208,7 @@ export class PerfectNegotiation {
             this.negotiationState.isSettingRemoteAnswerPending = true;
             await this.pc.setRemoteDescription(description);
             this.negotiationState.isSettingRemoteAnswerPending = false;
-            
+
             // We received an answer, so we're no longer making an offer
             this.negotiationState.makingOffer = false;
 
@@ -247,7 +247,7 @@ export class PerfectNegotiation {
             debugLog(`[PerfectNegotiation] Arrival check for ${this.role} (${this.clientId}): ${isFirst ? 'FIRST' : 'SECOND'} to arrive`);
             debugLog(`[PerfectNegotiation] All participants: ${allParticipants.length}, Others: ${otherParticipants.length}`);
             debugLog(`[PerfectNegotiation] Other participant IDs: ${otherParticipants.map(p => p.clientId).join(', ')}`);
-            
+
             return isFirst;
         } catch (error) {
             debugWarn('[PerfectNegotiation] Could not determine arrival order, falling back to role-based assignment');
@@ -439,7 +439,7 @@ export class PerfectNegotiation {
      */
     public onRoomReady(): void {
         debugLog('[PerfectNegotiation] Room became ready, checking if we should trigger connection');
-        
+
         // CRITICAL: Only trigger if we're impolite AND haven't already triggered
         if (this.negotiationRole.isPolite) {
             debugLog('[PerfectNegotiation] Polite peer - waiting for impolite peer to initiate');
@@ -482,7 +482,7 @@ export class PerfectNegotiation {
             if (bothPresent && this.peerConnection?.triggerDataChannelCreation) {
                 // Mark as triggered BEFORE triggering to prevent race conditions
                 this.hasTriggeredInitialConnection = true;
-                
+
                 debugLog('[PerfectNegotiation] ✅ IMPOLITE PEER TRIGGERING DataChannel creation (SHOULD ONLY HAPPEN ONCE PER ROOM!)');
                 // Small delay to ensure everything is properly set up
                 setTimeout(() => {

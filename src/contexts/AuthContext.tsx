@@ -4,6 +4,9 @@ import { supabase } from "../lib/supabaseClient";
 import { useDispatch } from "react-redux";
 import { setAuthenticated } from "@/features/auth/session/session-slice";
 import { setUser, clearUser } from "@/features/auth/user/user-slice";
+import { resetRoom } from "@/features/room/roomSlice";
+import { clearAllMessages } from "@/features/chat/chatSlice";
+import { ProfileService } from "@/services/profileService";
 
 type AuthContextType = {
   session: Session | null;
@@ -28,6 +31,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const dispatch = useDispatch();
 
+  const setUserWithProfile = async (authUser: User) => {
+    try {
+      // Récupérer le profil depuis la base de données pour avoir le user_kind à jour
+      const profile = await ProfileService.getUserProfile(authUser.id);
+      
+      dispatch(setAuthenticated(true));
+      dispatch(setUser({
+        id: authUser.id,
+        username: authUser.email ?? '',
+        user_kind: profile?.user_kind ?? null,
+      }));
+    } catch (error) {
+      console.error('Erreur lors de la récupération du profil:', error);
+      // Fallback vers les métadonnées si échec de récupération du profil
+      dispatch(setAuthenticated(true));
+      dispatch(setUser({
+        id: authUser.id,
+        username: authUser.email ?? '',
+        user_kind: authUser.user_metadata?.user_kind ?? null,
+      }));
+    }
+  };
+
   useEffect(() => {
     const getSession = async () => {
       const {
@@ -39,34 +65,33 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(false);
 
       if (session) {
-        dispatch(setAuthenticated(true));
-        dispatch(setUser({
-          id: session.user.id,
-          username: session.user.email ?? '',
-          user_kind: session.user.user_metadata?.user_kind ?? null,
-        }));
+        await setUserWithProfile(session.user);
       } else {
         dispatch(setAuthenticated(false));
         dispatch(clearUser());
+        
+        // Nettoyer tous les états si aucune session n'est trouvée
+        dispatch(resetRoom());
+        dispatch(clearAllMessages());
+        localStorage.removeItem('roomState');
       }
-
     };
 
     getSession();
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
       setLocalUser(session?.user ?? null);
       if (session && session.user) {
-        dispatch(setAuthenticated(true));
-        dispatch(setUser({
-          id: session.user.id,
-          username: session.user.email ?? '',
-          user_kind: session.user.user_metadata?.user_kind ?? null,
-        }));
+        await setUserWithProfile(session.user);
       } else {
         dispatch(setAuthenticated(false));
         dispatch(clearUser());
+        
+        // Nettoyer tous les états lors de la perte de session
+        dispatch(resetRoom());
+        dispatch(clearAllMessages());
+        localStorage.removeItem('roomState');
       }
     });
 
@@ -81,6 +106,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setLocalUser(null);
     dispatch(setAuthenticated(false));
     dispatch(clearUser());
+    
+    // Nettoyer complètement tous les états lors de la déconnexion
+    dispatch(resetRoom());
+    dispatch(clearAllMessages());
+    
+    // Nettoyer le localStorage des rooms
+    localStorage.removeItem('roomState');
   };
 
   return (
