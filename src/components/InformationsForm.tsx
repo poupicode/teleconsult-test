@@ -66,7 +66,7 @@ const InformationsForm = ({
     setIsConsultationTab(true);
   };
   return (
-    <div className="w-100 mt-3">
+    <div className="mt-3" style={{ width: "100%", flex: "0 0 80%", maxWidth: "80%" }}>
       {/* Formulaire d'informations */}
       <Form onSubmit={handleSubmit(onSubmit)}>
         <Row md={3} className="d-flex justify-content-center">
