@@ -11,9 +11,17 @@ export default function DoctorInterface({ peerConnection }: DoctorInterfaceProps
 
   useEffect(() => {
   if (!peerConnection) return;
-  const manager = peerConnection.getDataChannelManager();
-  console.log('[Médecin] Enregistrement du callback onMeasurement');
-  manager.onMeasurement(receiveData);
+
+  const tryRegister = () => {
+    if (peerConnection.isDataChannelAvailable()) {
+      const manager = peerConnection.getDataChannelManager();
+      manager.onMeasurement(receiveData);
+    } else {
+      setTimeout(tryRegister, 500); // Réessaie un peu plus tard
+    }
+  };
+
+  tryRegister();
 }, [peerConnection, receiveData]);
 
 
