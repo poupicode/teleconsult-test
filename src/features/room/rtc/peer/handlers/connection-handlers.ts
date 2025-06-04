@@ -10,8 +10,8 @@ export interface IPeerConnection {
     isRoomReady: () => boolean;
     createOffer: () => Promise<void>;
     setDataChannel: (channel: RTCDataChannel) => void;
-    setupDataChannel: (channel: RTCDataChannel) => void;
     getOnConnectionStateChangeCallback: () => ((state: RTCPeerConnectionState) => void) | null;
+    getDataChannelManager: () => any; // Ajout de la méthode manquante
 }
 
 export function setupPeerConnectionListeners(peerConnection: IPeerConnection, pc: RTCPeerConnection) {
@@ -48,7 +48,11 @@ export function setupPeerConnectionListeners(peerConnection: IPeerConnection, pc
 
         if (event.channel.label === 'data-channel') {
             peerConnection.setDataChannel(event.channel);
-            peerConnection.setupDataChannel(event.channel);
+            // Configure le data channel via le manager
+            const dataChannelManager = peerConnection.getDataChannelManager();
+            if (dataChannelManager && dataChannelManager.setupDataChannel) {
+                dataChannelManager.setupDataChannel(event.channel);
+            }
         }
     };
 }

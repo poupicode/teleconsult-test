@@ -165,6 +165,8 @@ export class PerfectNegotiation {
     private async handleDescription(message: SignalingMessage) {
         const description = message.content as RTCSessionDescriptionInit;
 
+        debugLog(`[PerfectNegotiation] Handling ${description.type}, current signaling state: ${this.pc.signalingState}`);
+
         if (description.type === 'offer') {
             debugLog(`[PerfectNegotiation] Received offer, current state: makingOffer=${this.negotiationState.makingOffer}, signalingState=${this.pc.signalingState}`);
 
@@ -189,30 +191,45 @@ export class PerfectNegotiation {
                 this.negotiationState.makingOffer = false;
             }
 
-            // Handle the offer
-            this.negotiationState.isSettingRemoteAnswerPending = false;
-            await this.pc.setRemoteDescription(description);
+            try {
+                // Handle the offer
+                this.negotiationState.isSettingRemoteAnswerPending = false;
+                await this.pc.setRemoteDescription(description);
+                debugLog('[PerfectNegotiation] Remote description set successfully');
 
-            // Create and send answer
-            await this.pc.setLocalDescription();
-            await this.signaling.sendMessage({
-                type: 'answer',
-                roomId: this.roomId,
-                content: this.pc.localDescription!
-            });
+                // Create and send answer
+                await this.pc.setLocalDescription();
+                debugLog('[PerfectNegotiation] Local description (answer) created');
 
-            debugLog('[PerfectNegotiation] Processed offer and sent answer');
+                await this.signaling.sendMessage({
+                    type: 'answer',
+                    roomId: this.roomId,
+                    content: this.pc.localDescription!
+                });
+
+                debugLog('[PerfectNegotiation] Answer sent successfully');
+            } catch (err) {
+                debugError('[PerfectNegotiation] Error processing offer:', err);
+                throw err;
+            }
 
         } else if (description.type === 'answer') {
             debugLog('[PerfectNegotiation] Received answer');
-            this.negotiationState.isSettingRemoteAnswerPending = true;
-            await this.pc.setRemoteDescription(description);
-            this.negotiationState.isSettingRemoteAnswerPending = false;
+            try {
+                this.negotiationState.isSettingRemoteAnswerPending = true;
+                await this.pc.setRemoteDescription(description);
+                this.negotiationState.isSettingRemoteAnswerPending = false;
 
-            // We received an answer, so we're no longer making an offer
-            this.negotiationState.makingOffer = false;
+                // We received an answer, so we're no longer making an offer
+                this.negotiationState.makingOffer = false;
 
-            debugLog('[PerfectNegotiation] Processed answer, negotiation complete');
+                debugLog('[PerfectNegotiation] Processed answer, negotiation complete');
+            } catch (err) {
+                debugError('[PerfectNegotiation] Error processing answer:', err);
+                this.negotiationState.isSettingRemoteAnswerPending = false;
+                this.negotiationState.makingOffer = false;
+                throw err;
+            }
         }
     }
 
@@ -484,10 +501,15 @@ export class PerfectNegotiation {
                 this.hasTriggeredInitialConnection = true;
 
                 debugLog('[PerfectNegotiation] ✅ IMPOLITE PEER TRIGGERING DataChannel creation (SHOULD ONLY HAPPEN ONCE PER ROOM!)');
+                debugLog(`[PerfectNegotiation] Participants: ${allParticipants.map(p => `${p.role}:${p.clientId}`).join(', ')}`);
+                
                 // Small delay to ensure everything is properly set up
                 setTimeout(() => {
                     if (this.pc.connectionState !== 'closed' && this.pc.signalingState !== 'closed') {
+                        debugLog('[PerfectNegotiation] Executing DataChannel creation...');
                         this.peerConnection.triggerDataChannelCreation();
+                    } else {
+                        debugWarn('[PerfectNegotiation] Peer connection closed before DataChannel creation could execute');
                     }
                 }, 100);
             } else {
