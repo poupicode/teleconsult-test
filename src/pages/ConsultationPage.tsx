@@ -131,9 +131,10 @@ export default function ConsultationPage() {
                         {userKind === "patient" && peerConnection && (
                         <BluetoothContext peerConnection={peerConnection} />
                         )}
-                        {userKind === "practitioner" && (
-                            <DoctorInterface/>
-                        )}
+                        {userKind === "practitioner" && peerConnection && (
+  <DoctorInterface peerConnection={peerConnection} />
+)}
+
                     </Card>
                 </Col>
 
