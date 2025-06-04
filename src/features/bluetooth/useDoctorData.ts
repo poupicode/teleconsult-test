@@ -9,10 +9,13 @@ export function useDoctorData() {
   const [newData, setNewData] = useState<object | null>(null);
 
   // Appelé quand une nouvelle mesure arrive via WebRTC
-  const receiveData = (rawDataReceived: object) => {
-    console.log('[Médecin] Mesure reçue via WebRTC :', rawDataReceived); // 👈 LOG ICI
-    setNewData(rawDataReceived);
-  };
+const receiveData = (rawDataReceived: any) => {
+  const payload = rawDataReceived.payload;
+  if (!payload) return;
+  console.log('[Médecin] Payload reçu :', payload);
+  setNewData(payload); // ✅ on n'envoie que le contenu utile
+};
+
 
   // Ajoute la mesure dans l'état local (affichage uniquement, pas de persistance)
   const processNewData = (currentData: object) => {
