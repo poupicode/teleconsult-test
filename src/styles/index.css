@@ -2,13 +2,59 @@
 
 @import "bootstrap/dist/css/bootstrap.min.css";
 
-html, body {
+/* fira-sans-regular - latin */
+@font-face {
+  font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+  font-family: "Fira Sans";
+  font-style: normal;
+  font-weight: 400;
+  src: url("/fonts/fira-sans-regular.woff2") format("woff2"); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+}
+/* fira-sans-medium - latin */
+@font-face {
+  font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+  font-family: "Fira Sans";
+  font-style: normal;
+  font-weight: 500;
+  src: url("/fonts/fira-sans-medium.woff2") format("woff2"); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+}
+/* fira-sans-semibold - latin */
+@font-face {
+  font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+  font-family: "Fira Sans";
+  font-style: normal;
+  font-weight: 600;
+  src: url("/fonts/fira-sans-semibold.woff2") format("woff2"); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+}
+/* fira-sans-bold - latin */
+@font-face {
+  font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+  font-family: "Fira Sans";
+  font-style: normal;
+  font-weight: 700;
+  src: url("/fonts/fira-sans-bold.woff2") format("woff2"); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+}
+/* fira-sans-black - latin */
+@font-face {
+  font-display: swap; /* Check https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face/font-display for other options. */
+  font-family: "Fira Sans";
+  font-style: normal;
+  font-weight: 900;
+  src: url("/fonts/fira-sans-black.woff2") format("woff2"); /* Chrome 36+, Opera 23+, Firefox 39+, Safari 12+, iOS 10+ */
+}
+
+html,
+body {
   height: 100%;
   margin: 0;
   padding: 0;
-  background-color: #f8f9fa; /* léger gris Bootstrap */
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  color: #212529;
+  background-color: #FFFBFC!important;
+  font-family: "Fira Sans" !important;
+  font-size: 18px;
+}
+
+* {
+  color: #2a5867 !important;
 }
 
 #root {
@@ -16,3 +62,108 @@ html, body {
   display: flex;
   flex-direction: column;
 }
+
+
+
+/* Common CSS */
+
+h1{
+  color: #da6254 !important;
+  font-size: 2em!important;
+  font-weight: 700!important;
+}
+
+header{
+  border-bottom: #c0d4ec solid 1px;
+}
+
+.public-header{
+  padding: 1em 0 .5em;
+  width: calc(100vw - 12em);
+  margin: 0 auto;
+  h1{
+    padding: 0 2em;
+  }
+}
+.dashboard-header{
+  padding: 1em 0 .5em;
+  width: calc(100vw - 14em);
+  margin: 0 1em;
+}
+
+button {
+  border: none!important;
+}
+
+.primary-btn,
+.secondary-btn {
+  border-radius: 100px !important;
+  font-weight: 600 !important;
+  padding: 8px 50px!important;
+}
+
+.primary-btn {
+  background-color: #da6254 !important;
+  color: #fffbfc !important;
+}
+.primary-btn:hover {
+  background-color: #fad0d1 !important;
+  color: #da6254 !important;
+}
+
+.secondary-btn {
+  background-color: #c0d4ec !important;
+  color: #2a5867 !important;
+}
+.secondary-btn:hover {
+  background-color: #fad0d1 !important;
+  color: #2a5867 !important;
+}
+
+.tertiary-btn {
+  border-radius: 0!important;
+  color: #da6254 !important;
+  font-weight: 500 !important;
+  border-top: #da6254 solid 1px!important;
+}
+.tertiary-btn:hover {
+  color: #fad0d1 !important;
+  border-top: #fad0d1 solid 1px!important;
+}
+
+ul {
+  list-style: none;
+  padding: 0 !important;
+}
+
+.bg-grey {
+  background-color: #f0edf4 !important;
+}
+.bg-blue{
+    background-color: #2A5867!important;
+}
+.color-white{
+  color: #FFFBFC!important;
+}
+.color-lightblue{
+  color: #c0d4ec!important;
+}
+.card{
+  border: none!important;
+  padding: 8px;
+  filter: drop-shadow(-3px 3px 10px rgba(0,0,0,.2));
+  border-radius: 18px!important;
+  h3{
+    border: none!important;
+    background: none!important;
+  }
+}
+
+.fw-medium{
+  font-weight: 500!important;
+}
+.fw-black{
+  font-weight: 900!important;
+}
+
+

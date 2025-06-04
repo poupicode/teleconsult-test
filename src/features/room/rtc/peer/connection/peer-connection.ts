@@ -947,4 +947,8 @@ export class PeerConnection implements IPeerConnection {
         console.log('[WebRTC] Perfect Negotiation triggering DataChannel creation');
         this.dataChannelManager.createDataChannel();
     }
+    getDataChannelManager(): DataChannelManager {  //bluetooth
+  return this.dataChannelManager;
+}
+
 }

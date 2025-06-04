@@ -11,6 +11,11 @@ export class DataChannelManager {
     private clientId: string;
     private role: Role;
     private onChatMessageCallback: ((message: ChatMessage) => void) | null = null;
+    private onMeasurementCallback: ((data: object) => void) | null = null;
+
+onMeasurement(callback: (data: object) => void) {
+    this.onMeasurementCallback = callback;
+}
 
     constructor(peerConnectionProvider: () => RTCPeerConnection, roomId: string, clientId: string, role: Role) {
         this.getPeerConnection = peerConnectionProvider;
@@ -112,6 +117,11 @@ export class DataChannelManager {
                             this.onChatMessageCallback(chatMessage);
                         }
                         break;
+                        case 'measurement':
+        if (this.onMeasurementCallback) {
+            this.onMeasurementCallback(message.payload);
+        }
+        break;
 
                     case 'channel_closing':
                         console.log('[WebRTC] Remote peer is closing data channel gracefully');
@@ -243,4 +253,8 @@ export class DataChannelManager {
         console.warn(`[WebRTC] Forcing data channel closure. Reason: ${reason}`);
         this.closeDataChannel();
     }
+    sendMeasurement(data: object): boolean {
+    return this.sendDataChannelMessage('measurement', data);
+}
+
 }
