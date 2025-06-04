@@ -291,14 +291,39 @@ export class PerfectNegotiation {
     /**
      * Check if the remote peer appears to have disconnected
      * Based on connection state and room occupancy
+     * Enhanced to handle temporary disconnections during rapid reconnection scenarios
      */
     private isPeerGone(): boolean {
-        const isDisconnected = this.pc.connectionState === 'disconnected' ||
+        const isConnectionDead = this.pc.connectionState === 'disconnected' ||
             this.pc.connectionState === 'failed' ||
             this.pc.iceConnectionState === 'disconnected' ||
             this.pc.iceConnectionState === 'failed';
 
-        return isDisconnected && this.isAloneInRoom();
+        // For role switching during rapid reconnection scenarios:
+        // If connection is dead but peer is still in signaling (rapid return),
+        // allow role switch to handle degraded connection states
+        const isAloneOrDegradedConnection = this.isAloneInRoom() || 
+            (isConnectionDead && this.shouldHandleDegradedConnection());
+
+        return isConnectionDead && isAloneOrDegradedConnection;
+    }
+
+    /**
+     * Determine if we should handle a degraded connection during rapid reconnection
+     * This helps distinguish between true disconnect and temporary connection issues
+     */
+    private shouldHandleDegradedConnection(): boolean {
+        // If both participants are present but connection is dead, 
+        // this suggests a rapid reconnection scenario where we need to handle degraded state
+        const allParticipants = this.signaling.getValidParticipants();
+        const otherParticipants = allParticipants.filter(p => p.clientId !== this.clientId);
+        
+        const bothParticipantsPresent = otherParticipants.length > 0;
+        const connectionIsDead = this.pc.connectionState === 'disconnected' || this.pc.connectionState === 'failed';
+        
+        debugLog(`[PerfectNegotiation] Degraded connection check: bothPresent=${bothParticipantsPresent}, connectionDead=${connectionIsDead}`);
+        
+        return bothParticipantsPresent && connectionIsDead;
     }
 
     /**
@@ -367,6 +392,50 @@ export class PerfectNegotiation {
      */
     public async attemptReconnection(): Promise<void> {
         debugLog('[PerfectNegotiation] Attempting automatic reconnection...');
+
+        // Check if connection might be recoverable before forcing reconnection
+        if (this.isConnectionRecoverable()) {
+            debugLog('[PerfectNegotiation] Connection might be recoverable, allowing natural recovery first...');
+            
+            // Give connection time to recover naturally before forcing negotiation
+            setTimeout(() => {
+                if (!this.isConnectionRecoverable()) {
+                    debugLog('[PerfectNegotiation] Natural recovery failed, proceeding with forced reconnection');
+                    this.performForcedReconnection();
+                } else {
+                    debugLog('[PerfectNegotiation] ✅ Connection recovered naturally!');
+                }
+            }, 2000); // 2s delay for natural recovery
+            
+            return;
+        }
+
+        // Connection is definitely broken, proceed with immediate reconnection
+        this.performForcedReconnection();
+    }
+
+    /**
+     * Check if the current connection might be recoverable
+     */
+    private isConnectionRecoverable(): boolean {
+        const connectionState = this.pc.connectionState;
+        const iceState = this.pc.iceConnectionState;
+        const signalingState = this.pc.signalingState;
+        
+        // Very tolerant criteria - only reject if definitely broken
+        const isDefinitelyBroken = 
+            connectionState === 'failed' || connectionState === 'closed' ||
+            iceState === 'failed' || iceState === 'closed' ||
+            signalingState === 'closed';
+            
+        return !isDefinitelyBroken;
+    }
+
+    /**
+     * Perform forced reconnection when natural recovery is not possible
+     */
+    private async performForcedReconnection(): Promise<void> {
+        debugLog('[PerfectNegotiation] Performing forced reconnection...');
 
         // Only attempt reconnection if we're in a stable state
         if (this.pc.signalingState !== 'stable' && this.pc.signalingState !== 'closed') {
@@ -502,7 +571,7 @@ export class PerfectNegotiation {
 
                 debugLog('[PerfectNegotiation] ✅ IMPOLITE PEER TRIGGERING DataChannel creation (SHOULD ONLY HAPPEN ONCE PER ROOM!)');
                 debugLog(`[PerfectNegotiation] Participants: ${allParticipants.map(p => `${p.role}:${p.clientId}`).join(', ')}`);
-                
+
                 // Small delay to ensure everything is properly set up
                 setTimeout(() => {
                     if (this.pc.connectionState !== 'closed' && this.pc.signalingState !== 'closed') {

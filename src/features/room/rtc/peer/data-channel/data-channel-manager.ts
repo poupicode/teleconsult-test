@@ -113,11 +113,11 @@ export class DataChannelManager {
                             this.onChatMessageCallback(chatMessage);
                         }
                         break;
-                        case 'measurement':
-        if (this.onMeasurementCallback) {
-            this.onMeasurementCallback(message.payload);
-        }
-        break;
+                    case 'measurement':
+                        if (this.onMeasurementCallback) {
+                            this.onMeasurementCallback(message.payload);
+                        }
+                        break;
 
                     case 'channel_closing':
                         console.log('[WebRTC] Remote peer is closing data channel gracefully');
@@ -197,6 +197,11 @@ export class DataChannelManager {
         return this.dataChannel !== null && this.dataChannel.readyState === 'open';
     }
 
+    // Vérifier l'état de santé du DataChannel pour le timeout intelligent
+    isHealthy(): boolean {
+        return this.isDataChannelAvailable();
+    }
+
     // Obtenir le canal de données
     getDataChannel(): RTCDataChannel | null {
         return this.dataChannel;
@@ -255,7 +260,7 @@ export class DataChannelManager {
         this.closeDataChannel();
     }
     sendMeasurement(data: object): boolean {
-    return this.sendDataChannelMessage('measurement', data);
-}
+        return this.sendDataChannelMessage('measurement', data);
+    }
 
 }
