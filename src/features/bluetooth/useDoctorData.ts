@@ -9,10 +9,9 @@ export function useDoctorData() {
   const [newData, setNewData] = useState<object | null>(null);
 
   const receiveData = (rawDataReceived: any) => {
-    const payload = rawDataReceived.payload;
-    if (!payload) return;
-    console.log('[Médecin] Payload reçu :', payload);
-    setNewData(payload);
+    console.log('[Médecin] Payload reçu :', rawDataReceived);
+setNewData(rawDataReceived); // car rawDataReceived = payload directement
+
   };
 
   const processNewData = (currentData: object) => {
