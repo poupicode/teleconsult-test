@@ -40,7 +40,7 @@ export function setupPeerConnectionListeners(peerConnection: IPeerConnection, pc
     };
 
     // Note: negotiationneeded handler is managed by Perfect Negotiation
-    // Perfect Negotiation handles all offer/answer logic to prevent race conditions
+    // Perfect Negotiation handles all offer/answer logic to prevent race conditions .
 
     // Écouter les data channels entrants (pour le patient)
     pc.ondatachannel = (event) => {
