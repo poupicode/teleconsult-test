@@ -10,12 +10,12 @@ export default function DoctorInterface({ peerConnection }: DoctorInterfaceProps
   const { doctorServices, receiveData } = useDoctorData();
 
   useEffect(() => {
-    if (peerConnection?.isDataChannelAvailable()) {
-      const manager = peerConnection.getDataChannelManager();
-      manager.onMeasurement(receiveData);
-      console.log('[Médecin] Abonnement à onMeasurement() effectué');
-    }
-  }, [peerConnection, receiveData]);
+  if (!peerConnection) return;
+  const manager = peerConnection.getDataChannelManager();
+  manager.onMeasurement(receiveData);
+  console.log('[Médecin] Abonnement à onMeasurement() effectué');
+}, [peerConnection, receiveData]);
+
 
   return (
     <div className="p-4 border rounded-md space-y-4">
