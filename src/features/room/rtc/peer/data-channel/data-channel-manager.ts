@@ -114,10 +114,13 @@ export class DataChannelManager {
                         }
                         break;
                     case 'measurement':
-                        if (this.onMeasurementCallback) {
-                            this.onMeasurementCallback(message.payload);
-                        }
-                        break;
+    console.log('[WebRTC] Dans case "measurement" – callback dispo ?', !!this.onMeasurementCallback);
+    if (this.onMeasurementCallback) {
+        console.log('[WebRTC] J’appelle le callback avec :', message.payload);
+        this.onMeasurementCallback(message.payload);
+    }
+    break;
+
 
                     case 'channel_closing':
                         console.log('[WebRTC] Remote peer is closing data channel gracefully');
