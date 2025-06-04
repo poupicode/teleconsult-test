@@ -679,8 +679,15 @@ export class PeerConnection implements IPeerConnection {
 
     // Configure les événements pour le dataChannel
     setupDataChannel(channel: RTCDataChannel) {
-        this.dataChannelManager.setupDataChannel(channel);
-    }
+  this.dataChannelManager.setupDataChannel(channel);
+
+  // 👉 Ici tu peux connecter le callback de mesure si nécessaire
+  this.dataChannelManager.onMeasurement((data) => {
+    console.log('[WebRTC] onMeasurement déclenché avec :', data);
+    // Appelle ton hook ou fonction ici
+  });
+}
+
 
     // Envoyer un message de chat
     sendChatMessage(content: string): boolean {
