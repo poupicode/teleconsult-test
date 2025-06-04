@@ -10,29 +10,27 @@ export default function DoctorInterface({ peerConnection }: DoctorInterfaceProps
   const { doctorServices, receiveData } = useDoctorData();
 
   useEffect(() => {
-    if (peerConnection) {
-      peerConnection.getDataChannelManager().onMeasurement(receiveData);
-    }
-  }, [peerConnection, receiveData]);
+  if (!peerConnection) return;
+  const manager = peerConnection.getDataChannelManager();
+  manager.onMeasurement(receiveData);
+  console.log('[Médecin] Abonnement à onMeasurement() effectué');
+}, [peerConnection, receiveData]);
 
-  if (!peerConnection) {
-    return <p className="text-red-500">Connexion WebRTC non établie…</p>;
-  }
 
   return (
-    <div className="p-4 space-y-4">
-      <h2 className="text-xl font-bold">Mesures reçues</h2>
+    <div className="p-4 border rounded-md space-y-4">
+      <h2 className="font-bold text-lg">Mesures reçues</h2>
       {Object.entries(doctorServices).length === 0 ? (
         <p className="text-gray-500">Aucune mesure reçue pour le moment.</p>
       ) : (
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {Object.entries(doctorServices).map(([service, entry], index) => (
             <div key={index} className="border p-4 rounded">
-              <h3 className="font-semibold">{service}</h3>
-              <ul className="list-disc pl-5">
+              <h3 className="font-semibold mb-2">{service}</h3>
+              <ul className="list-disc pl-5 space-y-1">
                 {Object.entries(entry).map(([key, value]) => (
                   <li key={key}>
-                    <strong>{key}</strong>: {value}
+                    <strong>{key}</strong>: {String(value)}
                   </li>
                 ))}
               </ul>
