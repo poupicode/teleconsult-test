@@ -3,7 +3,7 @@ import { useDoctorData } from '@/features/bluetooth/useDoctorData';
 import { PeerConnection } from '@/features/room/rtc/peer/connection/peer-connection';
 
 interface DoctorInterfaceProps {
-  peerConnection?: PeerConnection; // le ? rend la prop optionnelle
+  peerConnection?: PeerConnection;
 }
 
 export default function DoctorInterface({ peerConnection }: DoctorInterfaceProps) {
@@ -26,17 +26,13 @@ export default function DoctorInterface({ peerConnection }: DoctorInterfaceProps
         <p className="text-gray-500">Aucune mesure reçue pour le moment.</p>
       ) : (
         <div className="space-y-4">
-          {Object.entries(doctorServices).map(([service, entries], index) => (
+          {Object.entries(doctorServices).map(([service, entry], index) => (
             <div key={index} className="border p-4 rounded">
               <h3 className="font-semibold">{service}</h3>
               <ul className="list-disc pl-5">
-                {entries.map((entry, i) => (
-                  <li key={i}>
-                    {Object.entries(entry).map(([key, value]) => (
-                      <span key={key}>
-                        <strong>{key}</strong>: {value}&nbsp;
-                      </span>
-                    ))}
+                {Object.entries(entry).map(([key, value]) => (
+                  <li key={key}>
+                    <strong>{key}</strong>: {value}
                   </li>
                 ))}
               </ul>
