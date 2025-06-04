@@ -128,8 +128,8 @@ export default function ConsultationPage() {
                             <Card.Title>Informations patient</Card.Title>
                             <p>Cette section pourra contenir des informations sur le patient</p>
                         </Card.Body>
-                        {userKind === "patient" && (
-                        <BluetoothContext/>
+                        {userKind === "patient" && peerConnection && (
+                        <BluetoothContext peerConnection={peerConnection} />
                         )}
                         {userKind === "practitioner" && (
                             <DoctorInterface/>
