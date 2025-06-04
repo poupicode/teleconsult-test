@@ -26,18 +26,26 @@ export default function DoctorInterface({ peerConnection }: DoctorInterfaceProps
         <p className="text-gray-500">Aucune mesure reçue pour le moment.</p>
       ) : (
         <div className="space-y-4">
-          {Object.entries(doctorServices).map(([service, entry], index) => (
-            <div key={index} className="border p-4 rounded">
-              <h3 className="font-semibold">{service}</h3>
-              <ul className="list-disc pl-5">
-                {Object.entries(entry).map(([key, value]) => (
-                  <li key={key}>
-                    <strong>{key}</strong>: {value}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          {Object.entries(doctorServices).map(([service, entry], index) => {
+            const innerData = Object.values(entry)[0]; // <- récupère l'objet ex: blood_pressure
+
+            return (
+              <div key={index} className="border p-4 rounded">
+                <h3 className="font-semibold">{service}</h3>
+                <ul className="list-disc pl-5">
+                  {innerData && typeof innerData === 'object' ? (
+                    Object.entries(innerData).map(([key, value]) => (
+                      <li key={key}>
+                        <strong>{key}</strong>: {String(value)}
+                      </li>
+                    ))
+                  ) : (
+                    <li>Données non valides</li>
+                  )}
+                </ul>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
