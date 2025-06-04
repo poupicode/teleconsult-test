@@ -19,8 +19,12 @@ const receiveData = (rawDataReceived: any) => {
 
   // Ajoute la mesure dans l'état local (affichage uniquement, pas de persistance)
   const processNewData = (currentData: object) => {
+    
     const service: string = Object.entries(currentData)[0][0];
     const measures: object = Object.entries(currentData)[0][1];
+    console.log('[Médecin] Service détecté :', service);
+console.log('[Médecin] Données mesurées :', measures);
+
 
     setDoctorServices((prev) => ({
       ...prev,
@@ -30,6 +34,7 @@ const receiveData = (rawDataReceived: any) => {
 
   useEffect(() => {
     if (newData) {
+      console.log('[Médecin] Traitement dans processNewData :', newData);
       processNewData(newData);
       setNewData(null);
     }
