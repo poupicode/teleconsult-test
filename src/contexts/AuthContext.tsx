@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabaseClient";
 import { useDispatch } from "react-redux";
 import { setAuthenticated } from "@/features/auth/session/session-slice";
 import { setUser, clearUser } from "@/features/auth/user/user-slice";
+import { ProfileService } from "@/services/profileService";
 
 type AuthContextType = {
   session: Session | null;
@@ -40,11 +41,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (session) {
         dispatch(setAuthenticated(true));
-        dispatch(setUser({
-          id: session.user.id,
-          username: session.user.email ?? '',
-          user_kind: session.user.user_metadata?.user_kind ?? null,
-        }));
+
+        // Récupérer le user_kind depuis la base de données au lieu des user_metadata
+        ProfileService.getUserProfile(session.user.id).then(profile => {
+          dispatch(setUser({
+            id: session.user.id,
+            username: session.user.email ?? '',
+            user_kind: profile?.user_kind ?? session.user.user_metadata?.user_kind ?? null,
+          }));
+        }).catch(error => {
+          console.error('[AuthContext] Error loading user profile:', error);
+          // Fallback sur user_metadata si la DB échoue
+          dispatch(setUser({
+            id: session.user.id,
+            username: session.user.email ?? '',
+            user_kind: session.user.user_metadata?.user_kind ?? null,
+          }));
+        });
       } else {
         dispatch(setAuthenticated(false));
         dispatch(clearUser());
@@ -59,11 +72,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLocalUser(session?.user ?? null);
       if (session && session.user) {
         dispatch(setAuthenticated(true));
-        dispatch(setUser({
-          id: session.user.id,
-          username: session.user.email ?? '',
-          user_kind: session.user.user_metadata?.user_kind ?? null,
-        }));
+
+        // Récupérer le user_kind depuis la base de données au lieu des user_metadata
+        ProfileService.getUserProfile(session.user.id).then(profile => {
+          dispatch(setUser({
+            id: session.user.id,
+            username: session.user.email ?? '',
+            user_kind: profile?.user_kind ?? session.user.user_metadata?.user_kind ?? null,
+          }));
+        }).catch(error => {
+          console.error('[AuthContext] Error loading user profile on auth change:', error);
+          // Fallback sur user_metadata si la DB échoue
+          dispatch(setUser({
+            id: session.user.id,
+            username: session.user.email ?? '',
+            user_kind: session.user.user_metadata?.user_kind ?? null,
+          }));
+        });
       } else {
         dispatch(setAuthenticated(false));
         dispatch(clearUser());
@@ -81,6 +106,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setLocalUser(null);
     dispatch(setAuthenticated(false));
     dispatch(clearUser());
+
+    // Nettoyage pour éviter la persistance des données
+    localStorage.removeItem('roomState');
+    localStorage.removeItem('quickRoomPersist');
+
+    // Nettoyer les tokens Supabase
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('sb-') && key.includes('-auth-token')) {
+        localStorage.removeItem(key);
+      }
+    });
+
+    console.log('[AuthContext] Logout and cleanup completed');
   };
 
   return (

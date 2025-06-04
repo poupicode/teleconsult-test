@@ -11,7 +11,7 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
  * Default ICE server configuration
  * Includes TURN servers to facilitate connections when direct peer-to-peer fails
  */
-export const DEFAULT_ICE_CONFIG = {
+export const DEFAULT_ICE_CONFIG: RTCConfiguration = {
     "iceServers": [
         {
             "urls": [
@@ -22,7 +22,9 @@ export const DEFAULT_ICE_CONFIG = {
             "credential": "toto1234"
         }
     ],
-    "iceCandidatePoolSize": 20
+    "iceCandidatePoolSize": 20,
+    // "iceTransportPolicy": "relay" as RTCIceTransportPolicy 
+    // Cette option peut être retirée si besoin pour revenir au mode par défaut
 };
 
 /**

@@ -15,6 +15,23 @@ export enum Role {
 }
 
 /**
+ * Perfect Negotiation roles - independent of business logic roles
+ * This determines behavior during offer/answer collisions
+ */
+export interface NegotiationRole {
+    isPolite: boolean;  // True if this peer should be polite (defer to incoming offers)
+}
+
+/**
+ * Perfect Negotiation state tracking
+ */
+export interface NegotiationState {
+    makingOffer: boolean;                    // Currently creating/sending an offer
+    ignoreOffer: boolean;                    // Should ignore incoming offers due to collision
+    isSettingRemoteAnswerPending: boolean;   // Currently setting remote answer
+}
+
+/**
  * Interface for general DataChannel messages
  */
 export interface DataChannelMessage {

@@ -10,22 +10,13 @@ export interface IPeerConnection {
     isRoomReady: () => boolean;
     createOffer: () => Promise<void>;
     setDataChannel: (channel: RTCDataChannel) => void;
-    setupDataChannel: (channel: RTCDataChannel) => void;
     getOnConnectionStateChangeCallback: () => ((state: RTCPeerConnectionState) => void) | null;
+    getDataChannelManager: () => any; // Ajout de la méthode manquante
 }
 
 export function setupPeerConnectionListeners(peerConnection: IPeerConnection, pc: RTCPeerConnection) {
-    // Handle ICE candidates
-    pc.onicecandidate = (event) => {
-        if (event.candidate) {
-            console.log(`[WebRTC] New ICE candidate: ${JSON.stringify(event.candidate)}`);
-            peerConnection.getSignaling().sendMessage({
-                type: 'ice-candidate',
-                roomId: peerConnection.getRoomId(),
-                content: event.candidate
-            });
-        }
-    };
+    // Note: ICE candidate handling is now managed in setupIceDebugging() to avoid conflicts
+    // This ensures proper debugging and consistent candidate tracking
 
     // Handle connection state changes
     pc.onconnectionstatechange = () => {
@@ -48,21 +39,8 @@ export function setupPeerConnectionListeners(peerConnection: IPeerConnection, pc
         console.log(`[WebRTC] Signaling state: ${pc.signalingState}`);
     };
 
-    // Handle negotiation needed
-    pc.onnegotiationneeded = async () => {
-        try {
-            console.log(`[WebRTC] Negotiation needed, role: ${peerConnection.getRole()}`);
-
-            // Vérifier si on est prêt pour la négociation (patient et praticien présents)
-            if (peerConnection.isRoomReady() && peerConnection.getRole() === Role.PRACTITIONER) {
-                await peerConnection.createOffer();
-            } else {
-                console.log('[WebRTC] Not ready to negotiate yet or not a practitioner');
-            }
-        } catch (err) {
-            console.error('[WebRTC] Error during negotiation:', err);
-        }
-    };
+    // Note: negotiationneeded handler is managed by Perfect Negotiation
+    // Perfect Negotiation handles all offer/answer logic to prevent race conditions
 
     // Écouter les data channels entrants (pour le patient)
     pc.ondatachannel = (event) => {
@@ -70,7 +48,11 @@ export function setupPeerConnectionListeners(peerConnection: IPeerConnection, pc
 
         if (event.channel.label === 'data-channel') {
             peerConnection.setDataChannel(event.channel);
-            peerConnection.setupDataChannel(event.channel);
+            // Configure le data channel via le manager
+            const dataChannelManager = peerConnection.getDataChannelManager();
+            if (dataChannelManager && dataChannelManager.setupDataChannel) {
+                dataChannelManager.setupDataChannel(event.channel);
+            }
         }
     };
 }

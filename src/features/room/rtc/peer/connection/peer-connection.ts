@@ -3,10 +3,27 @@
 import { SignalingService, SignalingMessage, UserPresence } from '../../signaling';
 import { store } from '@/app/store';
 import { getLatestIceConfig } from '../../ice/ice-config-slice';
+import { cleanupRoomState, resetParticipantsConnection } from '../../../roomSlice';
 import { Role, ChatMessage } from '../models/types';
 import { DataChannelManager } from '../data-channel/data-channel-manager';
 import { setupPeerConnectionListeners, IPeerConnection } from '../handlers/connection-handlers';
-import { handleOffer, handleAnswer, handleIceCandidate, createOffer } from '../handlers/signaling-handlers';
+import { PerfectNegotiation } from '../negotiation/perfect-negotiation';
+
+// Debug logging control - set to false in production
+const DEBUG_LOGS = import.meta.env.DEV || false;
+
+// Conditional logging functions
+const debugLog = (message: string, ...args: any[]) => {
+    if (DEBUG_LOGS) console.log(message, ...args);
+};
+
+const debugWarn = (message: string, ...args: any[]) => {
+    if (DEBUG_LOGS) console.warn(message, ...args);
+};
+
+const debugError = (message: string, ...args: any[]) => {
+    console.error(message, ...args); // Always log errors
+};
 
 // Interfaces pour les statistiques WebRTC
 interface RTCStatsReport {
@@ -58,15 +75,17 @@ export class PeerConnection implements IPeerConnection {
     private pc: RTCPeerConnection;
     private signaling: SignalingService;
     private dataChannelManager: DataChannelManager;
+    private perfectNegotiation: PerfectNegotiation;
     private role: Role;
     private roomId: string;
     private clientId: string;
     private readyToNegotiate: boolean = false;
+    private presenceResetTimeout: ReturnType<typeof setTimeout> | null = null;
 
     // ICE debugging
     private iceConnectionTimeout: NodeJS.Timeout | null = null;
     private iceStartTime: number = 0;
-    private iceCandidates: {local: RTCIceCandidate[], remote: RTCIceCandidate[]} = {local: [], remote: []};
+    private iceCandidates: { local: RTCIceCandidate[], remote: RTCIceCandidate[] } = { local: [], remote: [] };
     private hasRelay: boolean = false;
 
     // Callbacks
@@ -78,7 +97,7 @@ export class PeerConnection implements IPeerConnection {
     public readonly ROLE = Role;
 
     constructor(roomId: string, clientId: string, role: Role) {
-        console.log(`[WebRTC] Creating PeerConnection with role: ${role}, roomId: ${roomId}, clientId: ${clientId}`);
+        debugLog(`[WebRTC] Creating PeerConnection with role: ${role}, roomId: ${roomId}, clientId: ${clientId}`);
         this.roomId = roomId;
         this.clientId = clientId;
         this.role = role;
@@ -88,13 +107,13 @@ export class PeerConnection implements IPeerConnection {
 
         // Get the ICE configuration from the store
         const iceConfig = store.getState().iceConfig.config;
-        console.log('[WebRTC] Using ICE configuration:', JSON.stringify(iceConfig));
-        
+        debugLog('[WebRTC] Using ICE configuration:', JSON.stringify(iceConfig));
+
         // Vérifier si les serveurs TURN sont bien configurés
         this.checkTurnConfiguration(iceConfig);
 
-        // TEST: Vérifier explicitement l'accessibilité du serveur TURN
-        this.testTurnServer('turn:turn.ekami.ch:3478', 'wei', 'toto1234');
+        // Note: Test TURN désactivé temporairement car il interfère avec la connexion principale
+        // this.testTurnServer('turn:turn.ekami.ch:3478', 'wei', 'toto1234');
 
         // Initialize signaling
         this.signaling = new SignalingService(roomId, clientId, role);
@@ -110,9 +129,26 @@ export class PeerConnection implements IPeerConnection {
             this.role
         );
 
+        // Initialize Perfect Negotiation with reference to this PeerConnection instance
+        this.perfectNegotiation = new PerfectNegotiation(
+            this.pc,
+            this.signaling,
+            this.roomId,
+            this.clientId,
+            this.role,
+            this // Pass reference to PeerConnection for DataChannel triggering
+        );
+
+        // Register callback for connection state changes
+        this.perfectNegotiation.onConnectionStateChanged((state) => {
+            if (this.onConnectionStateChangeCallback) {
+                this.onConnectionStateChangeCallback(state);
+            }
+        });
+
         // Setup peer connection listeners
         this.setupListeners();
-        
+
         // Setup custom ICE debugging
         this.setupIceDebugging();
     }
@@ -123,14 +159,14 @@ export class PeerConnection implements IPeerConnection {
             console.error('[WebRTC] No ICE servers configured!');
             return;
         }
-        
+
         // Recherche des serveurs TURN
         let hasTurnServer = false;
         for (const server of iceConfig.iceServers) {
             if (!server.urls) continue;
-            
+
             const urls = Array.isArray(server.urls) ? server.urls : [server.urls];
-            
+
             for (const url of urls) {
                 if (typeof url === 'string' && url.startsWith('turn:')) {
                     hasTurnServer = true;
@@ -143,7 +179,7 @@ export class PeerConnection implements IPeerConnection {
                 }
             }
         }
-        
+
         if (!hasTurnServer) {
             console.warn('[WebRTC] No TURN servers found in configuration! This will cause connection issues in restrictive networks.');
         }
@@ -151,43 +187,37 @@ export class PeerConnection implements IPeerConnection {
 
     // Configuration du débogage ICE avancé
     private setupIceDebugging() {
+        // Nettoyer les timers existants
+        if (this.iceConnectionTimeout) {
+            clearTimeout(this.iceConnectionTimeout);
+            this.iceConnectionTimeout = null;
+        }
+
+        // Réinitialiser les variables de débogage ICE
         this.iceStartTime = Date.now();
-        this.iceCandidates = {local: [], remote: []};
+        this.iceCandidates = { local: [], remote: [] };
         this.hasRelay = false;
-        
-        // Surveiller les candidats ICE locaux
-        this.pc.onicecandidate = (event) => {
-            if (event.candidate) {
-                this.iceCandidates.local.push(event.candidate);
-                console.log(`[WebRTC-ICE] Local candidate: ${event.candidate.candidate}`);
-                
-                // Analyser le candidat
-                this.analyzeIceCandidate(event.candidate, true);
-                
-                // Définir un timeout si c'est le premier candidat
-                if (this.iceCandidates.local.length === 1 && !this.iceConnectionTimeout) {
-                    this.iceConnectionTimeout = setTimeout(() => {
-                        if (this.pc.iceConnectionState !== 'connected' && this.pc.iceConnectionState !== 'completed') {
-                            console.warn('[WebRTC-ICE] Connection timeout after 15s. Current state:', this.pc.iceConnectionState);
-                            this.logIceStats();
-                        }
-                    }, 15000);
-                }
-            } else {
-                console.log('[WebRTC-ICE] Local candidates gathering complete');
-            }
-        };
-        
+
+        console.log('[WebRTC-ICE] Setting up ICE debugging and candidate handling');
+
+        // ====== ICE DEBUGGING ET MONITORING ======
+        // Note: ICE candidate handling is now managed by Perfect Negotiation
+        // This section only handles debugging and monitoring
+        console.log('[WebRTC-ICE] Setting up ICE debugging and monitoring');
+
+        // Let Perfect Negotiation handle ICE candidates, we just monitor
+        // No pc.onicecandidate here to avoid conflicts with Perfect Negotiation
+
         // Surveiller les changements d'état de connexion ICE
         this.pc.oniceconnectionstatechange = () => {
             const state = this.pc.iceConnectionState;
             console.log(`[WebRTC-ICE] Connection state changed: ${state}`);
-            
+
             switch (state) {
                 case 'checking':
                     console.log(`[WebRTC-ICE] Started checking candidates. Time elapsed: ${Date.now() - this.iceStartTime}ms`);
                     break;
-                    
+
                 case 'connected':
                 case 'completed':
                     if (this.iceConnectionTimeout) {
@@ -196,42 +226,100 @@ export class PeerConnection implements IPeerConnection {
                     }
                     console.log(`[WebRTC-ICE] Connection established in ${Date.now() - this.iceStartTime}ms`);
                     console.log(`[WebRTC-ICE] Using TURN relay: ${this.hasRelay ? 'Yes' : 'No/Unknown'}`);
-                    
+
                     // Analyser les statistiques détaillées après connexion
                     setTimeout(() => this.getDetailedConnectionStats(), 1000);
                     break;
-                    
+
                 case 'failed':
                     console.error('[WebRTC-ICE] Connection failed. This is likely due to a TURN server issue or network restriction.');
                     this.logIceStats();
+
+                    // Try Perfect Negotiation automatic reconnection if both peers are still present
+                    if (this.signaling.hasPatientAndPractitioner()) {
+                        console.log('[WebRTC-ICE] Both peers present, attempting Perfect Negotiation reconnection...');
+                        setTimeout(() => {
+                            this.perfectNegotiation.attemptReconnection();
+                        }, 1000); // Small delay to let logs complete
+                    } else {
+                        console.log('[WebRTC-ICE] Peer absent, not attempting reconnection');
+                    }
+                    break;
+
+                case 'disconnected':
+                    console.warn('[WebRTC-ICE] Connection disconnected, monitoring for recovery...');
+
+                    // Give Perfect Negotiation time to handle reconnection automatically
+                    setTimeout(() => {
+                        if (this.pc.iceConnectionState === 'disconnected' &&
+                            this.signaling.hasPatientAndPractitioner()) {
+                            console.log('[WebRTC-ICE] Still disconnected with both peers present, attempting Perfect Negotiation reconnection...');
+                            this.perfectNegotiation.attemptReconnection();
+                        }
+                    }, 5000); // Wait longer for natural recovery
                     break;
             }
         };
     }
-    
-    // Analyse un candidat ICE pour déterminer son type
+
+    // Méthode pour réessayer d'ajouter tous les candidats ICE en cas d'échec de connexion
+    private async retryAddingIceCandidates() {
+        console.log('[WebRTC-ICE] Retrying to add all accumulated ICE candidates...');
+
+        // Réessayer d'ajouter tous les candidats distants accumulés
+        for (const candidate of this.iceCandidates.remote) {
+            try {
+                await this.pc.addIceCandidate(new RTCIceCandidate(candidate));
+                console.log('[WebRTC-ICE] Re-added remote ICE candidate:', candidate.candidate);
+            } catch (err) {
+                console.error('[WebRTC-ICE] Failed to re-add remote ICE candidate:', err);
+            }
+        }
+
+        console.log(`[WebRTC-ICE] Retry complete. ${this.iceCandidates.remote.length} remote candidates re-processed.`);
+    }
+
+    // Analyse un candidat ICE pour déterminer son type et détecter les problèmes potentiels
     private analyzeIceCandidate(candidate: RTCIceCandidate, isLocal: boolean) {
         const candidateStr = candidate.candidate;
         if (!candidateStr) return;
-        
+
         try {
             // Vérifier si c'est un candidat relay (TURN)
             if (candidateStr.includes(' typ relay ')) {
                 this.hasRelay = true;
                 console.log(`[WebRTC-ICE] ${isLocal ? 'Local' : 'Remote'} TURN relay candidate found: ${candidateStr}`);
+
+                // Extraire l'adresse IP du serveur TURN utilisé
+                const ipMatch = candidateStr.match(/([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})/);
+                if (ipMatch) {
+                    console.log(`[WebRTC-ICE] TURN server IP: ${ipMatch[1]}`);
+                }
+
+                // Vérifier le protocole utilisé (UDP/TCP)
+                if (candidateStr.includes('udp')) {
+                    console.log('[WebRTC-ICE] Using UDP protocol for TURN');
+                } else if (candidateStr.includes('tcp')) {
+                    console.log('[WebRTC-ICE] Using TCP protocol for TURN');
+                }
             }
-            
+
             // Extraire le type de candidat
             const match = candidateStr.match(/ typ ([a-z]+) /);
             if (match) {
                 const type = match[1]; // host, srflx, prflx ou relay
                 console.log(`[WebRTC-ICE] ${isLocal ? 'Local' : 'Remote'} candidate type: ${type}`);
+
+                // Si on reçoit un candidat distant, c'est un bon signe que la communication fonctionne
+                if (!isLocal) {
+                    console.log('[WebRTC-ICE] Successfully received remote candidate - signaling is working');
+                }
             }
         } catch (err) {
             console.error('[WebRTC-ICE] Error analyzing candidate:', err);
         }
     }
-    
+
     // Analyse les statistiques de connexion pour comprendre les problèmes
     private async getDetailedConnectionStats() {
         try {
@@ -239,43 +327,43 @@ export class PeerConnection implements IPeerConnection {
                 console.log('[WebRTC-ICE] getStats API not available');
                 return;
             }
-            
+
             const stats = await this.pc.getStats();
             let selectedPair: RTCIceCandidatePairStats | null = null;
             let localCandidate: RTCIceCandidateStats | null = null;
             let remoteCandidate: RTCIceCandidateStats | null = null;
-            
+
             stats.forEach((report: RTCStats) => {
                 if (report.type === 'transport') {
                     console.log('[WebRTC-ICE] Transport:', report);
                 }
-                
+
                 // Trouver la paire de candidats sélectionnée
                 if (report.type === 'candidate-pair' && report.selected === true) {
                     selectedPair = report as RTCIceCandidatePairStats;
                     console.log('[WebRTC-ICE] Selected candidate pair:', report);
                 }
-                
+
                 // Stocker les informations sur les candidats
                 if (report.type === 'local-candidate') {
                     if (selectedPair && report.id === selectedPair.localCandidateId) {
                         localCandidate = report as RTCIceCandidateStats;
                     }
                 }
-                
+
                 if (report.type === 'remote-candidate') {
                     if (selectedPair && report.id === selectedPair.remoteCandidateId) {
                         remoteCandidate = report as RTCIceCandidateStats;
                     }
                 }
             });
-            
+
             // Analyser la paire sélectionnée
             if (selectedPair && localCandidate && remoteCandidate) {
                 console.log('[WebRTC-ICE] Connection established using:');
                 console.log(`[WebRTC-ICE] Local: ${(localCandidate as RTCIceCandidateStats).candidateType} (${(localCandidate as RTCIceCandidateStats).protocol}) - ${(localCandidate as RTCIceCandidateStats).ip}:${(localCandidate as RTCIceCandidateStats).port}`);
                 console.log(`[WebRTC-ICE] Remote: ${(remoteCandidate as RTCIceCandidateStats).candidateType} (${(remoteCandidate as RTCIceCandidateStats).protocol}) - ${(remoteCandidate as RTCIceCandidateStats).ip}:${(remoteCandidate as RTCIceCandidateStats).port}`);
-                
+
                 if ((localCandidate as RTCIceCandidateStats).candidateType === 'relay' || (remoteCandidate as RTCIceCandidateStats).candidateType === 'relay') {
                     console.log('[WebRTC-ICE] Connection using TURN relay');
                     // Identifier quel serveur TURN est utilisé
@@ -286,12 +374,12 @@ export class PeerConnection implements IPeerConnection {
                     console.log('[WebRTC-ICE] Direct connection (no TURN relay)');
                 }
             }
-            
+
         } catch (err) {
             console.error('[WebRTC-ICE] Error getting connection stats:', err);
         }
     }
-    
+
     // Journalise les statistiques ICE pour le débogage
     private logIceStats() {
         console.log('[WebRTC-ICE] === ICE Connection Diagnostics ===');
@@ -300,7 +388,7 @@ export class PeerConnection implements IPeerConnection {
         console.log(`[WebRTC-ICE] Signaling state: ${this.pc.signalingState}`);
         console.log(`[WebRTC-ICE] Local candidates: ${this.iceCandidates.local.length}`);
         console.log(`[WebRTC-ICE] Remote candidates: ${this.iceCandidates.remote.length}`);
-        
+
         // Types de candidats locaux
         const localTypes: CandidateTypeCount = this.iceCandidates.local.reduce((acc: CandidateTypeCount, candidate) => {
             const match = candidate.candidate.match(/ typ ([a-z]+) /);
@@ -311,12 +399,22 @@ export class PeerConnection implements IPeerConnection {
             return acc;
         }, {});
         console.log('[WebRTC-ICE] Local candidate types:', localTypes);
-        
+
+        // Types de candidats distants
+        if (this.iceCandidates.remote.length > 0) {
+            console.log('[WebRTC-ICE] Remote candidates details:');
+            this.iceCandidates.remote.forEach((candidate, index) => {
+                console.log(`[WebRTC-ICE] Remote candidate ${index}:`, candidate);
+            });
+        } else {
+            console.warn('[WebRTC-ICE] No remote candidates received - this is the main reason for connection failure');
+        }
+
         // Vérifier les facteurs courants de défaillance
         if (!this.hasRelay) {
             console.warn('[WebRTC-ICE] No TURN relay candidates found - this often causes connection failures in restrictive networks');
         }
-        
+
         if (this.pc.iceConnectionState === 'failed') {
             console.warn('[WebRTC-ICE] Connection failure may be due to:');
             console.warn('- TURN server inaccessible ou mal configuré');
@@ -324,7 +422,7 @@ export class PeerConnection implements IPeerConnection {
             console.warn('- Ports bloqués par pare-feu');
             console.warn('- Restrictions de réseau trop strictes');
         }
-        
+
         // Afficher la configuration ICE
         const iceConfig = store.getState().iceConfig.config;
         console.log('[WebRTC-ICE] Current ICE configuration:', JSON.stringify(iceConfig));
@@ -333,7 +431,7 @@ export class PeerConnection implements IPeerConnection {
     // Test explicite d'accessibilité au serveur TURN
     private testTurnServer(url: string, username: string, credential: string) {
         console.log(`[TURN-TEST] Testing TURN server: ${url}`);
-        
+
         // Créer une configuration ICE spécifique pour ce test
         const testConfig = {
             iceServers: [{
@@ -343,19 +441,19 @@ export class PeerConnection implements IPeerConnection {
             }],
             iceTransportPolicy: 'relay' as RTCIceTransportPolicy // Force l'utilisation des serveurs TURN uniquement
         };
-        
+
         // Créer une connexion peer temporaire pour tester
         const pc1 = new RTCPeerConnection(testConfig);
         const pc2 = new RTCPeerConnection(testConfig);
-        
+
         // Suivre si des candidats relay sont générés
         let relayFound = false;
-        
+
         // Gérer les candidats ICE générés par pc1
         pc1.onicecandidate = (event) => {
             if (event.candidate) {
                 console.log(`[TURN-TEST] Candidate: ${event.candidate.candidate}`);
-                
+
                 // Vérifier si c'est un candidat relay (TURN)
                 if (event.candidate.candidate.includes(' typ relay ')) {
                     relayFound = true;
@@ -371,7 +469,7 @@ export class PeerConnection implements IPeerConnection {
                     console.log('- Network might be blocking UDP/TCP ports');
                     console.log('- TURN server might have reached its connection limit');
                 }
-                
+
                 // Nettoyer
                 setTimeout(() => {
                     pc1.close();
@@ -379,10 +477,10 @@ export class PeerConnection implements IPeerConnection {
                 }, 5000);
             }
         };
-        
+
         // Configurer le test en créant un canal de données
         const dc = pc1.createDataChannel('turnTest');
-        
+
         pc1.createOffer().then((offer) => {
             return pc1.setLocalDescription(offer);
         }).then(() => {
@@ -391,7 +489,7 @@ export class PeerConnection implements IPeerConnection {
         }).catch((err) => {
             console.error('[TURN-TEST] Error testing TURN server:', err);
         });
-        
+
         // Définir un timeout pour le test au cas où aucun candidat n'est généré
         setTimeout(() => {
             if (!relayFound) {
@@ -417,40 +515,9 @@ export class PeerConnection implements IPeerConnection {
     private async setupSignalingListeners() {
         console.log('[WebRTC] Setting up signaling listeners');
 
-        // Écouter les messages de signalisation
-        this.signaling.onMessage(async (message: SignalingMessage) => {
-            console.log(`[WebRTC] Received signaling message type: ${message.type}`, message);
-
-            try {
-                if (message.sender === this.clientId) {
-                    console.log('[WebRTC] Ignoring message from self');
-                    return; // Ignore messages from self
-                }
-
-                if (message.type === 'offer') {
-                    console.log('[WebRTC] Processing offer');
-                    // Vérifier que le type est bien une offre et utiliser un cast de type sécurisé
-                    await handleOffer(this.pc, message.content as RTCSessionDescriptionInit, this.signaling, this.roomId);
-                }
-                else if (message.type === 'answer') {
-                    console.log('[WebRTC] Processing answer');
-                    // Vérifier que le type est bien une réponse et utiliser un cast de type sécurisé
-                    await handleAnswer(this.pc, message.content as RTCSessionDescriptionInit);
-                }
-                else if (message.type === 'ice-candidate') {
-                    console.log('[WebRTC] Processing ICE candidate');
-                    // Stocker le candidat distant pour débogage
-                    if (message.content) {
-                        this.iceCandidates.remote.push(message.content as RTCIceCandidate);
-                        this.analyzeIceCandidate(message.content as RTCIceCandidate, false);
-                    }
-                    // Vérifier que le type est bien un candidat ICE et utiliser un cast de type sécurisé
-                    await handleIceCandidate(this.pc, message.content as RTCIceCandidateInit);
-                }
-            } catch (err) {
-                console.error('[WebRTC] Error handling signaling message:', err);
-            }
-        });
+        // Note: Signaling message handling is now managed by Perfect Negotiation
+        // The PerfectNegotiation class handles all offer/answer/ice-candidate messages
+        // This eliminates race conditions and implements proper collision detection
 
         // Écouter les changements de présence dans la salle
         this.signaling.onPresenceChange((presences: UserPresence[]) => {
@@ -459,6 +526,15 @@ export class PeerConnection implements IPeerConnection {
             // Vérifier si un patient et un praticien sont présents
             const hasPatientAndPractitioner = this.signaling.hasPatientAndPractitioner();
             console.log(`[WebRTC] Room has patient and practitioner: ${hasPatientAndPractitioner}`);
+
+            // Si un reset était prévu mais que les deux sont à nouveau présents, l'annuler
+            if (hasPatientAndPractitioner && this.presenceResetTimeout) {
+                clearTimeout(this.presenceResetTimeout);
+                this.presenceResetTimeout = null;
+                console.log('[WebRTC] Participant reconnected before timeout — reset cancelled');
+                console.log('[WebRTC] Resuming existing connection, no need to reinitialize');
+                return; // Sortir immédiatement car on récupère la connexion existante
+            }
 
             // Si le statut a changé, mettre à jour et notifier
             if (this.readyToNegotiate !== hasPatientAndPractitioner) {
@@ -470,19 +546,86 @@ export class PeerConnection implements IPeerConnection {
                 if (wasReady && !hasPatientAndPractitioner) {
                     console.log('[WebRTC] A participant disconnected, resetting peer connection');
 
-                    // Pour le praticien, réinitialiser complètement la connexion
-                    if (this.role === Role.PRACTITIONER &&
-                        (this.pc.connectionState === 'connected' ||
-                            this.pc.connectionState === 'connecting')) {
-                        this.resetPeerConnection();
+                    // Perfect Negotiation compatible timeout logic for practitioner  
+                    // Only reset if connection is truly failed and patient is still absent
+                    if (this.role === Role.PRACTITIONER) {
+                        // Check if connection failed while patient is absent
+                        const connectionFailed = this.pc.connectionState === 'failed' ||
+                            (this.pc.connectionState === 'disconnected' &&
+                                this.pc.iceConnectionState === 'failed');
+
+                        const patientAbsent = !this.signaling.hasPatientAndPractitioner();
+
+                        if (connectionFailed && patientAbsent) {
+                            console.warn('[WebRTC] Connection failed and patient absent. Resetting immediately...');
+                            this.resetPeerConnection();
+                            return;
+                        }
+
+                        if (patientAbsent &&
+                            (this.pc.connectionState === 'connected' || this.pc.connectionState === 'connecting')) {
+                            console.warn('[WebRTC] Patient absent but connection still active. Waiting before reset...');
+
+                            if (this.presenceResetTimeout) {
+                                clearTimeout(this.presenceResetTimeout);
+                            }
+
+                            this.presenceResetTimeout = setTimeout(() => {
+                                const stillMissing = !this.signaling.hasPatientAndPractitioner();
+
+                                if (stillMissing) {
+                                    console.warn('[WebRTC] Patient still absent after timeout. Resetting...');
+                                    this.resetPeerConnection();
+                                } else {
+                                    console.log('[WebRTC] Patient returned. No reset needed.');
+                                }
+
+                                this.presenceResetTimeout = null;
+                            }, 3000); // Longer timeout to allow for Perfect Negotiation recovery
+
+                            return;
+                        }
                     }
 
-                    // Pour le patient, réinitialiser également la connexion si le praticien se déconnecte
-                    if (this.role === Role.PATIENT &&
-                        (this.pc.connectionState === 'connected' ||
-                            this.pc.connectionState === 'connecting')) {
-                        console.log('[WebRTC] Practitioner disconnected, resetting patient peer connection');
-                        this.resetPeerConnection();
+                    // Perfect Negotiation compatible timeout logic for patient
+                    // Only reset if connection is truly failed and practitioner is still absent
+                    if (this.role === Role.PATIENT) {
+                        // Check if connection failed while practitioner is absent
+                        const connectionFailed = this.pc.connectionState === 'failed' ||
+                            (this.pc.connectionState === 'disconnected' &&
+                                this.pc.iceConnectionState === 'failed');
+
+                        const practitionerAbsent = !this.signaling.hasPatientAndPractitioner();
+
+                        if (connectionFailed && practitionerAbsent) {
+                            console.warn('[WebRTC] Connection failed and practitioner absent. Resetting immediately...');
+                            this.resetPeerConnection();
+                            return;
+                        }
+
+                        if (practitionerAbsent &&
+                            (this.pc.connectionState === 'connected' || this.pc.connectionState === 'connecting')) {
+                            console.warn('[WebRTC] Practitioner absent but connection still active. Waiting before reset...');
+
+                            if (this.presenceResetTimeout) {
+                                clearTimeout(this.presenceResetTimeout);
+                            }
+
+                            this.presenceResetTimeout = setTimeout(() => {
+                                const stillMissing = !this.signaling.hasPatientAndPractitioner();
+
+                                if (stillMissing) {
+                                    console.warn('[WebRTC] Practitioner still absent after timeout. Resetting...');
+                                    this.resetPeerConnection();
+                                } else {
+                                    console.log('[WebRTC] Practitioner returned. No reset needed.');
+                                }
+
+                                this.presenceResetTimeout = null;
+                            }, 5000); // Longer timeout to allow for Perfect Negotiation recovery
+
+                            return;
+                        }
                     }
                 }
 
@@ -491,25 +634,18 @@ export class PeerConnection implements IPeerConnection {
                     this.onRoomReadyCallback(this.readyToNegotiate);
                 }
 
-                // Si la salle est prête et qu'on est le praticien, initialiser la connexion
-                // mais seulement après un court délai pour s'assurer que la réinitialisation est complète
-                if (this.readyToNegotiate && this.role === Role.PRACTITIONER) {
-                    console.log('[WebRTC] Room is ready and we are the practitioner, waiting to initiate connection...');
+                // Perfect Negotiation P2P: Let the first to arrive initiate, regardless of business role
+                // The negotiation is now handled entirely by Perfect Negotiation based on arrival order
+                if (this.readyToNegotiate) {
+                    const roleInfo = this.perfectNegotiation.getRoleInfo();
+                    debugLog(`[WebRTC] Room ready for P2P connection. Role info:`, roleInfo);
 
-                    // Utiliser setTimeout pour retarder la création du canal de données
-                    // Cela donne le temps à la réinitialisation d'être complètement terminée
-                    setTimeout(() => {
-                        // Vérifier que la connexion est toujours valide et que la salle est toujours prête
-                        if (this.readyToNegotiate &&
-                            this.pc.connectionState !== 'closed' &&
-                            this.pc.signalingState !== 'closed') {
+                    // Perfect Negotiation will handle all connection initiation automatically
+                    debugLog(`[WebRTC] Perfect Negotiation enabled - role: ${roleInfo.isPolite ? 'polite' : 'impolite'}`);
+                    debugLog('[WebRTC] DataChannel creation will be handled by Perfect Negotiation via negotiationneeded events');
 
-                            console.log('[WebRTC] Creating data channel after delay');
-                            this.dataChannelManager.createDataChannel();
-                        } else {
-                            console.log('[WebRTC] Connection or room state changed, not creating data channel');
-                        }
-                    }, 500); // Délai plus long pour s'assurer que tout est prêt
+                    // Notify Perfect Negotiation that room is ready
+                    this.perfectNegotiation.onRoomReady();
                 }
             }
         });
@@ -518,13 +654,27 @@ export class PeerConnection implements IPeerConnection {
     // Connect to signaling service and set up listeners
     async connect() {
         console.log('[WebRTC] Connecting to signaling service');
+
+        // Réinitialiser l'état avant de se connecter
+        this.readyToNegotiate = false;
+        this.iceCandidates = { local: [], remote: [] };
+        this.hasRelay = false;
+
+        // Se connecter au service de signalisation
         await this.signaling.connect();
-        this.setupSignalingListeners();
+
+        // Configurer les écouteurs de signalisation
+        await this.setupSignalingListeners();
+
+        console.log('[WebRTC] Connected to signaling service and setup completed');
     }
 
     // Créer une offre pour établir la connexion
     async createOffer() {
-        await createOffer(this.pc, this.signaling, this.roomId);
+        console.log('[WebRTC] Note: Perfect Negotiation handles all offer creation automatically');
+        console.log('[WebRTC] This method is kept for compatibility but offer creation is managed by Perfect Negotiation');
+        // Perfect Negotiation handles all offer creation via negotiationneeded events
+        // No manual intervention needed - the pattern will handle everything automatically
     }
 
     // Configure les événements pour le dataChannel
@@ -569,13 +719,29 @@ export class PeerConnection implements IPeerConnection {
 
     // Close the connection
     async disconnect() {
-        console.log('[WebRTC] Disconnecting');
+        console.log('[WebRTC] Disconnecting from room:', this.roomId);
 
         try {
+            // Nettoyer les timers
+            if (this.iceConnectionTimeout) {
+                clearTimeout(this.iceConnectionTimeout);
+                this.iceConnectionTimeout = null;
+            }
+
+            // Nettoyer le timeout de reset de présence
+            if (this.presenceResetTimeout) {
+                clearTimeout(this.presenceResetTimeout);
+                this.presenceResetTimeout = null;
+            }
+
             // Fermer le canal de données
             this.dataChannelManager.closeDataChannel();
 
+            // Clean up Perfect Negotiation
+            this.perfectNegotiation.destroy();
+
             // Désactiver tous les gestionnaires d'événements de la connexion peer
+            // Note: Perfect Negotiation already cleaned its handlers, but we ensure cleanup
             this.pc.onicecandidate = null;
             this.pc.onconnectionstatechange = null;
             this.pc.oniceconnectionstatechange = null;
@@ -589,21 +755,76 @@ export class PeerConnection implements IPeerConnection {
             console.log('[WebRTC] Disconnecting signaling service');
             await this.signaling.disconnect();
 
-            // Réinitialiser l'état de prêt pour la négociation
+            // Réinitialiser l'état et les collections
             this.readyToNegotiate = false;
 
-            console.log('[WebRTC] Disconnection complete');
+            // S'assurer que les candidats ICE sont correctement nettoyés
+            this.iceCandidates = { local: [], remote: [] };
+            this.hasRelay = false;
+
+
+            // Forcer une mise à jour de l'état pour les composants qui observent
+            // les changements de statut du dataChannel
+            store.dispatch({
+                type: 'webrtc/connectionStatusChanged', payload: {
+                    status: 'disconnected',
+                    roomId: this.roomId
+                }
+            });
+
+            // Forcer un dispatch explicite quand on quitte une room pour éviter
+            // tout comportement résiduel
+            store.dispatch({ type: 'webrtc/dataChannelStatusChanged' });
+
+            // Nettoyer toute référence à cette salle dans le state Redux
+            store.dispatch(cleanupRoomState({ roomId: this.roomId }));
+
+            console.log('[WebRTC] Disconnection complete from room:', this.roomId);
         } catch (error) {
             console.error('[WebRTC] Error during disconnect:', error);
+
+            // Même en cas d'erreur, forcer les notifications de déconnexion
+            // pour éviter que l'interface reste bloquée dans un état incohérent
+            store.dispatch({
+                type: 'webrtc/connectionStatusChanged', payload: {
+                    status: 'disconnected',
+                    roomId: this.roomId
+                }
+            });
+            store.dispatch({ type: 'webrtc/dataChannelStatusChanged' });
         }
     }
 
     // Réinitialiser la connexion RTC peer
     private resetPeerConnection() {
-        console.log('[WebRTC] Resetting peer connection');
+        console.log('[WebRTC] Resetting peer connection for room:', this.roomId);
 
         // Fermer le canal de données
         this.dataChannelManager.closeDataChannel();
+
+        // Clean up old Perfect Negotiation instance
+        this.perfectNegotiation.destroy();
+
+        // Nettoyer les timers existants
+        if (this.iceConnectionTimeout) {
+            clearTimeout(this.iceConnectionTimeout);
+            this.iceConnectionTimeout = null;
+        }
+
+        // Nettoyer le timeout de reset de présence
+        if (this.presenceResetTimeout) {
+            clearTimeout(this.presenceResetTimeout);
+            this.presenceResetTimeout = null;
+        }
+
+        // Désactiver tous les gestionnaires d'événements de la connexion peer
+        // Note: Perfect Negotiation already cleaned its handlers, but we ensure cleanup
+        this.pc.onicecandidate = null;
+        this.pc.onconnectionstatechange = null;
+        this.pc.oniceconnectionstatechange = null;
+        this.pc.onsignalingstatechange = null;
+        this.pc.onnegotiationneeded = null;
+        this.pc.ondatachannel = null;
 
         // Fermer l'ancienne connexion peer
         this.pc.close();
@@ -614,8 +835,56 @@ export class PeerConnection implements IPeerConnection {
         // Recréer une nouvelle connexion peer avec la même configuration
         this.pc = new RTCPeerConnection(iceConfig);
 
-        // Reconfigurer tous les écouteurs d'événements
+        // Réinitialiser les collections de candidats ICE
+        this.iceCandidates = { local: [], remote: [] };
+        this.hasRelay = false;
+
+        // Reinitialize Perfect Negotiation with the new peer connection
+        this.perfectNegotiation = new PerfectNegotiation(
+            this.pc,
+            this.signaling,
+            this.roomId,
+            this.clientId,
+            this.role,
+            this // Pass reference to PeerConnection for DataChannel triggering
+        );
+
+        // Register callback for connection state changes
+        this.perfectNegotiation.onConnectionStateChanged((state) => {
+            if (this.onConnectionStateChangeCallback) {
+                this.onConnectionStateChangeCallback(state);
+            }
+        });
+
+        // Update data channel manager with new peer connection
+        this.dataChannelManager = new DataChannelManager(
+            () => this.pc,
+            this.roomId,
+            this.clientId,
+            this.role
+        );
+
+        // NOTE: Ne pas réinitialiser this.readyToNegotiate ici car cet état doit être géré
+        // par la logique de présence. Si on le remet à false, cela empêche la reconnexion
+        // immédiate quand les deux participants sont présents.
+
+        // Reconfigurer tous les écouteurs d'événements de base
         this.setupListeners();
+
+        // Reconfigurer le débogage ICE (crucial pour l'envoi des candidats ICE)
+        this.setupIceDebugging();
+
+        // Vérifier si la salle est prête pour la négociation après la réinitialisation
+        // Perfect Negotiation P2P: Let arrival order determine who initiates, not business role
+        const hasPatientAndPractitioner = this.signaling.hasPatientAndPractitioner();
+        debugLog(`[WebRTC] After reset, room has patient and practitioner: ${hasPatientAndPractitioner}`);
+
+        // Perfect Negotiation will handle all reconnection and data channel creation automatically
+        if (hasPatientAndPractitioner) {
+            const roleInfo = this.perfectNegotiation.getRoleInfo();
+            debugLog('[WebRTC] Room ready after reset, Perfect Negotiation will handle connection initiation');
+            debugLog('[WebRTC] P2P role info:', roleInfo);
+        }
 
         // Notifier explicitement le changement d'état de connexion, car la nouvelle
         // instance de PeerConnection ne déclenche pas automatiquement l'événement
@@ -624,7 +893,17 @@ export class PeerConnection implements IPeerConnection {
             this.onConnectionStateChangeCallback('disconnected');
         }
 
-        console.log('[WebRTC] Peer connection has been reset');
+        // Forcer une mise à jour de l'état pour les composants qui observent
+        // les changements de statut du dataChannel et de la connexion
+        store.dispatch({ type: 'webrtc/dataChannelStatusChanged' });
+        store.dispatch({
+            type: 'webrtc/connectionStatusChanged', payload: {
+                status: 'reset',
+                roomId: this.roomId
+            }
+        });
+
+        console.log('[WebRTC] Peer connection has been reset for room:', this.roomId);
     }
 
     // Getters pour permettre l'accès aux handlers
@@ -652,4 +931,24 @@ export class PeerConnection implements IPeerConnection {
     setDataChannel(channel: RTCDataChannel) {
         this.dataChannelManager.setDataChannel(channel);
     }
+
+    // Perfect Negotiation debugging and monitoring
+    getPerfectNegotiationState() {
+        return this.perfectNegotiation.getNegotiationState();
+    }
+
+    isAttemptingReconnection(): boolean {
+        return this.perfectNegotiation.isAttemptingReconnection();
+    }
+
+    // Public method for Perfect Negotiation to trigger DataChannel creation
+    // This is the ONLY way DataChannel should be created - through Perfect Negotiation
+    triggerDataChannelCreation(): void {
+        console.log('[WebRTC] Perfect Negotiation triggering DataChannel creation');
+        this.dataChannelManager.createDataChannel();
+    }
+    getDataChannelManager(): DataChannelManager {  //bluetooth
+  return this.dataChannelManager;
+}
+
 }

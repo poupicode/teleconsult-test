@@ -38,15 +38,20 @@ export default function RoomList() {
   const handleSelectRoom = (roomId: string) => {
     // Si l'utilisateur est déjà dans une salle, on le déconnecte d'abord
     if (currentRoomId) {
+      console.log(`[RoomList] Changing rooms from ${currentRoomId} to ${roomId}`);
+      
       // Déconnecter de la salle actuelle en mettant roomId à null
       dispatch(roomIdUpdated(null));
 
-      // Petit délai pour s'assurer que la déconnexion est terminée avant de rejoindre la nouvelle salle
+      // Augmenter le délai pour s'assurer que la déconnexion est complètement terminée
+      // et que toutes les ressources WebRTC sont libérées avant de rejoindre la nouvelle salle
       setTimeout(() => {
+        console.log(`[RoomList] Connecting to new room ${roomId} after cleanup`);
         dispatch(roomIdUpdated(roomId));
-      }, 500);
+      }, 1000); // Augmenté à 1 seconde pour permettre un nettoyage complet
     } else {
       // Si l'utilisateur n'est pas dans une salle, on peut directement rejoindre la nouvelle
+      console.log(`[RoomList] Connecting directly to room ${roomId}`);
       dispatch(roomIdUpdated(roomId));
     }
   };

@@ -11,6 +11,7 @@ export class DataChannelManager {
     private clientId: string;
     private role: Role;
     private onChatMessageCallback: ((message: ChatMessage) => void) | null = null;
+    private onMeasurementCallback: ((data: object) => void) | null = null;
 
     constructor(peerConnectionProvider: () => RTCPeerConnection, roomId: string, clientId: string, role: Role) {
         this.getPeerConnection = peerConnectionProvider;
@@ -23,8 +24,16 @@ export class DataChannelManager {
     createDataChannel(): RTCDataChannel | null {
         try {
             if (this.dataChannel) {
-                console.log('[WebRTC] Data channel already exists');
-                return this.dataChannel;
+                if (this.dataChannel.readyState === 'open') {
+                    console.log('[WebRTC] Data channel already exists and is open, reusing it');
+                    return this.dataChannel;
+                } else if (this.dataChannel.readyState === 'closing' || this.dataChannel.readyState === 'connecting') {
+                    console.warn('[WebRTC] Data channel is not usable (state: ' + this.dataChannel.readyState + '), creating new one');
+                    this.closeDataChannel(); // force cleanup
+                } else {
+                    console.warn('[WebRTC] Existing data channel is closed, creating new one');
+                    this.dataChannel = null;
+                }
             }
 
             // Récupérer la connexion actuelle au moment de créer le canal
@@ -66,7 +75,14 @@ export class DataChannelManager {
         };
 
         channel.onerror = (error) => {
-            console.error('[WebRTC] Data channel error:', error);
+            // Vérifier si c'est une fermeture normale par l'autre participant
+            const rtcError = (error as RTCErrorEvent).error;
+            if (rtcError && rtcError.name === 'OperationError' &&
+                rtcError.message.includes('User-Initiated Abort')) {
+                console.log('[WebRTC] Data channel closed by remote peer (normal)');
+            } else {
+                console.error('[WebRTC] Data channel error:', error);
+            }
             // Forcer une mise à jour de l'interface
             store.dispatch({ type: 'webrtc/dataChannelStatusChanged' });
         };
@@ -96,6 +112,16 @@ export class DataChannelManager {
                         if (this.onChatMessageCallback) {
                             this.onChatMessageCallback(chatMessage);
                         }
+                        break;
+                        case 'measurement':
+        if (this.onMeasurementCallback) {
+            this.onMeasurementCallback(message.payload);
+        }
+        break;
+
+                    case 'channel_closing':
+                        console.log('[WebRTC] Remote peer is closing data channel gracefully');
+                        // Pas besoin de faire quoi que ce soit, le canal va se fermer naturellement
                         break;
 
                     // Ajouter d'autres types de messages ici
@@ -161,6 +187,11 @@ export class DataChannelManager {
         this.onChatMessageCallback = callback;
     }
 
+    // S'abonner aux messages de mesures
+    onMeasurement(callback: (data: object) => void) {
+        this.onMeasurementCallback = callback;
+    }
+
     // Vérifier si le dataChannel est disponible
     isDataChannelAvailable(): boolean {
         return this.dataChannel !== null && this.dataChannel.readyState === 'open';
@@ -179,15 +210,52 @@ export class DataChannelManager {
     // Fermer le canal de données
     closeDataChannel() {
         if (this.dataChannel) {
+            // Envoyer un message de fermeture gracieuse avant de fermer
+            try {
+                if (this.dataChannel.readyState === 'open') {
+                    this.sendDataChannelMessage('channel_closing', { reason: 'graceful_shutdown' });
+                }
+            } catch (err) {
+                console.warn('[WebRTC] Could not send closing message:', err);
+            }
+
             // Désactiver les gestionnaires d'événements avant de fermer pour éviter les erreurs
             this.dataChannel.onopen = null;
             this.dataChannel.onclose = null;
             this.dataChannel.onerror = null;
             this.dataChannel.onmessage = null;
 
-            console.log('[WebRTC] Closing data channel');
-            this.dataChannel.close();
-            this.dataChannel = null;
+            console.log(`[WebRTC] Closing data channel for room: ${this.roomId}`);
+
+            try {
+                // Check the state before closing to avoid errors
+                if (this.dataChannel.readyState !== 'closed') {
+                    this.dataChannel.close();
+                    console.log('[WebRTC] Data channel closed successfully');
+                } else {
+                    console.log('[WebRTC] Data channel was already closed');
+                }
+            } catch (err) {
+                console.error('[WebRTC] Error while closing data channel:', err);
+            } finally {
+                this.dataChannel = null;
+
+                // Forcer une mise à jour de l'interface pour notifier les composants
+                // que le canal n'est plus disponible
+                store.dispatch({ type: 'webrtc/dataChannelStatusChanged' });
+                console.log('[WebRTC] DataChannel reference cleared');
+                this.onChatMessageCallback = null;
+            }
         }
     }
+
+    // Forcer la fermeture du data channel avec une raison
+    forceCloseDataChannel(reason?: string) {
+        console.warn(`[WebRTC] Forcing data channel closure. Reason: ${reason}`);
+        this.closeDataChannel();
+    }
+    sendMeasurement(data: object): boolean {
+    return this.sendDataChannelMessage('measurement', data);
+}
+
 }
