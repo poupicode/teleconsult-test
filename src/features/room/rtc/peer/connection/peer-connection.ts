@@ -244,16 +244,16 @@ export class PeerConnection implements IPeerConnection {
                     break;
 
                 case 'disconnected':
-                    console.warn('[WebRTC-ICE] Connection disconnected, monitoring for recovery...');
+                    console.warn('[WebRTC-ICE] 🔌 Connection disconnected, monitoring for recovery...');
 
-                    // Give Perfect Negotiation time to handle reconnection automatically
+                    // Smart reconnection strategy: Short timeout for teleconsultation
                     setTimeout(() => {
                         if (this.pc.iceConnectionState === 'disconnected' &&
                             this.signaling.hasPatientAndPractitioner()) {
-                            console.log('[WebRTC-ICE] Still disconnected with both peers present, attempting Perfect Negotiation reconnection...');
+                            console.log('[WebRTC-ICE] 🔄 Still disconnected after 2s, attempting reconnection...');
                             this.perfectNegotiation.attemptReconnection();
                         }
-                    }, 5000); // Wait longer for natural recovery
+                    }, 2000); // Short timeout: optimal for teleconsultation UX
                     break;
             }
         };
@@ -412,9 +412,9 @@ export class PeerConnection implements IPeerConnection {
                     console.log('[WebRTC] ✅ Connection is healthy/recoverable — preserving existing connection');
                     return; // Healthy connection, continue with existing one
                 } else {
-                    console.log('[WebRTC] ⚠️ Connection appears degraded — but giving maximum time for natural recovery');
-                    // Even if connection seems degraded, give maximum chance for recovery
-                    this.applySmartResetWithGracePeriod();
+                    console.log('[WebRTC] ⚠️ Connection appears degraded — applying simple reset');
+                    // Simple reset without complex grace period logic
+                    this.resetPeerConnection();
                     return;
                 }
             }
@@ -427,105 +427,27 @@ export class PeerConnection implements IPeerConnection {
                 // If the room was ready before but isn't now, it means
                 // a participant has disconnected
                 if (wasReady && !hasPatientAndPractitioner) {
-                    console.log('[WebRTC] A participant disconnected, resetting peer connection');
+                    console.log('[WebRTC] 👋 A participant disconnected, applying smart reconnection strategy...');
 
-                    // Perfect Negotiation compatible timeout logic for practitioner  
-                    // Only reset if connection is truly failed and patient is still absent
-                    if (this.role === Role.PRACTITIONER) {
-                        // Check if connection failed while patient is absent
-                        const connectionFailed = this.pc.connectionState === 'failed' ||
-                            (this.pc.connectionState === 'disconnected' &&
-                                this.pc.iceConnectionState === 'failed');
-
-                        const patientAbsent = !this.signaling.hasPatientAndPractitioner();
-
-                        if (connectionFailed && patientAbsent) {
-                            console.warn('[WebRTC] Connection failed and patient absent. Resetting immediately...');
-                            this.resetPeerConnection();
-                            return;
-                        }
-
-                        if (patientAbsent &&
-                            (this.pc.connectionState === 'connected' || this.pc.connectionState === 'connecting')) {
-                            console.warn('[WebRTC] Patient absent but connection still active. Waiting before reset...');
-
-                            // Check if another recovery process is not already active
-                            if (!this.coordinatedRecoveryManager.startRecovery('presence', 'Patient absent - evaluating reset need')) {
-                                console.log('[WebRTC] Presence timeout skipped - another recovery process is active');
-                                return;
-                            }
-
-                            if (this.presenceResetTimeout) {
-                                clearTimeout(this.presenceResetTimeout);
-                            }
-
-                            this.presenceResetTimeout = setTimeout(() => {
-                                const stillMissing = !this.signaling.hasPatientAndPractitioner();
-
-                                if (stillMissing) {
-                                    console.warn('[WebRTC] Patient still absent after timeout. Resetting...');
-                                    this.coordinatedRecoveryManager.endRecovery('presence', false);
-                                    this.resetPeerConnection();
-                                } else {
-                                    console.log('[WebRTC] Patient returned. No reset needed.');
-                                    this.coordinatedRecoveryManager.endRecovery('presence', true);
-                                }
-
-                                this.presenceResetTimeout = null;
-                            }, 5000); // UNIFIED timeout - consistent with other recovery mechanisms
-
-                            return;
-                        }
+                    // Smart reconnection strategy: Short timeout for teleconsultation
+                    if (this.presenceResetTimeout) {
+                        clearTimeout(this.presenceResetTimeout);
                     }
 
-                    // Perfect Negotiation compatible timeout logic for patient
-                    // Only reset if connection is truly failed and practitioner is still absent
-                    if (this.role === Role.PATIENT) {
-                        // Check if connection failed while practitioner is absent
-                        const connectionFailed = this.pc.connectionState === 'failed' ||
-                            (this.pc.connectionState === 'disconnected' &&
-                                this.pc.iceConnectionState === 'failed');
+                    this.presenceResetTimeout = setTimeout(() => {
+                        const stillMissing = !this.signaling.hasPatientAndPractitioner();
 
-                        const practitionerAbsent = !this.signaling.hasPatientAndPractitioner();
-
-                        if (connectionFailed && practitionerAbsent) {
-                            console.warn('[WebRTC] Connection failed and practitioner absent. Resetting immediately...');
+                        if (stillMissing) {
+                            console.warn('[WebRTC] ⏰ Participant still absent after 3s. Resetting connection...');
                             this.resetPeerConnection();
-                            return;
+                        } else {
+                            console.log('[WebRTC] ✅ Participant returned! No reset needed.');
                         }
 
-                        if (practitionerAbsent &&
-                            (this.pc.connectionState === 'connected' || this.pc.connectionState === 'connecting')) {
-                            console.warn('[WebRTC] Practitioner absent but connection still active. Waiting before reset...');
+                        this.presenceResetTimeout = null;
+                    }, 3000); // 3s timeout: optimal for teleconsultation UX
 
-                            // Check if another recovery process is not already active
-                            if (!this.coordinatedRecoveryManager.startRecovery('presence', 'Practitioner absent - evaluating reset need')) {
-                                console.log('[WebRTC] Presence timeout skipped - another recovery process is active');
-                                return;
-                            }
-
-                            if (this.presenceResetTimeout) {
-                                clearTimeout(this.presenceResetTimeout);
-                            }
-
-                            this.presenceResetTimeout = setTimeout(() => {
-                                const stillMissing = !this.signaling.hasPatientAndPractitioner();
-
-                                if (stillMissing) {
-                                    console.warn('[WebRTC] Practitioner still absent after timeout. Resetting...');
-                                    this.coordinatedRecoveryManager.endRecovery('presence', false);
-                                    this.resetPeerConnection();
-                                } else {
-                                    console.log('[WebRTC] Practitioner returned. No reset needed.');
-                                    this.coordinatedRecoveryManager.endRecovery('presence', true);
-                                }
-
-                                this.presenceResetTimeout = null;
-                            }, 5000); // Longer timeout to allow for Perfect Negotiation recovery
-
-                            return;
-                        }
-                    }
+                    return;
                 }
 
                 // Notify that the room is ready for connection
@@ -850,86 +772,6 @@ export class PeerConnection implements IPeerConnection {
         return isHealthy;
     }
 
-    /**
-     * Apply smart reset with OPTIMIZED grace period
-     * Allows clean reconnection in case of degraded connection
-     * Grace period optimized to maximize recovery while staying responsive
-     */
-    private applySmartResetWithGracePeriod(): void {
-        // Check if a recovery process is already active
-        if (!this.coordinatedRecoveryManager.startRecovery('gracePeriod', 'Connection appears degraded but reconnection detected')) {
-            console.log('[WebRTC] Grace period recovery skipped - another recovery process is active');
-            return;
-        }
-
-        console.log('[WebRTC] Applying smart reset with OPTIMIZED grace period for degraded connection');
-        console.log('[WebRTC] Giving WebRTC 4 seconds to recover naturally before considering reset...');
-
-        // OPTIMIZED grace period (4s) - balance between recovery and responsiveness
-        // WebRTC can sometimes take 2-4 seconds to fully reconnect
-        setTimeout(() => {
-            // Re-check health before reset
-            const isStillUnhealthy = !this.isConnectionHealthy();
-
-            if (isStillUnhealthy) {
-                console.log('[WebRTC] Grace period elapsed and connection still unhealthy');
-                console.log('[WebRTC] Performing FINAL health check before reset...');
-
-                // Double check after additional 500ms (more responsive)
-                setTimeout(() => {
-                    const isFinallyUnhealthy = !this.isConnectionHealthy();
-
-                    if (isFinallyUnhealthy) {
-                        console.log('[WebRTC] Final verification: connection is definitely broken, proceeding with reset');
-                        this.coordinatedRecoveryManager.endRecovery('gracePeriod', false);
-                        this.resetPeerConnection();
-                    } else {
-                        console.log('[WebRTC] 🎉 Connection recovered during final check! Reset avoided.');
-                        this.coordinatedRecoveryManager.endRecovery('gracePeriod', true);
-                    }
-                }, 500); // Final delay reduced to 500ms for more responsiveness
-            } else {
-                console.log('[WebRTC] 🎉 Connection recovered naturally during grace period! No reset needed.');
-                this.coordinatedRecoveryManager.endRecovery('gracePeriod', true);
-            }
-        }, 4000); // 4 seconds - optimized between recovery and responsiveness
-    }
-
-    /**
-     * Centralized WebRTC recovery manager
-     * Coordinates all mechanisms: presence timeout, Perfect Negotiation, grace period
-     * Avoids conflicts between different recovery systems
-     */
-    private coordinatedRecoveryManager = {
-        activeRecoveryProcess: null as string | null,
-
-        startRecovery: (processType: 'presence' | 'gracePeriod' | 'perfectNegotiation', reason: string) => {
-            if (this.coordinatedRecoveryManager.activeRecoveryProcess) {
-                console.log(`[WebRTC] Recovery coordination: ${processType} requested but ${this.coordinatedRecoveryManager.activeRecoveryProcess} already active. Reason: ${reason}`);
-                return false; // Prevent concurrent processes
-            }
-
-            console.log(`[WebRTC] Recovery coordination: Starting ${processType} recovery. Reason: ${reason}`);
-            this.coordinatedRecoveryManager.activeRecoveryProcess = processType;
-            return true;
-        },
-
-        endRecovery: (processType: string, success: boolean) => {
-            if (this.coordinatedRecoveryManager.activeRecoveryProcess === processType) {
-                console.log(`[WebRTC] Recovery coordination: ${processType} recovery ended. Success: ${success}`);
-                this.coordinatedRecoveryManager.activeRecoveryProcess = null;
-            }
-        },
-
-        isRecoveryActive: () => {
-            return this.coordinatedRecoveryManager.activeRecoveryProcess !== null;
-        },
-
-        getActiveProcess: () => {
-            return this.coordinatedRecoveryManager.activeRecoveryProcess;
-        }
-    };
-
     // Getters pour permettre l'accès aux handlers
     getPeerConnection(): RTCPeerConnection {
         return this.pc;
@@ -979,23 +821,17 @@ export class PeerConnection implements IPeerConnection {
     async forceReconnection(): Promise<void> {
         console.log('[WebRTC] 🔄 Force reconnection requested');
 
-        if (this.coordinatedRecoveryManager.startRecovery('perfectNegotiation', 'Manual force reconnection')) {
-            try {
-                // Reset Perfect Negotiation state
-                this.perfectNegotiation.resetNegotiationState();
+        try {
+            // Reset Perfect Negotiation state
+            this.perfectNegotiation.resetNegotiationState();
 
-                // Trigger reconnection via Perfect Negotiation
-                await this.perfectNegotiation.attemptReconnection();
+            // Trigger reconnection via Perfect Negotiation
+            await this.perfectNegotiation.attemptReconnection();
 
-                this.coordinatedRecoveryManager.endRecovery('perfectNegotiation', true);
-                console.log('[WebRTC] ✅ Force reconnection initiated successfully');
-            } catch (error) {
-                this.coordinatedRecoveryManager.endRecovery('perfectNegotiation', false);
-                console.error('[WebRTC] ❌ Force reconnection failed:', error);
-                throw error;
-            }
-        } else {
-            console.log('[WebRTC] ⚠️ Force reconnection skipped - another recovery process is active');
+            console.log('[WebRTC] ✅ Force reconnection initiated successfully');
+        } catch (error) {
+            console.error('[WebRTC] ❌ Force reconnection failed:', error);
+            throw error;
         }
     }
 
@@ -1009,8 +845,7 @@ export class PeerConnection implements IPeerConnection {
             signalingState: this.pc.signalingState,
             perfectNegotiation: this.perfectNegotiation.getDetailedNegotiationState(),
             roomReady: this.readyToNegotiate,
-            participants: this.signaling.getValidParticipants(),
-            activeRecovery: this.coordinatedRecoveryManager.getActiveProcess()
+            participants: this.signaling.getValidParticipants()
         };
     }
 
