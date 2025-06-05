@@ -302,7 +302,7 @@ export class PerfectNegotiation {
         // For role switching during rapid reconnection scenarios:
         // If connection is dead but peer is still in signaling (rapid return),
         // allow role switch to handle degraded connection states
-        const isAloneOrDegradedConnection = this.isAloneInRoom() || 
+        const isAloneOrDegradedConnection = this.isAloneInRoom() ||
             (isConnectionDead && this.shouldHandleDegradedConnection());
 
         return isConnectionDead && isAloneOrDegradedConnection;
@@ -317,12 +317,12 @@ export class PerfectNegotiation {
         // this suggests a rapid reconnection scenario where we need to handle degraded state
         const allParticipants = this.signaling.getValidParticipants();
         const otherParticipants = allParticipants.filter(p => p.clientId !== this.clientId);
-        
+
         const bothParticipantsPresent = otherParticipants.length > 0;
         const connectionIsDead = this.pc.connectionState === 'disconnected' || this.pc.connectionState === 'failed';
-        
+
         debugLog(`[PerfectNegotiation] Degraded connection check: bothPresent=${bothParticipantsPresent}, connectionDead=${connectionIsDead}`);
-        
+
         return bothParticipantsPresent && connectionIsDead;
     }
 
@@ -343,24 +343,24 @@ export class PerfectNegotiation {
      */
     private performRoleSwitch(newRole: 'polite' | 'impolite'): void {
         const oldRole = this.negotiationRole.isPolite ? 'polite' : 'impolite';
-        
+
         if (oldRole === newRole) {
             debugLog(`[PerfectNegotiation] Already ${newRole}, no switch needed`);
             return;
         }
 
         debugLog(`[PerfectNegotiation] 🔄 ROLE SWITCH: ${oldRole} → ${newRole}`);
-        
+
         // 1. Update role
         this.negotiationRole.isPolite = newRole === 'polite';
-        
+
         // 2. Reset negotiation state for clean slate
         this.resetNegotiationState();
-        
+
         // 3. If switching to impolite, prepare to initiate connection
         if (newRole === 'impolite') {
             debugLog('[PerfectNegotiation] 🚀 New impolite peer - will initiate connection');
-            
+
             // Small delay to let things settle, then trigger connection
             setTimeout(() => {
                 this.checkInitialConnectionTrigger();
@@ -376,7 +376,7 @@ export class PerfectNegotiation {
         try {
             const participants = this.signaling.getValidParticipants();
             const otherParticipants = participants.filter(p => p.clientId !== this.clientId);
-            
+
             if (otherParticipants.length === 0) {
                 debugLog('[PerfectNegotiation] No other participants, staying impolite');
                 return;
@@ -467,7 +467,7 @@ export class PerfectNegotiation {
         // Check if connection might be recoverable before forcing reconnection
         if (this.isConnectionRecoverable()) {
             debugLog('[PerfectNegotiation] Connection might be recoverable, allowing natural recovery first...');
-            
+
             // Give connection time to recover naturally before forcing negotiation
             setTimeout(() => {
                 if (!this.isConnectionRecoverable()) {
@@ -477,7 +477,7 @@ export class PerfectNegotiation {
                     debugLog('[PerfectNegotiation] ✅ Connection recovered naturally!');
                 }
             }, 2000); // 2s delay for natural recovery
-            
+
             return;
         }
 
@@ -492,13 +492,13 @@ export class PerfectNegotiation {
         const connectionState = this.pc.connectionState;
         const iceState = this.pc.iceConnectionState;
         const signalingState = this.pc.signalingState;
-        
+
         // Very tolerant criteria - only reject if definitely broken
-        const isDefinitelyBroken = 
+        const isDefinitelyBroken =
             connectionState === 'failed' || connectionState === 'closed' ||
             iceState === 'failed' || iceState === 'closed' ||
             signalingState === 'closed';
-            
+
         return !isDefinitelyBroken;
     }
 
@@ -607,16 +607,16 @@ export class PerfectNegotiation {
     public getDebugRoleState() {
         const participants = this.signaling.getValidParticipants();
         const others = participants.filter(p => p.clientId !== this.clientId);
-        
+
         return {
             myClientId: this.clientId,
             myRole: this.negotiationRole.isPolite ? 'polite' : 'impolite',
             myBusinessRole: this.role,
-            allParticipants: participants.map(p => ({ 
-                clientId: p.clientId, 
+            allParticipants: participants.map(p => ({
+                clientId: p.clientId,
                 role: p.role,
                 // Compare IDs for conflict resolution prediction
-                wouldBePolite: p.clientId > this.clientId 
+                wouldBePolite: p.clientId > this.clientId
             })),
             connectionState: this.pc.connectionState,
             iceConnectionState: this.pc.iceConnectionState,

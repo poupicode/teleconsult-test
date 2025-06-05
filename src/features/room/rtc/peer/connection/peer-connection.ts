@@ -532,10 +532,10 @@ export class PeerConnection implements IPeerConnection {
                 clearTimeout(this.presenceResetTimeout);
                 this.presenceResetTimeout = null;
                 console.log('[WebRTC] Participant reconnected before timeout — evaluating connection for recovery');
-                
+
                 // Vérifier l'état de santé de la connexion existante avec critères ULTRA-TOLÉRANTS
                 const isConnectionHealthy = this.isConnectionHealthy();
-                
+
                 if (isConnectionHealthy) {
                     console.log('[WebRTC] ✅ Connection is healthy/recoverable — preserving existing connection');
                     return; // Connexion saine, continuer avec l'existante
@@ -945,36 +945,36 @@ export class PeerConnection implements IPeerConnection {
             console.log('[WebRTC] No peer connection available');
             return false;
         }
-        
+
         const connectionState = pc.connectionState;
         const iceState = pc.iceConnectionState;
         const signalingState = pc.signalingState;
-        
+
         // Critères TRÈS TOLÉRANTS - Favoriser massivement la récupération :
-        
+
         // 1. Connection : Seuls les états définitivement cassés sont rejetés
         const isConnectionBroken = connectionState === 'failed' || connectionState === 'closed';
-        
+
         // 2. ICE : Même logique, seuls les échecs définitifs
         const isIceBroken = iceState === 'failed' || iceState === 'closed';
-        
+
         // 3. Signaling : Accepter TOUS les états sauf 'closed' (même les états de transition)
         const isSignalingBroken = signalingState === 'closed';
-        
+
         // 4. DataChannel : NE JAMAIS être un critère de santé - il peut se recréer
         // const dataChannelState = this.dataChannelManager?.isHealthy() ?? false;
-        
+
         console.log(`[WebRTC] Connection health check (ULTRA-TOLERANT): connection=${connectionState}(broken=${isConnectionBroken}), ice=${iceState}(broken=${isIceBroken}), signaling=${signalingState}(broken=${isSignalingBroken})`);
-        
+
         // Connexion considérée comme saine si AUCUN état n'est définitivement cassé
         const isHealthy = !isConnectionBroken && !isIceBroken && !isSignalingBroken;
-        
+
         if (isHealthy) {
             console.log('[WebRTC] ✅ Connection is healthy/recoverable, preserving existing connection');
         } else {
             console.log('[WebRTC] ❌ Connection is definitively broken, reset justified');
         }
-        
+
         return isHealthy;
     }
 
@@ -992,21 +992,21 @@ export class PeerConnection implements IPeerConnection {
 
         console.log('[WebRTC] Applying smart reset with OPTIMIZED grace period for degraded connection');
         console.log('[WebRTC] Giving WebRTC 4 seconds to recover naturally before considering reset...');
-        
+
         // Période de grâce OPTIMISÉE (4s) - équilibre entre récupération et réactivité
         // WebRTC peut parfois mettre 2-4 secondes pour se reconnecter complètement
         setTimeout(() => {
             // Re-vérifier la santé avant le reset
             const isStillUnhealthy = !this.isConnectionHealthy();
-            
+
             if (isStillUnhealthy) {
                 console.log('[WebRTC] Grace period elapsed and connection still unhealthy');
                 console.log('[WebRTC] Performing FINAL health check before reset...');
-                
+
                 // Double vérification après 500ms supplémentaires (plus réactif)
                 setTimeout(() => {
                     const isFinallyUnhealthy = !this.isConnectionHealthy();
-                    
+
                     if (isFinallyUnhealthy) {
                         console.log('[WebRTC] Final verification: connection is definitely broken, proceeding with reset');
                         this.coordinatedRecoveryManager.endRecovery('gracePeriod', false);
@@ -1030,29 +1030,29 @@ export class PeerConnection implements IPeerConnection {
      */
     private coordinatedRecoveryManager = {
         activeRecoveryProcess: null as string | null,
-        
+
         startRecovery: (processType: 'presence' | 'gracePeriod' | 'perfectNegotiation', reason: string) => {
             if (this.coordinatedRecoveryManager.activeRecoveryProcess) {
                 console.log(`[WebRTC] Recovery coordination: ${processType} requested but ${this.coordinatedRecoveryManager.activeRecoveryProcess} already active. Reason: ${reason}`);
                 return false; // Empêche les processus concurrents
             }
-            
+
             console.log(`[WebRTC] Recovery coordination: Starting ${processType} recovery. Reason: ${reason}`);
             this.coordinatedRecoveryManager.activeRecoveryProcess = processType;
             return true;
         },
-        
+
         endRecovery: (processType: string, success: boolean) => {
             if (this.coordinatedRecoveryManager.activeRecoveryProcess === processType) {
                 console.log(`[WebRTC] Recovery coordination: ${processType} recovery ended. Success: ${success}`);
                 this.coordinatedRecoveryManager.activeRecoveryProcess = null;
             }
         },
-        
+
         isRecoveryActive: () => {
             return this.coordinatedRecoveryManager.activeRecoveryProcess !== null;
         },
-        
+
         getActiveProcess: () => {
             return this.coordinatedRecoveryManager.activeRecoveryProcess;
         }
@@ -1100,7 +1100,7 @@ export class PeerConnection implements IPeerConnection {
         this.dataChannelManager.createDataChannel();
     }
     getDataChannelManager(): DataChannelManager {  //bluetooth
-  return this.dataChannelManager;
-}
+        return this.dataChannelManager;
+    }
 
 }
