@@ -1,8 +1,8 @@
-// Gestionnaires d'événements liés à la connexion WebRTC
+// WebRTC connection event handlers
 
 import { Role } from '../models/types';
 
-// Type de la classe PeerConnection sans créer de dépendance circulaire
+// Type of the PeerConnection class without creating circular dependency
 export interface IPeerConnection {
     getRoomId: () => string;
     getRole: () => Role;
@@ -11,7 +11,7 @@ export interface IPeerConnection {
     createOffer: () => Promise<void>;
     setDataChannel: (channel: RTCDataChannel) => void;
     getOnConnectionStateChangeCallback: () => ((state: RTCPeerConnectionState) => void) | null;
-    getDataChannelManager: () => any; // Ajout de la méthode manquante
+    getDataChannelManager: () => any; // Added missing method
 }
 
 export function setupPeerConnectionListeners(peerConnection: IPeerConnection, pc: RTCPeerConnection) {
@@ -42,13 +42,13 @@ export function setupPeerConnectionListeners(peerConnection: IPeerConnection, pc
     // Note: negotiationneeded handler is managed by Perfect Negotiation
     // Perfect Negotiation handles all offer/answer logic to prevent race conditions .
 
-    // Écouter les data channels entrants (pour le patient)
+    // Listen for incoming data channels (for the patient)
     pc.ondatachannel = (event) => {
-        console.log(`[WebRTC] Received data channel: ${event.channel.label}`);
+        console.log(`[WebRTC] 📥 Received data channel: ${event.channel.label}`);
 
         if (event.channel.label === 'data-channel') {
             peerConnection.setDataChannel(event.channel);
-            // Configure le data channel via le manager
+            // Configure the data channel via the manager
             const dataChannelManager = peerConnection.getDataChannelManager();
             if (dataChannelManager && dataChannelManager.setupDataChannel) {
                 dataChannelManager.setupDataChannel(event.channel);

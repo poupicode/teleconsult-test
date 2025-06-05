@@ -1,4 +1,4 @@
-// Gestionnaires pour les messages de signalisation
+// Signaling message handlers
 
 import { SignalingService } from '../../signaling';
 
@@ -42,33 +42,33 @@ export async function handleIceCandidate(pc: RTCPeerConnection, candidate: RTCIc
             return;
         }
 
-        // Vérifier que c'est un candidat valide avant de tenter de l'ajouter
+        // Check that it's a valid candidate before attempting to add it
         if (typeof candidate.candidate === 'string' && candidate.candidate !== '') {
-            // Vérifier l'état de la connexion avant d'ajouter le candidat
+            // Check connection state before adding the candidate
             if (pc.signalingState === 'closed') {
-                console.warn('[WebRTC-ICE] Cannot add ICE candidate: peer connection is closed');
+                console.warn('[WebRTC-ICE] ⚠️ Cannot add ICE candidate: peer connection is closed');
                 return;
             }
 
-            // Ajouter le candidat ICE
+            // Add the ICE candidate
             await pc.addIceCandidate(new RTCIceCandidate(candidate));
-            console.log('[WebRTC-ICE] ICE candidate added successfully');
+            console.log('[WebRTC-ICE] ✅ ICE candidate added successfully');
 
-            // Log additionnel pour les candidats TURN
+            // Additional log for TURN candidates
             if (candidate.candidate.includes(' typ relay ')) {
-                console.log('[WebRTC-ICE] Added TURN relay candidate successfully');
+                console.log('[WebRTC-ICE] 🔄 Added TURN relay candidate successfully');
             }
         } else {
-            // Fin de la collecte des candidats
-            console.log('[WebRTC-ICE] End of candidates marker received');
+            // End of candidate collection
+            console.log('[WebRTC-ICE] 🏁 End of candidates marker received');
         }
     } catch (err) {
-        console.error('[WebRTC] Error adding ICE candidate:', err);
-        console.error('[WebRTC] Failed candidate:', candidate);
+        console.error('[WebRTC] ❌ Error adding ICE candidate:', err);
+        console.error('[WebRTC] 🔍 Failed candidate:', candidate);
 
-        // Log détaillé de l'erreur pour diagnostic
+        // Detailed error log for diagnosis
         if (err instanceof Error) {
-            console.error('[WebRTC] Error details:', err.message);
+            console.error('[WebRTC] 📋 Error details:', err.message);
         }
     }
 }

@@ -21,7 +21,7 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
   const [roomReady, setRoomReady] = useState<boolean>(false);
   const [negotiationRole, setNegotiationRole] = useState<'polite' | 'impolite' | null>(null);
 
-  // Référence pour suivre la salle précédemment connectée
+  // Reference to track the previously connected room
   const previousRoomIdRef = useRef<string | null>(null);
 
   // Generate a user ID if none exists
@@ -38,20 +38,20 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
     }
   }, [userId, userRole, userKind, dispatch]);
 
-  // Déconnecter explicitement la connexion WebRTC précédente lors d'un changement de salle
+  // Explicitly disconnect the previous WebRTC connection when changing rooms
   useEffect(() => {
-    // Si la roomId a changé et qu'il y avait une salle précédente
+    // If the roomId has changed and there was a previous room
     if (previousRoomIdRef.current && previousRoomIdRef.current !== roomId) {
-      // Nettoyer l'ancienne connexion
+      // Clean up the old connection
       if (peerConnection) {
         console.log(`[ConsultationRoom] Room changed from ${previousRoomIdRef.current} to ${roomId}, disconnecting previous peer connection`);
 
-        // Désactiver la connexion en cours
+        // Disable the current connection
         const disconnect = async () => {
           await peerConnection.disconnect();
           console.log('[ConsultationRoom] Previous peer connection disconnected');
 
-          // Réinitialiser l'état après la déconnexion
+          // Reset state after disconnection
           setPeerConnection(null);
           setConnectionStatus('disconnected');
           setRoomReady(false);
@@ -62,7 +62,7 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
       }
     }
 
-    // Mettre à jour la référence pour le prochain rendu
+    // Update the reference for the next render
     previousRoomIdRef.current = roomId;
   }, [roomId]);
 
@@ -104,17 +104,17 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
     if (peerConnection) {
       console.log('[ConsultationRoom] Disconnecting existing peer connection before connecting to new room');
 
-      // Désactiver tous les callbacks et l'état actuel avant de déconnecter
+      // Disable all callbacks and current state before disconnecting
       setConnectionStatus('disconnecting');
       setRoomReady(false);
       setNegotiationRole(null);
 
-      // Déconnecter proprement la connexion existante
+      // Properly disconnect the existing connection
       await peerConnection.disconnect();
       setPeerConnection(null);
 
-      // Petit délai plus long pour s'assurer que toutes les déconnexions sont bien effectuées
-      // et que les canaux Supabase sont correctement fermés
+      // Slightly longer delay to ensure all disconnections are properly completed
+      // and that Supabase channels are correctly closed
       await new Promise(resolve => setTimeout(resolve, 500));
     }
 
@@ -133,8 +133,8 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
       peer.onRoomReady((isReady) => {
         setRoomReady(isReady);
 
-        // Perfect Negotiation: si la salle devient prête et que nous sommes le peer poli,
-        // attendons quelques instants que le peer impoli ait initialisé la connexion
+        // Perfect Negotiation: if the room becomes ready and we are the polite peer,
+        // wait a few moments for the impolite peer to have initialized the connection
         if (isReady) {
           const negotiationState = peer.getPerfectNegotiationState();
           const isPolite = negotiationState.isPolite;
@@ -143,12 +143,12 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
           if (isPolite) {
             console.log('[ConsultationRoom] Room is ready and we are the polite peer (second to arrive), waiting for impolite peer to initialize...');
 
-            // Petit délai pour s'assurer que le peer impoli est prêt à négocier
-            // Perfect Negotiation gère automatiquement qui initie la connexion
+            // Small delay to ensure the impolite peer is ready to negotiate
+            // Perfect Negotiation automatically handles who initiates the connection
             setTimeout(() => {
               console.log('[ConsultationRoom] Polite peer is now ready to receive connection from impolite peer');
-              // Le peer impoli va détecter notre présence et initier la connexion automatiquement
-              // via Perfect Negotiation - pas besoin d'intervention manuelle
+              // The impolite peer will detect our presence and automatically initiate the connection
+              // via Perfect Negotiation - no manual intervention needed
             }, 1000);
           } else {
             console.log('[ConsultationRoom] Room is ready and we are the impolite peer (first to arrive), Perfect Negotiation will handle connection initiation');
@@ -179,29 +179,29 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
 
       {!roomId ? (
         <Alert variant="info">
-          Veuillez sélectionner ou créer une salle pour démarrer une consultation.
+          Please select or create a room to start a consultation.
         </Alert>
       ) : (
         <>
           <Alert variant={connectionStatus === 'connected' ? 'success' :
             connectionStatus === 'connecting' ? 'warning' : 'danger'}>
-            État de la connexion: <strong>{connectionStatus}</strong>
+            Connection status: <strong>{connectionStatus}</strong>
             {roomReady && (
               <Badge bg="success" className="ms-2">
-                Salle prête ({userRole === Role.PRACTITIONER ? 'Patient connecté' : 'Praticien connecté'})
+                Room ready ({userRole === Role.PRACTITIONER ? 'Patient connected' : 'Practitioner connected'})
                 {negotiationRole && (
                   <span className="ms-1">
-                    - Rôle de négociation: {negotiationRole === 'polite' ? 'Poli (attend)' : 'Impoli (initie)'}
+                    - Negotiation role: {negotiationRole === 'polite' ? 'Polite (waits)' : 'Impolite (initiates)'}
                   </span>
                 )}
               </Badge>
             )}
             {!roomReady && (
               <Badge bg="warning" className="ms-2">
-                En attente {userRole === Role.PRACTITIONER ? 'du patient' : 'du praticien'}
+                Waiting for {userRole === Role.PRACTITIONER ? 'patient' : 'practitioner'}
                 {negotiationRole && (
                   <span className="ms-1">
-                    - Rôle: {negotiationRole === 'polite' ? 'Poli' : 'Impoli'}
+                    - Role: {negotiationRole === 'polite' ? 'Polite' : 'Impolite'}
                   </span>
                 )}
               </Badge>

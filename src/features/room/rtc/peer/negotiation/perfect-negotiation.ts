@@ -39,6 +39,12 @@ export class PerfectNegotiation {
     private negotiationState: NegotiationState;
     private hasTriggeredInitialConnection: boolean = false; // Prevent double triggering
     private roleLockedUntil: number = 0; // Timestamp until when role switching is locked
+    private presenceChangeDebounceTimer: NodeJS.Timeout | null = null; // Debounce timer for presence changes
+
+    // Metrics for monitoring (can be exposed for debugging/analytics)
+    private roleSwitchCount: number = 0;
+    private lastRoleSwitchTime: number = 0;
+    private connectionAttempts: number = 0;
 
     // Callbacks
     private onConnectionStateChange?: (state: RTCPeerConnectionState) => void;
@@ -241,12 +247,13 @@ export class PerfectNegotiation {
 
         try {
             await this.pc.addIceCandidate(candidate);
-            debugLog('[PerfectNegotiation] Added ICE candidate');
+            debugLog('[PerfectNegotiation] ✅ Added ICE candidate successfully');
         } catch (err) {
             if (!this.negotiationState.ignoreOffer) {
+                debugError('[PerfectNegotiation] ❌ ICE candidate error:', err);
                 throw err;
             }
-            debugLog('[PerfectNegotiation] Ignored ICE candidate error due to offer collision');
+            debugLog('[PerfectNegotiation] 🔇 Ignored ICE candidate error due to offer collision');
         }
     }
 
@@ -259,29 +266,36 @@ export class PerfectNegotiation {
     private determineRoleFromClientId(): 'polite' | 'impolite' {
         const participants = this.signaling.getValidParticipants();
         const others = participants.filter(p => p.clientId !== this.clientId);
-        
+
         if (others.length === 0) {
             return 'impolite'; // Alone in room = ready to initiate when someone arrives
         }
-        
+
         // Deterministic comparison of clientIds
         const allIds = [this.clientId, ...others.map(p => p.clientId)].sort();
         const myPosition = allIds.indexOf(this.clientId);
-        
+
         debugLog(`[PerfectNegotiation] Deterministic role calculation: sortedIds=[${allIds.join(', ')}], myPosition=${myPosition}`);
-        
+
         return myPosition === 0 ? 'impolite' : 'polite';
     }
 
     /**
-     * Set up presence listener to handle role reevaluation
+     * Set up presence listener to handle role reevaluation with debouncing
      */
     private setupPresenceListener(): void {
         this.signaling.onPresenceChange(() => {
-            // Small delay to let signaling stabilize
-            setTimeout(() => {
+            // Clear existing timer if presence changes rapidly
+            if (this.presenceChangeDebounceTimer) {
+                clearTimeout(this.presenceChangeDebounceTimer);
+            }
+
+            // Debounce presence changes to avoid excessive role reevaluations
+            this.presenceChangeDebounceTimer = setTimeout(() => {
+                debugLog('[PerfectNegotiation] Presence stabilized, reevaluating roles...');
                 this.reevaluateRoleIfNeeded();
-            }, 100);
+                this.presenceChangeDebounceTimer = null;
+            }, 250); // Increased from 100ms to 250ms for better stability
         });
     }
 
@@ -291,12 +305,12 @@ export class PerfectNegotiation {
     private reevaluateRoleIfNeeded(): void {
         const newRole = this.determineRoleFromClientId();
         const currentRole = this.negotiationRole.isPolite ? 'polite' : 'impolite';
-        
+
         if (newRole !== currentRole) {
             debugLog(`[PerfectNegotiation] 🔄 Role change needed: ${currentRole} → ${newRole} (deterministic)`);
             this.performRoleSwitch(newRole);
         } else {
-            debugLog(`[PerfectNegotiation] ✅ Role evaluation: staying ${currentRole}`);
+            debugLog(`[PerfectNegotiation] ✅ Role evaluation: staying ${currentRole} (stable)`);
         }
     }
 
@@ -308,9 +322,11 @@ export class PerfectNegotiation {
         try {
             const allParticipants = this.signaling.getValidParticipants();
             const otherParticipants = allParticipants.filter(p => p.clientId !== this.clientId);
-            return otherParticipants.length === 0;
+            const isAlone = otherParticipants.length === 0;
+            debugLog(`[PerfectNegotiation] 🏠 Room occupancy check: ${isAlone ? 'alone' : `${otherParticipants.length} others`}`);
+            return isAlone;
         } catch (error) {
-            debugWarn('[PerfectNegotiation] Could not check room occupancy');
+            debugWarn('[PerfectNegotiation] ⚠️ Could not check room occupancy:', error);
             return false;
         }
     }
@@ -354,11 +370,16 @@ export class PerfectNegotiation {
         // Update role
         this.negotiationRole.isPolite = newRole === 'polite';
 
+        // Update metrics
+        this.roleSwitchCount++;
+        this.lastRoleSwitchTime = Date.now();
+        debugLog(`[PerfectNegotiation] 📊 Role switch #${this.roleSwitchCount} completed`);
+
         // Reset negotiation state for clean slate
         this.resetNegotiationState();
 
-        // Lock role temporarily to prevent rapid switches
-        this.roleLockedUntil = Date.now() + 1000;
+        // Lock role temporarily to prevent rapid switches (increased from 1s to 2s for better stability)
+        this.roleLockedUntil = Date.now() + 2000;
 
         // If switching to impolite, prepare to initiate connection
         if (newRole === 'impolite') {
@@ -377,7 +398,7 @@ export class PerfectNegotiation {
     private hasRoleConflict(): boolean {
         const participants = this.signaling.getValidParticipants();
         const otherParticipants = participants.filter(p => p.clientId !== this.clientId);
-        
+
         if (otherParticipants.length === 0) {
             return false; // No conflict if alone
         }
@@ -387,7 +408,7 @@ export class PerfectNegotiation {
         const myPosition = allIds.indexOf(this.clientId);
         const shouldBeImpolite = myPosition === 0;
         const currentlyImpolite = !this.negotiationRole.isPolite;
-        
+
         return shouldBeImpolite !== currentlyImpolite;
     }
 
@@ -415,9 +436,20 @@ export class PerfectNegotiation {
             // This handles the case where peer returns quickly after disconnect
             if (this.pc.connectionState === 'connected') {
                 debugLog('[PerfectNegotiation] ✅ Connection established - checking for role conflicts');
+
+                // Only resolve conflicts if we detect an actual issue
                 setTimeout(() => {
-                    this.resolveRoleConflict();
-                }, 1000); // Allow signaling to update participant list
+                    // Additional safety checks before automatic conflict resolution
+                    const hasGenuineConflict = this.hasRoleConflict();
+                    const participantCount = this.signaling.getValidParticipants().length;
+
+                    if (hasGenuineConflict && participantCount >= 2) {
+                        debugLog('[PerfectNegotiation] 🆘 Genuine role conflict detected, resolving...');
+                        this.resolveRoleConflict();
+                    } else {
+                        debugLog('[PerfectNegotiation] ✅ No role conflict detected, connection stable');
+                    }
+                }, 1500); // Increased delay to allow signaling to fully stabilize
             }
 
             if (this.onConnectionStateChange) {
@@ -462,7 +494,8 @@ export class PerfectNegotiation {
      * This method can be called when connection fails to trigger a new negotiation
      */
     public async attemptReconnection(): Promise<void> {
-        debugLog('[PerfectNegotiation] Attempting automatic reconnection...');
+        this.connectionAttempts++;
+        debugLog(`[PerfectNegotiation] Attempting automatic reconnection (#${this.connectionAttempts})...`);
 
         // Check if connection might be recoverable before forcing reconnection
         if (this.isConnectionRecoverable()) {
@@ -619,11 +652,40 @@ export class PerfectNegotiation {
     }
 
     /**
+     * 🔄 Reset metrics (useful for testing or long-running sessions)
+     */
+    public resetMetrics(): void {
+        debugLog('[PerfectNegotiation] 📊 Resetting performance metrics');
+        this.roleSwitchCount = 0;
+        this.lastRoleSwitchTime = 0;
+        this.connectionAttempts = 0;
+    }
+
+    /**
+     * 📊 Get performance metrics for monitoring and debugging
+     */
+    public getMetrics() {
+        return {
+            roleSwitchCount: this.roleSwitchCount,
+            lastRoleSwitchTime: this.lastRoleSwitchTime,
+            timeSinceLastRoleSwitch: this.lastRoleSwitchTime > 0 ? Date.now() - this.lastRoleSwitchTime : 0,
+            connectionAttempts: this.connectionAttempts,
+            currentRole: this.negotiationRole.isPolite ? 'polite' : 'impolite',
+            isRoleLocked: this.isRoleLocked(),
+            roleLockedTimeRemaining: Math.max(0, this.roleLockedUntil - Date.now()),
+            hasTriggeredConnection: this.hasTriggeredInitialConnection,
+            negotiationState: this.negotiationState
+        };
+    }
+
+    /**
      * 🩺 Diagnose role switching issues
      * Call this method to understand why roles are switching unexpectedly
      */
     public diagnoseRoleSwitching(): void {
         const state = this.getDebugRoleState();
+        const metrics = this.getMetrics();
+
         console.log('[PerfectNegotiation] 🩺 ROLE SWITCHING DIAGNOSIS:');
         console.log(`  My ID: ${state.myClientId}`);
         console.log(`  Current role: ${state.myRole}`);
@@ -631,6 +693,10 @@ export class PerfectNegotiation {
         console.log(`  Has conflict: ${state.hasConflict}`);
         console.log(`  Is alone: ${state.isAlone}`);
         console.log(`  Role locked: ${this.isRoleLocked()}`);
+        console.log(`  📊 METRICS:`);
+        console.log(`    Role switches: ${metrics.roleSwitchCount}`);
+        console.log(`    Connection attempts: ${metrics.connectionAttempts}`);
+        console.log(`    Time since last switch: ${metrics.timeSinceLastRoleSwitch}ms`);
         console.log(`  All participants:`, state.allParticipants);
         console.log(`  Sorted IDs:`, state.sortedIds);
         console.log(`  Connection state: ${state.connectionState}`);
@@ -760,6 +826,12 @@ export class PerfectNegotiation {
         this.pc.onnegotiationneeded = null;
         this.pc.onicecandidate = null;
         this.pc.onconnectionstatechange = null;
+
+        // Clear debounce timer
+        if (this.presenceChangeDebounceTimer) {
+            clearTimeout(this.presenceChangeDebounceTimer);
+            this.presenceChangeDebounceTimer = null;
+        }
 
         // Reset negotiation state
         this.resetNegotiationState();
