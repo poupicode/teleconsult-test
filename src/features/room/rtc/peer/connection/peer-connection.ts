@@ -968,9 +968,52 @@ export class PeerConnection implements IPeerConnection {
     // Public method for Perfect Negotiation to trigger DataChannel creation
     // This is the ONLY way DataChannel should be created - through Perfect Negotiation
     triggerDataChannelCreation(): void {
-        console.log('[WebRTC] Perfect Negotiation triggering DataChannel creation');
+        console.log('[WebRTC] 🏗️ Perfect Negotiation triggering DataChannel creation');
         this.dataChannelManager.createDataChannel();
     }
+
+    /**
+     * Force reconnection - useful for UI "Reconnect" buttons or manual recovery
+     * This resets the connection and lets Perfect Negotiation handle the reconnection
+     */
+    async forceReconnection(): Promise<void> {
+        console.log('[WebRTC] 🔄 Force reconnection requested');
+        
+        if (this.coordinatedRecoveryManager.startRecovery('perfectNegotiation', 'Manual force reconnection')) {
+            try {
+                // Reset Perfect Negotiation state
+                this.perfectNegotiation.resetNegotiationState();
+                
+                // Trigger reconnection via Perfect Negotiation
+                await this.perfectNegotiation.attemptReconnection();
+                
+                this.coordinatedRecoveryManager.endRecovery('perfectNegotiation', true);
+                console.log('[WebRTC] ✅ Force reconnection initiated successfully');
+            } catch (error) {
+                this.coordinatedRecoveryManager.endRecovery('perfectNegotiation', false);
+                console.error('[WebRTC] ❌ Force reconnection failed:', error);
+                throw error;
+            }
+        } else {
+            console.log('[WebRTC] ⚠️ Force reconnection skipped - another recovery process is active');
+        }
+    }
+
+    /**
+     * Get current connection diagnostics for debugging
+     */
+    getConnectionDiagnostics() {
+        return {
+            connectionState: this.pc.connectionState,
+            iceConnectionState: this.pc.iceConnectionState,
+            signalingState: this.pc.signalingState,
+            perfectNegotiation: this.perfectNegotiation.getDetailedNegotiationState(),
+            roomReady: this.readyToNegotiate,
+            participants: this.signaling.getValidParticipants(),
+            activeRecovery: this.coordinatedRecoveryManager.getActiveProcess()
+        };
+    }
+
     getDataChannelManager(): DataChannelManager {  //bluetooth
         return this.dataChannelManager;
     }

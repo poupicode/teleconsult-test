@@ -281,7 +281,7 @@ export class PerfectNegotiation {
     }
 
     /**
-     * Set up presence listener to handle role reevaluation with debouncing
+     * Set up presence listener to handle role reevaluation with debouncing AND reconnection
      */
     private setupPresenceListener(): void {
         this.signaling.onPresenceChange(() => {
@@ -292,11 +292,44 @@ export class PerfectNegotiation {
 
             // Debounce presence changes to avoid excessive role reevaluations
             this.presenceChangeDebounceTimer = setTimeout(() => {
-                debugLog('[PerfectNegotiation] Presence stabilized, reevaluating roles...');
-                this.reevaluateRoleIfNeeded();
+                debugLog('[PerfectNegotiation] 👥 Presence stabilized, checking room state...');
+                this.handlePresenceChange();
                 this.presenceChangeDebounceTimer = null;
             }, 250); // Increased from 100ms to 250ms for better stability
         });
+    }
+
+    /**
+     * Handle presence changes with reconnection logic
+     */
+    private handlePresenceChange(): void {
+        const participants = this.signaling.getValidParticipants();
+        const bothPresent = participants.length >= 2;
+        const isDisconnected = this.pc.connectionState === 'disconnected' || 
+                              this.pc.connectionState === 'failed' || 
+                              this.pc.connectionState === 'new';
+
+        debugLog(`[PerfectNegotiation] 🔍 Presence check: bothPresent=${bothPresent}, connectionState=${this.pc.connectionState}`);
+
+        // First, always reevaluate roles
+        this.reevaluateRoleIfNeeded();
+
+        // If both are present but connection is broken, trigger reconnection
+        if (bothPresent && isDisconnected) {
+            debugLog('[PerfectNegotiation] 🔄 Both present but disconnected - checking if we should reconnect');
+            
+            setTimeout(() => {
+                // Double-check connection state after role reevaluation
+                if (this.pc.connectionState !== 'connected' && this.pc.connectionState !== 'connecting') {
+                    if (!this.negotiationRole.isPolite) {
+                        debugLog('[PerfectNegotiation] 🚀 Impolite peer triggering reconnection due to presence change');
+                        this.triggerReconnection();
+                    } else {
+                        debugLog('[PerfectNegotiation] 🤝 Polite peer waiting for impolite to reconnect');
+                    }
+                }
+            }, 500); // Small delay after role reevaluation
+        }
     }
 
     /**
@@ -332,19 +365,75 @@ export class PerfectNegotiation {
     }
 
     /**
-     * Handle intelligent role switching with timeout for natural recovery
-     * Simplified logic using deterministic role calculation
+     * Handle intelligent role switching and automatic reconnection
+     * Complete logic for all disconnection scenarios
      */
     private handleRoleSwitch(): void {
-        // Wait a bit for natural recovery before forcing role reevaluation
+        debugLog('[PerfectNegotiation] 🔄 Handling disconnection, starting recovery process...');
+        
+        // Wait a bit for natural recovery before forcing reconnection
         setTimeout(() => {
             if (this.pc.connectionState !== 'connected') {
-                debugLog('[PerfectNegotiation] Connection not recovered, reevaluating roles');
-                this.reevaluateRoleIfNeeded();
+                debugLog('[PerfectNegotiation] 🔧 Connection not recovered naturally, initiating recovery...');
+                this.handleDisconnectionRecovery();
             } else {
-                debugLog('[PerfectNegotiation] Connection recovered naturally, no role change needed');
+                debugLog('[PerfectNegotiation] ✅ Connection recovered naturally, no intervention needed');
             }
-        }, 2000); // Keep timeout for natural recovery optimization
+        }, 2000); // Give time for natural WebRTC recovery
+    }
+
+    /**
+     * Complete disconnection recovery logic
+     * Handles all scenarios: alone, both present but disconnected, etc.
+     */
+    private handleDisconnectionRecovery(): void {
+        const participants = this.signaling.getValidParticipants();
+        const isAlone = participants.filter(p => p.clientId !== this.clientId).length === 0;
+        const bothPresent = participants.length >= 2;
+
+        debugLog(`[PerfectNegotiation] 🩺 Recovery diagnosis: alone=${isAlone}, bothPresent=${bothPresent}, connectionState=${this.pc.connectionState}`);
+
+        if (isAlone) {
+            debugLog('[PerfectNegotiation] 👤 Alone in room - waiting for other peer to return');
+            // When alone, just reset state and wait
+            this.resetNegotiationState();
+            return;
+        }
+
+        if (bothPresent) {
+            debugLog('[PerfectNegotiation] 👥 Both peers present but disconnected - initiating reconnection');
+            
+            // First, reevaluate roles based on current participants
+            this.reevaluateRoleIfNeeded();
+            
+            // Then, trigger reconnection if we're impolite
+            setTimeout(() => {
+                if (!this.negotiationRole.isPolite && this.pc.connectionState !== 'connected') {
+                    debugLog('[PerfectNegotiation] 🚀 Impolite peer initiating reconnection after role reevaluation');
+                    this.triggerReconnection();
+                } else if (this.negotiationRole.isPolite) {
+                    debugLog('[PerfectNegotiation] 🤝 Polite peer waiting for impolite peer to reconnect');
+                } else {
+                    debugLog('[PerfectNegotiation] ✅ Connection recovered during role reevaluation');
+                }
+            }, 1000); // Small delay after role reevaluation
+        }
+    }
+
+    /**
+     * Trigger actual reconnection attempt
+     */
+    private triggerReconnection(): void {
+        debugLog('[PerfectNegotiation] 🔄 Triggering reconnection attempt...');
+        
+        // Reset the trigger flag to allow new connection
+        this.hasTriggeredInitialConnection = false;
+        
+        // Reset negotiation state for clean reconnection
+        this.resetNegotiationState();
+        
+        // Trigger connection via DataChannel creation (which starts Perfect Negotiation)
+        this.checkInitialConnectionTrigger();
     }
 
     /**

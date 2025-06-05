@@ -141,17 +141,17 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
           setNegotiationRole(isPolite ? 'polite' : 'impolite');
 
           if (isPolite) {
-            console.log('[ConsultationRoom] Room is ready and we are the polite peer (second to arrive), waiting for impolite peer to initialize...');
+            console.log('[ConsultationRoom] 🤝 Room is ready and we are the polite peer (waits for offers), waiting for impolite peer to initialize...');
 
             // Small delay to ensure the impolite peer is ready to negotiate
             // Perfect Negotiation automatically handles who initiates the connection
             setTimeout(() => {
-              console.log('[ConsultationRoom] Polite peer is now ready to receive connection from impolite peer');
+              console.log('[ConsultationRoom] 🤝 Polite peer is now ready to receive connection from impolite peer');
               // The impolite peer will detect our presence and automatically initiate the connection
               // via Perfect Negotiation - no manual intervention needed
             }, 1000);
           } else {
-            console.log('[ConsultationRoom] Room is ready and we are the impolite peer (first to arrive), Perfect Negotiation will handle connection initiation');
+            console.log('[ConsultationRoom] 🚀 Room is ready and we are the impolite peer (initiates offers), Perfect Negotiation will handle connection initiation');
           }
         } else {
           setNegotiationRole(null);
