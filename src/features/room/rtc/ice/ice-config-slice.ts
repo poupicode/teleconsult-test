@@ -23,7 +23,7 @@ export const DEFAULT_ICE_CONFIG: RTCConfiguration = {
         }
     ],
     "iceCandidatePoolSize": 20,
-    iceTransportPolicy: 'relay'
+    // iceTransportPolicy: 'relay'
     // "iceTransportPolicy": "relay" as RTCIceTransportPolicy 
     // Cette option peut être retirée si besoin pour revenir au mode par défaut
 };
