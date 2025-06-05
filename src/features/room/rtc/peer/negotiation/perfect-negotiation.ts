@@ -305,9 +305,9 @@ export class PerfectNegotiation {
     private handlePresenceChange(): void {
         const participants = this.signaling.getValidParticipants();
         const bothPresent = participants.length >= 2;
-        const isDisconnected = this.pc.connectionState === 'disconnected' || 
-                              this.pc.connectionState === 'failed' || 
-                              this.pc.connectionState === 'new';
+        const isDisconnected = this.pc.connectionState === 'disconnected' ||
+            this.pc.connectionState === 'failed' ||
+            this.pc.connectionState === 'new';
 
         debugLog(`[PerfectNegotiation] 🔍 Presence check: bothPresent=${bothPresent}, connectionState=${this.pc.connectionState}`);
 
@@ -317,7 +317,7 @@ export class PerfectNegotiation {
         // If both are present but connection is broken, trigger reconnection
         if (bothPresent && isDisconnected) {
             debugLog('[PerfectNegotiation] 🔄 Both present but disconnected - checking if we should reconnect');
-            
+
             setTimeout(() => {
                 // Double-check connection state after role reevaluation
                 if (this.pc.connectionState !== 'connected' && this.pc.connectionState !== 'connecting') {
@@ -370,7 +370,7 @@ export class PerfectNegotiation {
      */
     private handleRoleSwitch(): void {
         debugLog('[PerfectNegotiation] 🔄 Handling disconnection, starting recovery process...');
-        
+
         // Wait a bit for natural recovery before forcing reconnection
         setTimeout(() => {
             if (this.pc.connectionState !== 'connected') {
@@ -402,10 +402,10 @@ export class PerfectNegotiation {
 
         if (bothPresent) {
             debugLog('[PerfectNegotiation] 👥 Both peers present but disconnected - initiating reconnection');
-            
+
             // First, reevaluate roles based on current participants
             this.reevaluateRoleIfNeeded();
-            
+
             // Then, trigger reconnection if we're impolite
             setTimeout(() => {
                 if (!this.negotiationRole.isPolite && this.pc.connectionState !== 'connected') {
@@ -425,13 +425,13 @@ export class PerfectNegotiation {
      */
     private triggerReconnection(): void {
         debugLog('[PerfectNegotiation] 🔄 Triggering reconnection attempt...');
-        
+
         // Reset the trigger flag to allow new connection
         this.hasTriggeredInitialConnection = false;
-        
+
         // Reset negotiation state for clean reconnection
         this.resetNegotiationState();
-        
+
         // Trigger connection via DataChannel creation (which starts Perfect Negotiation)
         this.checkInitialConnectionTrigger();
     }

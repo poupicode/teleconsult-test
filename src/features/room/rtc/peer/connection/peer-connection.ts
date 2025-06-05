@@ -978,15 +978,15 @@ export class PeerConnection implements IPeerConnection {
      */
     async forceReconnection(): Promise<void> {
         console.log('[WebRTC] 🔄 Force reconnection requested');
-        
+
         if (this.coordinatedRecoveryManager.startRecovery('perfectNegotiation', 'Manual force reconnection')) {
             try {
                 // Reset Perfect Negotiation state
                 this.perfectNegotiation.resetNegotiationState();
-                
+
                 // Trigger reconnection via Perfect Negotiation
                 await this.perfectNegotiation.attemptReconnection();
-                
+
                 this.coordinatedRecoveryManager.endRecovery('perfectNegotiation', true);
                 console.log('[WebRTC] ✅ Force reconnection initiated successfully');
             } catch (error) {
