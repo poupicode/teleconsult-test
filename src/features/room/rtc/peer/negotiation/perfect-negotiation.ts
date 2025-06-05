@@ -38,6 +38,7 @@ export class PerfectNegotiation {
     private negotiationRole: NegotiationRole;
     private negotiationState: NegotiationState;
     private hasTriggeredInitialConnection: boolean = false; // Prevent double triggering
+    private roleLockedUntil: number = 0; // Timestamp until when role switching is locked
 
     // Callbacks
     private onConnectionStateChange?: (state: RTCPeerConnectionState) => void;
@@ -327,25 +328,42 @@ export class PerfectNegotiation {
     }
 
     /**
-     * Handle intelligent role switching when impolite peer disconnects
-     * This ensures connection recovery in P2P scenarios
+     * Handle intelligent role switching when peer disconnects
+     * Enhanced logic to prevent unnecessary role switches
      */
     private handleRoleSwitch(): void {
-        if (this.negotiationRole.isPolite && this.isPeerGone()) {
-            debugLog('[PerfectNegotiation] 🔄 Impolite peer disconnected, switching to impolite role for recovery');
+        // Only switch roles if we're alone in the room
+        // This prevents role switches during temporary disconnections
+        if (!this.isAloneInRoom()) {
+            debugLog('[PerfectNegotiation] Other participants still present, no role switch needed');
+            return;
+        }
+
+        // If we're alone and we were polite, become impolite to handle reconnections
+        if (this.negotiationRole.isPolite) {
+            debugLog('[PerfectNegotiation] 🔄 Alone in room as polite peer, switching to impolite for reconnection handling');
             this.performRoleSwitch('impolite');
+        } else {
+            debugLog('[PerfectNegotiation] Already impolite and alone in room, staying impolite');
         }
     }
 
     /**
      * 🔄 CRITICAL: Complete role switch with proper state management
      * Handles the scenario where peer roles need to change dynamically
+     * Enhanced with role switch validation
      */
     private performRoleSwitch(newRole: 'polite' | 'impolite'): void {
         const oldRole = this.negotiationRole.isPolite ? 'polite' : 'impolite';
 
         if (oldRole === newRole) {
             debugLog(`[PerfectNegotiation] Already ${newRole}, no switch needed`);
+            return;
+        }
+
+        // Validate that role switch is actually necessary
+        if (!this.shouldAllowRoleSwitch(newRole)) {
+            debugLog(`[PerfectNegotiation] Role switch to ${newRole} blocked by validation`);
             return;
         }
 
@@ -369,8 +387,52 @@ export class PerfectNegotiation {
     }
 
     /**
+     * Validate if a role switch should be allowed
+     * Prevents unnecessary role switches during rapid reconnections
+     */
+    private shouldAllowRoleSwitch(newRole: 'polite' | 'impolite'): boolean {
+        // Check if role switching is locked
+        if (this.isRoleLocked()) {
+            debugLog('[PerfectNegotiation] Role switch blocked - role is locked');
+            return false;
+        }
+
+        const participants = this.signaling.getValidParticipants();
+        const otherParticipants = participants.filter(p => p.clientId !== this.clientId);
+        
+        // Only allow role switches if we're alone or if there's a genuine conflict
+        const isAlone = otherParticipants.length === 0;
+        const hasConflict = this.hasRoleConflict();
+        
+        debugLog(`[PerfectNegotiation] Role switch validation: isAlone=${isAlone}, hasConflict=${hasConflict}, targetRole=${newRole}`);
+        
+        return isAlone || hasConflict;
+    }
+
+    /**
+     * Check if there's a genuine role conflict that needs resolution
+     */
+    private hasRoleConflict(): boolean {
+        const participants = this.signaling.getValidParticipants();
+        const otherParticipants = participants.filter(p => p.clientId !== this.clientId);
+        
+        if (otherParticipants.length === 0) {
+            return false; // No conflict if alone
+        }
+
+        // Check if our current role matches what it should be based on deterministic rules
+        const allIds = [this.clientId, ...otherParticipants.map(p => p.clientId)].sort();
+        const myPosition = allIds.indexOf(this.clientId);
+        const shouldBeImpolite = myPosition === 0;
+        const currentlyImpolite = !this.negotiationRole.isPolite;
+        
+        return shouldBeImpolite !== currentlyImpolite;
+    }
+
+    /**
      * 🆘 Handle critical scenario: peer returns quickly creating role conflict
      * This resolves the case where both peers might become impolite
+     * Enhanced with better role stability logic
      */
     private resolveRoleConflict(): void {
         try {
@@ -378,18 +440,29 @@ export class PerfectNegotiation {
             const otherParticipants = participants.filter(p => p.clientId !== this.clientId);
 
             if (otherParticipants.length === 0) {
-                debugLog('[PerfectNegotiation] No other participants, staying impolite');
+                debugLog('[PerfectNegotiation] No other participants, staying as current role');
                 return;
             }
 
-            // Use deterministic conflict resolution based on clientId comparison
-            // Lower clientId becomes polite, higher becomes impolite
-            const shouldBePolite = otherParticipants.some(p => p.clientId < this.clientId);
+            // Enhanced deterministic conflict resolution
+            // Use a combination of clientId and original role for more stability
+            const myId = this.clientId;
+            const otherIds = otherParticipants.map(p => p.clientId);
+            
+            // Use lexicographic comparison for deterministic ordering
+            const allIds = [myId, ...otherIds].sort();
+            const myPosition = allIds.indexOf(myId);
+            
+            // First in alphabetical order becomes impolite (initiator)
+            const shouldBeImpolite = myPosition === 0;
             const currentRole = this.negotiationRole.isPolite ? 'polite' : 'impolite';
-            const targetRole = shouldBePolite ? 'polite' : 'impolite';
+            const targetRole = shouldBeImpolite ? 'impolite' : 'polite';
+
+            debugLog(`[PerfectNegotiation] Conflict resolution: myId=${myId}, allIds=[${allIds.join(', ')}], myPosition=${myPosition}`);
+            debugLog(`[PerfectNegotiation] Current role: ${currentRole}, target role: ${targetRole}`);
 
             if (currentRole !== targetRole) {
-                debugLog(`[PerfectNegotiation] 🆘 CONFLICT RESOLUTION: Switching to ${targetRole} (clientId comparison)`);
+                debugLog(`[PerfectNegotiation] 🆘 CONFLICT RESOLUTION: Switching to ${targetRole} (lexicographic ordering)`);
                 this.performRoleSwitch(targetRole);
             } else {
                 debugLog(`[PerfectNegotiation] ✅ Role conflict check passed - staying ${currentRole}`);
@@ -602,26 +675,76 @@ export class PerfectNegotiation {
     }
 
     /**
+     * 🔒 Lock current role to prevent automatic switches
+     * Use this to stabilize roles during testing or specific scenarios
+     */
+    public lockCurrentRole(): void {
+        debugLog(`[PerfectNegotiation] 🔒 Locking current role: ${this.negotiationRole.isPolite ? 'polite' : 'impolite'}`);
+        this.roleLockedUntil = Date.now() + 30000; // Lock for 30 seconds
+    }
+
+    /**
+     * 🔓 Unlock role switching
+     */
+    public unlockRole(): void {
+        debugLog('[PerfectNegotiation] 🔓 Unlocking role switching');
+        this.roleLockedUntil = 0;
+    }
+
+    /**
+     * 🩺 Diagnose role switching issues
+     * Call this method to understand why roles are switching unexpectedly
+     */
+    public diagnoseRoleSwitching(): void {
+        const state = this.getDebugRoleState();
+        console.log('[PerfectNegotiation] 🩺 ROLE SWITCHING DIAGNOSIS:');
+        console.log(`  My ID: ${state.myClientId}`);
+        console.log(`  Current role: ${state.myRole}`);
+        console.log(`  Should be impolite: ${state.shouldBeImpolite}`);
+        console.log(`  Has conflict: ${state.hasConflict}`);
+        console.log(`  Is alone: ${state.isAlone}`);
+        console.log(`  Role locked: ${this.isRoleLocked()}`);
+        console.log(`  All participants:`, state.allParticipants);
+        console.log(`  Sorted IDs:`, state.sortedIds);
+        console.log(`  Connection state: ${state.connectionState}`);
+    }
+
+    /**
+     * Check if role switching is currently locked
+     */
+    private isRoleLocked(): boolean {
+        return this.roleLockedUntil > Date.now();
+    }
+
+    /**
      * Get detailed state for debugging role issues
      */
     public getDebugRoleState() {
         const participants = this.signaling.getValidParticipants();
         const others = participants.filter(p => p.clientId !== this.clientId);
+        const allIds = [this.clientId, ...others.map(p => p.clientId)].sort();
+        const myPosition = allIds.indexOf(this.clientId);
 
         return {
             myClientId: this.clientId,
             myRole: this.negotiationRole.isPolite ? 'polite' : 'impolite',
             myBusinessRole: this.role,
+            myPosition: myPosition,
             allParticipants: participants.map(p => ({
                 clientId: p.clientId,
                 role: p.role,
-                // Compare IDs for conflict resolution prediction
-                wouldBePolite: p.clientId > this.clientId
+                // Position in deterministic ordering
+                position: allIds.indexOf(p.clientId)
             })),
+            sortedIds: allIds,
+            shouldBeImpolite: myPosition === 0,
+            currentlyImpolite: !this.negotiationRole.isPolite,
+            hasConflict: this.hasRoleConflict(),
             connectionState: this.pc.connectionState,
             iceConnectionState: this.pc.iceConnectionState,
             hasTriggered: this.hasTriggeredInitialConnection,
-            negotiationState: this.negotiationState
+            negotiationState: this.negotiationState,
+            isAlone: this.isAloneInRoom()
         };
     }
 
