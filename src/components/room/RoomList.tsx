@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { roomIdUpdated } from '@/features/room/roomSlice';
-import { supabase } from '@/lib/supabaseClient';
-import { Button, ListGroup, Badge } from 'react-bootstrap';
-import { Room, RoomSupabase } from '@/features/room/roomSupabase';
-import { RootState } from '@/app/store';
+import React, { useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { roomIdUpdated } from "@/features/room/roomSlice";
+import { supabase } from "@/lib/supabaseClient";
+import { Button, Card, Row, Col, Spinner } from "react-bootstrap";
+import { Room, RoomSupabase } from "@/features/room/roomSupabase";
+import { RootState } from "@/app/store";
 
 export default function RoomList() {
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -14,8 +14,13 @@ export default function RoomList() {
 
   useEffect(() => {
     fetchRooms();
-    const subscription = supabase.channel('room_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms' }, fetchRooms)
+    const subscription = supabase
+      .channel("room_changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "rooms" },
+        fetchRooms
+      )
       .subscribe();
 
     return () => {
@@ -36,51 +41,48 @@ export default function RoomList() {
   };
 
   const handleSelectRoom = (roomId: string) => {
-    // Si l'utilisateur est déjà dans une salle, on le déconnecte d'abord
     if (currentRoomId) {
-      // Déconnecter de la salle actuelle en mettant roomId à null
       dispatch(roomIdUpdated(null));
-
-      // Petit délai pour s'assurer que la déconnexion est terminée avant de rejoindre la nouvelle salle
-      setTimeout(() => {
-        dispatch(roomIdUpdated(roomId));
-      }, 500);
+      setTimeout(() => dispatch(roomIdUpdated(roomId)), 500);
     } else {
-      // Si l'utilisateur n'est pas dans une salle, on peut directement rejoindre la nouvelle
       dispatch(roomIdUpdated(roomId));
     }
   };
 
   return (
     <div>
-      <div className="d-flex justify-content-between align-items-center mb-2">
-        <h5 className="mb-0">Salles disponibles</h5>
-      </div>
+      <h5 className="mb-4 fw-bold">Salles disponibles</h5>
 
       {loading ? (
-        <p className="text-muted">Chargement des salles...</p>
+        <Spinner animation="border" variant="primary" />
       ) : rooms.length > 0 ? (
-        <div style={{ height: '300px', overflowY: 'auto' }}>
-          <ListGroup>
-            {rooms.map((room) => (
-              <ListGroup.Item
-                key={room.id}
-                action={currentRoomId !== room.id}
-                onClick={() => currentRoomId !== room.id && handleSelectRoom(room.id)}
-                className={`d-flex justify-content-between align-items-center ${currentRoomId === room.id ? 'bg-light text-dark cursor-default' : ''}`}
-              >
-                <div className="text-truncate" style={{ maxWidth: "180px" }}>
-                  <span>{room.short_name}</span>
-                  <br />
-                  <small className="text-muted">{room.id}</small>
-                </div>
-                <Badge bg={currentRoomId === room.id ? "primary" : "success"} pill>
-                  {currentRoomId === room.id ? "Actuelle" : "Rejoindre"}
-                </Badge>
-              </ListGroup.Item>
-            ))}
-          </ListGroup>
-        </div>
+        <Row>
+          {rooms.map((room) => (
+            <Col md={6} lg={4} className="mb-4" key={room.id}>
+              <Card className="shadow-sm h-100">
+                <Card.Body>
+                  <Card.Title className="fw-semibold">
+                    {room.short_name}
+                  </Card.Title>
+                  <Card.Text
+                    className="text-muted"
+                    style={{ fontSize: "0.9rem" }}
+                  >
+                    ID : {room.id}
+                  </Card.Text>
+                  <Button
+                    variant={currentRoomId === room.id ? "secondary" : "danger"}
+                    className="w-100 text-white rounded-pill"
+                    disabled={currentRoomId === room.id}
+                    onClick={() => handleSelectRoom(room.id)}
+                  >
+                    {currentRoomId === room.id ? "Salle actuelle" : "Rejoindre"}
+                  </Button>
+                </Card.Body>
+              </Card>
+            </Col>
+          ))}
+        </Row>
       ) : (
         <p className="text-muted">Aucune salle disponible</p>
       )}
