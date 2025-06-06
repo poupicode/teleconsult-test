@@ -17,8 +17,6 @@ import RoomBrowser from "@/components/room/RoomBrowser";
 import RoomList from "@/components/room/RoomList";
 import ConsultationRoom from "@/components/room/ConsultationRoom";
 import ChatBox from "@/components/chat/ChatBox";
-import BluetoothContext from "@/components/bluetooth/BluetoothContext";
-import DoctorInterface from "@/components/bluetooth/DoctorInterface";
 import SideMenu from "@/components/SideMenu";
 import InformationsForm from "@/components/InformationsForm";
 import Header from "@/components/Header";
@@ -135,18 +133,24 @@ export default function ConsultationPage() {
     }
   }, [patientInformations]);
 
+
+  // Gestion du bouton de création de salle dans le header
+
   // Savoir si on est dans l'onglet de consultation ou d'informations
   // (pour afficher le formulaire ou la consultation)
   const [isConsultationTab, setIsConsultationTab] = useState(false);
 
+  // Stocker dans un state la fonction de création de salle envoyé et remonté depuis DoctorRoomManager dans ConsultationRoom
   const [receiveHandleCreateRoom, setReceiveHandleCreateRoom] = React.useState<
     (() => Promise<void>) | null
   >(null);
 
+  // Récupérer la fonction de création de salle envoyé et remonté depuis DoctorRoomManager dans ConsultationRoom
   const getHandleCreateRoom = React.useCallback((fn: () => Promise<void>) => {
     setReceiveHandleCreateRoom(() => fn);
   }, []);
 
+  // Créer la fonction au click qui va appeler la fonction de création de salle envoyé et remonté depuis DoctorRoomManager dans ConsultationRoom
   const handleCreateRoom = React.useCallback(async () => {
     if (receiveHandleCreateRoom) {
       await receiveHandleCreateRoom(); // appelle la fonction async de l'enfant
@@ -154,6 +158,28 @@ export default function ConsultationPage() {
       alert("Fonction pas encore reçue");
     }
   }, [receiveHandleCreateRoom]);
+
+
+  // Gestion du bouton de connexion à un appareil bluetooth dans le header
+
+  // Stocker dans un state la fonction de connexion Bluetooth envoyé et remonté depuis BluetoothContext dans ConsultationRoom
+  const [receiveHandleConnect, setReceiveHandleConnect] = React.useState<
+    (() => Promise<void>) | null
+  >(null);
+
+  // Récupérer la fonction de connexion Bluetooth envoyé et remonté depuis BluetoothContext dans ConsultationRoom
+  const getHandleConnect = React.useCallback((fn: () => Promise<void>) => {
+    setReceiveHandleConnect(() => fn);
+  }, []);
+
+  // Créer la fonction au click qui va appeler la fonction de connexion BluetoothContext envoyé et remonté depuis DoctorRoomManager dans ConsultationRoom
+  const handleConnect = React.useCallback(async () => {
+    if (receiveHandleConnect) {
+      receiveHandleConnect();
+    } else {
+      alert("Fonction pas encore reçue");
+    }
+  }, [receiveHandleConnect]);
 
   return (
     <Container fluid>
@@ -180,23 +206,22 @@ export default function ConsultationPage() {
             {!isConsultationTab ? (
               // Si on est dans l'onglet "Information patient/praticien"
               // Afficher le titre en fonction du type d'utilisateur (patient ou praticien)
-              <h1>
+              <h2 className="fs-3">
                 {`Information du ${
                   userKind === "patient" ? "patient" : "praticien"
                 }`}
-              </h1>
+              </h2>
             ) : !roomId ? (
               // Si on est dans l'onglet "Consultation" mais qu'aucune salle n'est sélectionnée
               // Afficher pour le patient le titre "Choisissez une salle"
               // Afficher pour le praticien le titre "Choisissez une salle" avec les 2 boutons de création/suppression de salle
               <div className="d-flex flex-row align-items-center justify-content-between">
-                <h1>Choisissez une salle de consultation</h1>
+                <h2 className="fs-3">Choisissez une salle de consultation</h2>
 
                 {userKind === "practitioner" && (
                   <>
                     <Button
-                      variant="danger"
-                      className="rounded-pill mb-4 text-white"
+                      className="primary-btn ps-4 pe-4"
                       onClick={handleCreateRoom}
                     >
                       Créer une salle
@@ -207,12 +232,20 @@ export default function ConsultationPage() {
             ) : userKind === "practitioner" ? (
               // Si on est dans l'onglet "Consultation", qu'une salle a été choisie et que l'utilisateur est un praticien
               // Afficher le titre "Salle de téléconsultation"
-              <h1>Salle de téléconsultation</h1>
+              <h2 className="fs-3">Salle de téléconsultation</h2>
             ) : (
               // Si on est dans l'onglet "Consultation", qu'une salle a été choisie et que l'utilisateur est un patient
               // Afficher les éléments de connexion bluetooth côté patient et les informations des appareils
               <>
-                {/* Elements de connexion bluetooth côté patient et informations appreils */}
+                {/* Bouton de connexion d'un appareil Bluetooth */}
+                <Button
+                  onClick={handleConnect}
+                  className="primary-btn pe-3 ps-3"
+                >
+                  Connecter un appareil
+                </Button>
+                <p className="m-0 fw-medium">Type de l'appareil</p>
+                <p className="m-0" style={{maxWidth: "18em", fontSize: ".7em"}}>État : En attenteqq qq qqqq q qqqqq qqqqqq qqqqqqq qq qqq</p>
               </>
             )}
           </Header>
@@ -236,89 +269,8 @@ export default function ConsultationPage() {
                 onPeerConnectionReady={handlePeerConnectionReady}
                 handleDisconnect={handleDisconnect}
                 onCreateRoom={getHandleCreateRoom}
+                onSendConnect={getHandleConnect}
               />
-              {/* Composant de gestion des données Bluetooth */}
-              {/* {userKind === "patient" && peerConnection && (
-                <BluetoothContext peerConnection={peerConnection} />
-              )}
-              {userKind === "practitioner" && peerConnection && (
-                <DoctorInterface peerConnection={peerConnection} />
-              )} */}
-
-              {/* RoomBrowser pour le praticien */}
-              {/* {userKind === "practitioner" && (
-                <div className="mb-4">
-                  <DoctorRoomManager />
-                </div>
-              )} */}
-              {/* RoomList pour les patients */}
-              {/* {userKind === "patient" && (
-                <div className="mb-5">
-                  <RoomList />
-                </div>
-              )} */}
-
-              {/* <Card className="mb-3">
-                <Card.Header>
-                  {userKind === "practitioner" && (
-                    <>
-                      <Button
-                        onClick={() => setShowRoomBrowser(!showRoomBrowser)}
-                        aria-controls="room-browser-collapse"
-                        aria-expanded={showRoomBrowser}
-                        className="mb-2 w-100"
-                      >
-                        {showRoomBrowser
-                          ? "Masquer les consultations"
-                          : "Gérer les consultations"}
-                      </Button>
-                      <Collapse in={showRoomBrowser}>
-                        <div id="room-browser-collapse">
-                          <RoomBrowser isVisible={showRoomBrowser} />
-                        </div>
-                      </Collapse>
-                    </>
-                  )}
-                </Card.Header>
-                <Card.Body>
-                  <Card.Title>Consultation en cours</Card.Title> */}
-
-              {/* Affichage de l'ID de la room ou "n/a" si aucune room */}
-              {/* <div className="mb-3 p-2 bg-light rounded border">
-                    <p className="mb-1">
-                      <strong>Salle : {roomName || "n/a"}</strong>
-                    </p>
-                    <p className="mb-1 text-muted small">
-                      {roomId || "Aucune salle sélectionnée"}
-                    </p>
-
-                    {roomId && (
-                      <Button
-                        variant="warning"
-                        size="sm"
-                        onClick={handleDisconnect}
-                        className="w-100"
-                      >
-                        Quitter la consultation
-                      </Button>
-                    )}
-                  </div> */}
-
-              {/* Bouton de création de salle pour les praticiens */}
-              {/* {userKind === "practitioner" && !roomId && (
-                    <Button
-                      variant="primary"
-                      onClick={onCreateRoomClick}
-                      className="mb-3 w-100"
-                    >
-                      <MdAddIcCall className="me-1" /> Créer une salle
-                    </Button>
-                  )} */}
-
-              {/* Liste des rooms pour les patients (toujours visible) */}
-              {/* {userKind === "patient" && <RoomList />}
-                </Card.Body>
-              </Card> */}
 
               {/* Nouvelle carte pour le chatbox sous la consultation en cours */}
               {/* {roomId && (

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import deviceType from './config';
 import { configureNotifications } from './services';
 
@@ -22,7 +22,7 @@ export function useBluetooth({ onMeasurement }: UseBluetoothOptions = {}) {
   // Liste des services supportés à partir de la config
   const supportedServices = Object.keys(deviceType) as Array<Extract<keyof typeof deviceType, string>>;
 
-  const connect = async () => {
+  const connect = React.useCallback(async () => {
     try {
       // Prépare les filtres pour ne chercher que les services supportés
       const filters = supportedServices.map((svc) => ({ services: [svc] }));
@@ -61,7 +61,7 @@ export function useBluetooth({ onMeasurement }: UseBluetoothOptions = {}) {
       console.error(err);
       setStatus('Erreur de connexion : ' + err.message);
     }
-  };
+  }, []);
 
   // Fonction appelée en cas de déconnexion : tente une reconnexion automatique
   const reconnectDevice = async (device: BluetoothDevice) => {

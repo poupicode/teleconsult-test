@@ -14,42 +14,53 @@ import RoomInformations from "./RoomInformations";
 import DoctorRoomManager from "@/components/room/DoctorRoomManager";
 import RoomList from "@/components/room/RoomList";
 import { supabase } from "@/lib/supabaseClient";
+import BluetoothContext from "@/components/bluetooth/BluetoothContext";
+import DoctorInterface from "@/components/bluetooth/DoctorInterface";
 
 interface ConsultationRoomProps {
   onPeerConnectionReady?: (peerConnection: PeerConnection) => void;
   handleDisconnect: () => void;
   onCreateRoom: (fn: () => Promise<void>) => void;
+  onSendConnect: (fn: () => Promise<void>) => void;
 }
 
 export default function ConsultationRoom({
   onPeerConnectionReady,
   handleDisconnect,
-  onCreateRoom
+  onCreateRoom,
+  onSendConnect
 }: ConsultationRoomProps) {
   const dispatch = useDispatch();
+
+  // Récupérer les informations de l'utilisateur et de la salle (si il y a)
   const { roomId, userRole, userId } = useSelector(
     (state: RootState) => state.room
   );
+
+  // Récupérer le rôle de l'utilisateur
   const userKind = useSelector((state: RootState) => state.user.user_kind);
 
+  // Gestion de la connexion
   const [peerConnection, setPeerConnection] = useState<PeerConnection | null>(
     null
   );
   const [connectionStatus, setConnectionStatus] =
     useState<string>("disconnected");
+  
+  // Etat pour voir si la salle est prête ou non (c'est-à-dire si on est dedans ou pas)
   const [roomReady, setRoomReady] = useState<boolean>(false);
 
   // Référence pour suivre la salle précédemment connectée
   const previousRoomIdRef = useRef<string | null>(null);
 
-  // Generate a user ID if none exists
+  // Générer un id d'utilisateir s'il y en a pas
   useEffect(() => {
     if (!userId) {
       const newUserId = uuidv4();
       dispatch(userIdSet(newUserId));
     }
 
-    // Set user role based on user kind
+    // Définir le rôle de l'utilisateur dans Role en fonction de user kind
     if (userKind && !userRole) {
       const role =
         userKind === "practitioner" ? Role.PRACTITIONER : Role.PATIENT;
@@ -175,9 +186,9 @@ export default function ConsultationRoom({
     >
       <div
         style={{
-          marginTop: "7em",
+          marginTop: "7.5em",
           overflowY: "auto",
-          height: roomId ? "60%" : "calc(100% - 7em)",
+          height: roomId ? "60%" : "calc(100% - 7.5em)",
         }}
         className="p-4 ps-3 pe-3"
       >
@@ -191,13 +202,13 @@ export default function ConsultationRoom({
             </Alert> */}
             {/* RoomBrowser pour le praticien */}
             {userKind === "practitioner" && (
-              <div className="mb-4">
+              <div className="mb-3">
                 <DoctorRoomManager onCreateRoom={onCreateRoom} />
               </div>
             )}
             {/* RoomList pour les patients */}
             {userKind === "patient" && (
-              <div className="mb-5">
+              <div className="mb-3">
                 <RoomList />
               </div>
             )}
@@ -209,36 +220,17 @@ export default function ConsultationRoom({
               roomReady={roomReady}
               userKind={userKind}
               handleDisconnect={handleDisconnect}
+              roomId={roomId}
+              connectionStatus={connectionStatus}
             />
             {/* Mettre ici l'affichage des données */}
-            <Alert
-              variant={
-                connectionStatus === "connected"
-                  ? "success"
-                  : connectionStatus === "connecting"
-                  ? "warning"
-                  : "danger"
-              }
-            >
-              État de la connexion: <strong>{connectionStatus}</strong>
-              {roomReady && (
-                <Badge bg="success" className="ms-2">
-                  Salle prête (
-                  {userRole === Role.PRACTITIONER
-                    ? "Patient connecté"
-                    : "Praticien connecté"}
-                  )
-                </Badge>
-              )}
-              {/* {!roomReady && (
-                <Badge bg="warning" className="ms-2">
-                  En attente{" "}
-                  {userRole === Role.PRACTITIONER
-                    ? "du patient"
-                    : "du praticien"}
-                </Badge>
-              )} */}
-            </Alert>
+            {/* Composant de gestion des données Bluetooth */}
+            {userKind === "patient" && peerConnection && (
+              <BluetoothContext peerConnection={peerConnection} onSendConnect={onSendConnect} />
+            )}
+            {userKind === "practitioner" && peerConnection && (
+              <DoctorInterface peerConnection={peerConnection} />
+            )}
           </>
         )}
       </div>

@@ -51,6 +51,7 @@ body {
   background-color: transparent !important;
   font-family: "Fira Sans" !important;
   font-size: 18px;
+  overflow-y: hidden !important;
 }
 
 * {
@@ -63,55 +64,54 @@ body {
   flex-direction: column;
 }
 
-
-
 /* Common CSS */
 
-h1{
-  font-weight: 700!important;
-  width: unset!important;
+h2 {
+  font-weight: 700 !important;
+  width: unset !important;
 }
 
-h1, .color-red{
+h2,
+.color-red {
   color: #da6254 !important;
 }
 
-hr{
-  border-bottom: #c0d4ec solid 1px!important;
+hr {
+  border-bottom: #c0d4ec solid 1px !important;
 }
 
-header{
+header {
   border-bottom: #c0d4ec solid 1px;
-  margin-top: 3.5em!important;
+  margin-top: 3.5em !important;
 }
 
-.public-header{
-  padding: 1em 0 .5em;
+.public-header {
+  padding: 1em 0 0.5em;
   width: calc(100vw - 12em);
   margin: 0 auto;
-  h1{
+  h1 {
     padding: 0 2em;
-    font-size: 2em!important;
+    font-size: 2em !important;
   }
 }
-.dashboard-header{
-  padding: 1em 0 .5em;
+.dashboard-header {
+  padding: 1em 0 0.5em;
   width: calc(100vw - 28em);
   margin: 0 1em;
-  h1{
-    font-size: 1.7em!important;
+  h1 {
+    font-size: 1.7em !important;
   }
 }
 
 button {
-  border: none!important;
+  border: none !important;
 }
 
 .primary-btn,
 .secondary-btn {
   border-radius: 100px !important;
   font-weight: 600 !important;
-  padding: 8px 50px!important;
+  padding: 8px 50px !important;
 }
 
 .primary-btn {
@@ -133,14 +133,15 @@ button {
 }
 
 .tertiary-btn {
-  border-radius: 0!important;
+  background-color: transparent !important;
+  border-radius: 0 !important;
   color: #da6254 !important;
   font-weight: 500 !important;
-  border-top: #da6254 solid 1px!important;
+  border-top: #da6254 solid 1px !important;
 }
 .tertiary-btn:hover {
   color: #fad0d1 !important;
-  border-top: #fad0d1 solid 1px!important;
+  border-top: #fad0d1 solid 1px !important;
 }
 
 ul {
@@ -151,33 +152,48 @@ ul {
 .bg-grey {
   background-color: #f0edf4 !important;
 }
-.bg-blue{
-    background-color: #2A5867!important;
+.bg-blue {
+  background-color: #2a5867 !important;
 }
-.bg-white-pink{
-  background-color: rgb(255, 251, 252) !important;
+.bg-white-pink {
+  background-color: #fffbfc !important;
 }
-.color-white{
-  color: #FFFBFC!important;
+.bg-lightblue {
+  background-color: #c0d4ec !important;
 }
-.color-lightblue{
-  color: #c0d4ec!important;
+.bg-pink {
+  background-color: #fad0d1 !important;
 }
-.card{
-  border: none!important;
+.color-white {
+  color: #fffbfc !important;
+}
+
+.color-lightblue {
+  color: #c0d4ec !important;
+}
+.card {
+  border: none !important;
   padding: 8px;
-  filter: drop-shadow(-3px 3px 10px rgba(0,0,0,.2));
-  border-radius: 18px!important;
-  h3{
-    border: none!important;
-    background: none!important;
+  filter: drop-shadow(-3px 3px 10px rgba(0, 0, 0, 0.2));
+  border-radius: 18px !important;
+  h3 {
+    border: none !important;
+    background: none !important;
   }
 }
 
-.fw-medium{
-  font-weight: 500!important;
+.fw-medium {
+  font-weight: 500 !important;
 }
-.fw-black{
-  font-weight: 900!important;
+.fw-black {
+  font-weight: 900 !important;
 }
 
+.roomPopup .popover-arrow::before {
+  border-top-color: #fffbfc !important;
+  z-index: 100;
+}
+.roomPopup .popover-arrow::after {
+  border-top-color: #fffbfc !important;
+  z-index: 100;
+}

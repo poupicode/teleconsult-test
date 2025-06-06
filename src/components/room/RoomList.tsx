@@ -7,11 +7,18 @@ import { Room, RoomSupabase } from "@/features/room/roomSupabase";
 import { RootState } from "@/app/store";
 
 export default function RoomList() {
+  // Stocker l'ensemble des salles
   const [rooms, setRooms] = useState<Room[]>([]);
+
+  // Etat pour regarder si les salles ont fini de se charger
   const [loading, setLoading] = useState<boolean>(true);
+
   const dispatch = useDispatch();
+
+  // Récupérer l'id actuelle de la salle (si il y a, sinon undefined)
   const currentRoomId = useSelector((state: RootState) => state.room.roomId);
 
+  // Initialiser le chargement et la gestion des salles
   useEffect(() => {
     fetchRooms();
     const subscription = supabase
@@ -28,18 +35,24 @@ export default function RoomList() {
     };
   }, []);
 
+  // Récupérer les salles depuis la supabase
   const fetchRooms = async () => {
+    // Mettre sur true le chargement des salle
     setLoading(true);
+
+    // Récupérer les salles et les mettre dans rooms
     try {
       const { data } = await RoomSupabase.getRooms();
       if (data) setRooms(data);
     } catch (error) {
       console.error("Erreur lors de la récupération des salles:", error);
     } finally {
+      // Arrêter l'état de chargement des salles une fois récupérées
       setLoading(false);
     }
   };
 
+  // Fonction pour sélectionner une salle pour la rejoindre
   const handleSelectRoom = (roomId: string) => {
     if (currentRoomId) {
       dispatch(roomIdUpdated(null));
@@ -50,27 +63,39 @@ export default function RoomList() {
   };
 
   return (
-    <div>
+    <div className="h-80">
+      {/* Afficher une animation de chargement en attendant l'affichage des salles */}
       {loading ? (
         <Spinner animation="border" variant="primary" />
       ) : rooms.length > 0 ? (
         <Row>
+          {/* Pour chaque salle de rooms */}
           {rooms.map((room) => (
-            <Col md={6} lg={4} className="mb-4" key={room.id}>
-              <Card className="shadow-sm h-100">
+            <Col
+              key={room.id}
+              style={{
+                flex: "0 0 32%",
+                maxWidth: "32%",
+              }}
+              className="mb-4"
+            >
+              {/* Afficher en card la salle et ses infos */}
+              <Card className="card p-0 bg-grey">
                 <Card.Body>
+                  {/* Afficher le nom de la salle */}
                   <Card.Title className="fw-semibold">
                     {room.short_name}
                   </Card.Title>
-                  <Card.Text
-                    className="text-muted"
-                    style={{ fontSize: "0.9rem" }}
-                  >
-                    ID : {room.id}
-                  </Card.Text>
+
+                  {/* Afficher l'id de la salle */}
+                  <p className="color-lightblue" style={{ fontSize: "0.7rem" }}>
+                    {room.id}
+                  </p>
+
+                  {/* Bouton pour sélectionner et rejoindre une salle */}
                   <Button
-                    variant={currentRoomId === room.id ? "secondary" : "danger"}
-                    className="w-100 text-white rounded-pill"
+                    className="w-75 d-block mx-auto primary-btn"
+                    size="sm"
                     disabled={currentRoomId === room.id}
                     onClick={() => handleSelectRoom(room.id)}
                   >
@@ -82,7 +107,7 @@ export default function RoomList() {
           ))}
         </Row>
       ) : (
-        <p className="text-muted">Aucune salle disponible</p>
+        <p className="color-red">Aucune salle disponible</p>
       )}
     </div>
   );
