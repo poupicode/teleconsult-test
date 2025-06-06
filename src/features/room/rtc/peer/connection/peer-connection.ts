@@ -226,6 +226,14 @@ export class PeerConnection implements IPeerConnection {
                         clearTimeout(this.iceConnectionTimeout);
                         this.iceConnectionTimeout = null;
                     }
+
+                    // Clean up any pending presence reset timeout on successful connection
+                    if (this.presenceResetTimeout) {
+                        clearTimeout(this.presenceResetTimeout);
+                        this.presenceResetTimeout = null;
+                        console.log('[WebRTC-ICE] 🧹 Cleared pending presence reset timeout due to successful connection');
+                    }
+
                     console.log(`[WebRTC-ICE] ✅ Connection established in ${Date.now() - this.iceStartTime}ms`);
                     console.log(`[WebRTC-ICE] Using TURN relay: ${this.hasRelay ? 'Yes' : 'No/Unknown'}`);
 
