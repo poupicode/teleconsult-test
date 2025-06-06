@@ -276,12 +276,32 @@ export class PeerConnection implements IPeerConnection {
                 case 'disconnected':
                     console.warn('[WebRTC-ICE] 🔌 Connection disconnected, monitoring for recovery...');
 
-                    // Smart reconnection strategy: Short timeout for teleconsultation
+                    // Track disconnected state occurrences for smart recovery (same logic as failed)
+                    const nowDisconnected = Date.now();
+                    const timeSinceLastDisconnected = nowDisconnected - this.lastFailedStateTime;
+                    this.lastFailedStateTime = nowDisconnected;
+
+                    // If we've been in disconnected state multiple times recently, use global reset
+                    if (timeSinceLastDisconnected < 30000) { // Within 30 seconds
+                        this.failedStateCount++;
+                    } else {
+                        this.failedStateCount = 1; // Reset count if it's been a while
+                    }
+
+                    // Smart reconnection strategy: escalate to reset if persistent disconnections
                     setTimeout(() => {
                         if (this.pc.iceConnectionState === 'disconnected' &&
                             this.signaling.hasPatientAndPractitioner()) {
-                            console.log('[WebRTC-ICE] 🔄 Still disconnected after 2s, attempting reconnection...');
-                            this.perfectNegotiation.attemptReconnection();
+                            
+                            if (this.failedStateCount >= 2) {
+                                console.log('[WebRTC-ICE] 🚨 Persistent disconnected state detected, performing GLOBAL reset...');
+                                this.forceGlobalReset().catch(err => {
+                                    console.error('[WebRTC-ICE] Global reset failed:', err);
+                                });
+                            } else {
+                                console.log('[WebRTC-ICE] 🔄 First disconnection, attempting standard reconnection...');
+                                this.perfectNegotiation.attemptReconnection();
+                            }
                         }
                     }, 2000); // Short timeout: optimal for teleconsultation UX
                     break;
