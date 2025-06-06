@@ -21,7 +21,7 @@ export default function DoctorRoomManager() {
   };
 
   const handleCreateRoom = async () => {
-    const newRoom = await RoomSupabase.createRoom("");
+    const newRoom = await RoomSupabase.createRoom("nouvelle salle");
     if (newRoom) {
       setRooms((prev) => [...prev, newRoom]);
     }

@@ -89,7 +89,7 @@ export default function RoomBrowser({ isVisible = true }: RoomBrowserProps) {
       )}
 
       <Form.Group className="mb-3" controlId="roomNameInput">
-        <Form.Label>Nom de la nouvelle salle</Form.Label>
+        <Form.Label>Nom de la salle créer</Form.Label>
         <Form.Control
           type="text"
           placeholder="Entrez le nom de la salle"
