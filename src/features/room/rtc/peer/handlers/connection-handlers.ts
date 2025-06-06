@@ -29,10 +29,8 @@ export function setupPeerConnectionListeners(peerConnection: IPeerConnection, pc
         }
     };
 
-    // Debug ice connection state changes
-    pc.oniceconnectionstatechange = () => {
-        console.log(`[WebRTC] ICE connection state: ${pc.iceConnectionState}`);
-    };
+    // Note: ICE connection state changes are handled in setupIceDebugging()
+    // This avoids conflicts with the intelligent reconnection logic
 
     // Debug signaling state changes
     pc.onsignalingstatechange = () => {
