@@ -215,13 +215,13 @@ export default function ConsultationPage() {
               // Si on est dans l'onglet "Consultation" mais qu'aucune salle n'est sélectionnée
               // Afficher pour le patient le titre "Choisissez une salle"
               // Afficher pour le praticien le titre "Choisissez une salle" avec les 2 boutons de création/suppression de salle
-              <div className="d-flex flex-row align-items-center justify-content-between">
+              <div className="d-flex flex-row align-items-center justify-content-between w-100">
                 <h2 className="fs-3">Choisissez une salle de consultation</h2>
 
                 {userKind === "practitioner" && (
                   <>
                     <Button
-                      className="primary-btn ps-4 pe-4"
+                      className="primary-btn ps-3 pe-3 d-block"
                       onClick={handleCreateRoom}
                     >
                       Créer une salle

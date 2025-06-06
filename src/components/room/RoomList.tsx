@@ -66,7 +66,7 @@ export default function RoomList() {
     <div className="h-80">
       {/* Afficher une animation de chargement en attendant l'affichage des salles */}
       {loading ? (
-        <Spinner animation="border" variant="primary" />
+        <Spinner animation="border" variant="danger"/>
       ) : rooms.length > 0 ? (
         <Row>
           {/* Pour chaque salle de rooms */}
@@ -107,7 +107,7 @@ export default function RoomList() {
           ))}
         </Row>
       ) : (
-        <p className="color-red">Aucune salle disponible</p>
+        <p className="color-red fw-semibold">Aucune salle disponible</p>
       )}
     </div>
   );

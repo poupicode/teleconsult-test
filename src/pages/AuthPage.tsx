@@ -9,7 +9,7 @@ const AuthPage = () => {
   return (
     <>
       <Header variant="public">
-        <h1>{!isRegistering ? "Connexion" : "Inscription"}</h1>
+        <h2>{!isRegistering ? "Connexion" : "Inscription"}</h2>
       </Header>
       <Container className="d-flex justify-content-center w-100 mt-4">
         <LoginRegister onIsRegistering={(val : boolean) => setIsRegistering(val)} />

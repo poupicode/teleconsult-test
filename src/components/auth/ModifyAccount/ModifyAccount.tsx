@@ -106,7 +106,7 @@ const ModifyAccount = () => {
         </Row>
         <div>
           {/* Message d'alerte important */}
-          <Alert variant="danger">
+          <Alert variant="danger" className="small p-1">
             La modification des données n'a pas encore été implémentée
           </Alert>
           <Button

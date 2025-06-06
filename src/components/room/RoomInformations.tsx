@@ -125,7 +125,7 @@ const RoomInformations = ({
             {/* Si connecté, afficher le nom du médecin pour le patient ou 'Patient connecté' pour le médecin */}
             <p className={`m-0 ${!informationsHovered ? "fw-medium" : ""}`}>
               {!roomReady ? (
-                `En attente de ${
+                `En attente ${
                   userKind === "practitioner" ? "du patient" : "du praticien"
                 }`
               ) : userKind === "patient" ? (
