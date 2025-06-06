@@ -1,8 +1,8 @@
-// WebRTC connection event handlers
+// Gestionnaires d'événements liés à la connexion WebRTC
 
 import { Role } from '../models/types';
 
-// Type of the PeerConnection class without creating circular dependency
+// Type de la classe PeerConnection sans créer de dépendance circulaire
 export interface IPeerConnection {
     getRoomId: () => string;
     getRole: () => Role;
@@ -11,7 +11,7 @@ export interface IPeerConnection {
     createOffer: () => Promise<void>;
     setDataChannel: (channel: RTCDataChannel) => void;
     getOnConnectionStateChangeCallback: () => ((state: RTCPeerConnectionState) => void) | null;
-    getDataChannelManager: () => any; // Added missing method
+    getDataChannelManager: () => any; // Ajout de la méthode manquante
 }
 
 export function setupPeerConnectionListeners(peerConnection: IPeerConnection, pc: RTCPeerConnection) {
@@ -29,8 +29,10 @@ export function setupPeerConnectionListeners(peerConnection: IPeerConnection, pc
         }
     };
 
-    // Note: ICE connection state changes are handled in setupIceDebugging()
-    // This avoids conflicts with the intelligent reconnection logic
+    // Debug ice connection state changes
+    pc.oniceconnectionstatechange = () => {
+        console.log(`[WebRTC] ICE connection state: ${pc.iceConnectionState}`);
+    };
 
     // Debug signaling state changes
     pc.onsignalingstatechange = () => {
@@ -40,13 +42,13 @@ export function setupPeerConnectionListeners(peerConnection: IPeerConnection, pc
     // Note: negotiationneeded handler is managed by Perfect Negotiation
     // Perfect Negotiation handles all offer/answer logic to prevent race conditions .
 
-    // Listen for incoming data channels (for the patient)
+    // Écouter les data channels entrants (pour le patient)
     pc.ondatachannel = (event) => {
-        console.log(`[WebRTC] 📥 Received data channel: ${event.channel.label}`);
+        console.log(`[WebRTC] Received data channel: ${event.channel.label}`);
 
         if (event.channel.label === 'data-channel') {
             peerConnection.setDataChannel(event.channel);
-            // Configure the data channel via the manager
+            // Configure le data channel via le manager
             const dataChannelManager = peerConnection.getDataChannelManager();
             if (dataChannelManager && dataChannelManager.setupDataChannel) {
                 dataChannelManager.setupDataChannel(event.channel);
