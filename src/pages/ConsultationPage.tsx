@@ -9,20 +9,20 @@ import {
   ListGroup,
 } from "react-bootstrap";
 import { useSelector, useDispatch } from "react-redux";
+import { RootState } from "@/app/store";
+import { roomIdUpdated } from "@/features/room/roomSlice";
+import { RoomSupabase } from "@/features/room/roomSupabase";
+import { PeerConnection } from "@/features/room/rtc/peer";
 import RoomBrowser from "@/components/room/RoomBrowser";
 import RoomList from "@/components/room/RoomList";
 import ConsultationRoom from "@/components/room/ConsultationRoom";
 import ChatBox from "@/components/chat/ChatBox";
-import { RootState } from "@/app/store";
-import { roomIdUpdated } from "@/features/room/roomSlice";
-import { RoomSupabase } from "@/features/room/roomSupabase";
-import { MdAddIcCall } from "react-icons/md";
-import { PeerConnection } from "@/features/room/rtc/peer";
 import BluetoothContext from "@/components/bluetooth/BluetoothContext";
 import DoctorInterface from "@/components/bluetooth/DoctorInterface";
 import SideMenu from "@/components/SideMenu";
 import InformationsForm from "@/components/InformationsForm";
 import Header from "@/components/Header";
+import DoctorRoomManager from "@/components/room/DoctorRoomManager";
 
 // Définition des types pour les données du formulaire pour les informations du patient
 type PatientInformationsFormData = {
@@ -88,8 +88,7 @@ export default function ConsultationPage() {
   // Fonction pour créer une nouvelle salle lorsque le praticien clique sur le bouton "Créer une salle"
   // Elle utilise RoomSupabase pour créer une salle avec un nom généré automatiquement
   const onCreateRoomClick = async () => {
-    // Création d'une salle avec un nom généré automatiquement
-    const room = await RoomSupabase.createRoom();
+    const room = await RoomSupabase.createRoom("Ma salle privée");
     if (room) {
       dispatch(roomIdUpdated(room.id));
     }
@@ -210,10 +209,6 @@ export default function ConsultationPage() {
             // Si l'onglet de consultation est actif (du menu latéral), afficher : (mettre dans ConsultationRoom toute la logique de la page de consultation : création de salle, affichage de la consultation, chat, etc.)
             // Le bouton de création de salle pour le praticien à mettre dans le header
             <>
-              <ConsultationRoom
-                onPeerConnectionReady={handlePeerConnectionReady}
-              />
-
               {/* Composant de gestion des données Bluetooth */}
               {/* {userKind === "patient" && peerConnection && (
                 <BluetoothContext peerConnection={peerConnection} />
@@ -222,6 +217,21 @@ export default function ConsultationPage() {
                 <DoctorInterface peerConnection={peerConnection} />
               )} */}
 
+              {/* RoomBrowser pour le praticien */}
+              {userKind === "practitioner" && (
+                <div className="mb-4">
+                  <DoctorRoomManager />
+                </div>
+              )}
+              {/* RoomList pour les patients */}
+              {userKind === "patient" && (
+                <div className="mb-5">
+                  <RoomList />
+                </div>
+              )}
+              <ConsultationRoom
+                onPeerConnectionReady={handlePeerConnectionReady}
+              />
 
               {/* <Card className="mb-3">
                 <Card.Header>

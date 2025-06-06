@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { Button, ListGroup, Badge } from 'react-bootstrap';
-import { Room, RoomSupabase } from '../../features/room/roomSupabase';
-import { useDispatch, useSelector } from 'react-redux';
-import { RootState } from '@/app/store';
-import { roomIdUpdated } from '@/features/room/roomSlice';
+import React, { useEffect, useState } from "react";
+import { Button, ListGroup, Badge, Form } from "react-bootstrap";
+import { Room, RoomSupabase } from "../../features/room/roomSupabase";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState } from "@/app/store";
+import { roomIdUpdated } from "@/features/room/roomSlice";
 
 interface RoomBrowserProps {
   isVisible?: boolean;
@@ -11,30 +11,28 @@ interface RoomBrowserProps {
 
 export default function RoomBrowser({ isVisible = true }: RoomBrowserProps) {
   const [rooms, setRooms] = useState<Room[]>([]);
+  const [roomName, setRoomName] = useState<string>(""); // état pour le nom de la room
+  const [error, setError] = useState<string | null>(null);
   const currentRoomId = useSelector((state: RootState) => state.room.roomId);
   const dispatch = useDispatch();
 
   const fetchRooms = async () => {
     const { data, error } = await RoomSupabase.getRooms();
     if (error) {
-      console.error('Erreur de récupération des rooms:', error);
+      console.error("Erreur de récupération des rooms:", error);
     } else {
       setRooms(data || []);
     }
   };
 
-  // Charger les rooms au montage initial et configurer l'abonnement aux changements
   useEffect(() => {
-    // Charger les rooms immédiatement
     fetchRooms();
 
-    // Configurer un abonnement aux changements dans la table des rooms
     const roomsSubscription = RoomSupabase.subscribeToRooms((payload) => {
-      console.log('Changement détecté dans les rooms:', payload);
-      fetchRooms(); // Recharger les rooms quand il y a un changement
+      console.log("Changement détecté dans les rooms:", payload);
+      fetchRooms();
     });
 
-    // Nettoyage de l'abonnement à la destruction du composant
     return () => {
       if (roomsSubscription) {
         roomsSubscription.unsubscribe();
@@ -42,28 +40,31 @@ export default function RoomBrowser({ isVisible = true }: RoomBrowserProps) {
     };
   }, []);
 
-  // Effet additionnel pour recharger les rooms quand le composant devient visible
   useEffect(() => {
-    // La variable isVisible serait passée comme prop depuis ConsultationPage
-    // pour indiquer si le composant est déplié/visible
-    if (isVisible && document.visibilityState === 'visible') {
+    if (isVisible && document.visibilityState === "visible") {
       fetchRooms();
     }
   }, [isVisible, document.visibilityState]);
 
   const handleCreateRoom = async () => {
-    // Création d'une salle avec un nom généré automatiquement
-    const room = await RoomSupabase.createRoom();
+    setError(null);
+    if (!roomName.trim()) {
+      setError("Le nom de la salle ne peut pas être vide.");
+      return;
+    }
+    const room = await RoomSupabase.createRoom(roomName.trim());
     if (room) {
+      setRoomName(""); // reset input
       fetchRooms();
       dispatch(roomIdUpdated(room.id));
+    } else {
+      setError("Erreur lors de la création de la salle.");
     }
   };
 
   const handleDeleteAllRooms = async () => {
     await RoomSupabase.deleteAllRooms();
     fetchRooms();
-    // Si on est connecté à une room qui vient d'être supprimée, on se déconnecte
     if (currentRoomId) {
       dispatch(roomIdUpdated(null));
     }
@@ -87,8 +88,19 @@ export default function RoomBrowser({ isVisible = true }: RoomBrowserProps) {
         </div>
       )}
 
+      <Form.Group className="mb-3" controlId="roomNameInput">
+        <Form.Label>Nom de la salle créer</Form.Label>
+        <Form.Control
+          type="text"
+          placeholder="Entrez le nom de la salle"
+          value={roomName}
+          onChange={(e) => setRoomName(e.target.value)}
+        />
+        {error && <Form.Text className="text-danger">{error}</Form.Text>}
+      </Form.Group>
+
       <div className="mb-3">
-        <h5>Rooms disponibles:</h5>
+        <h5>Rooms disponibles :</h5>
         <ListGroup className="mb-3">
           {rooms.length > 0 ? (
             rooms.map((room) => (
@@ -96,14 +108,18 @@ export default function RoomBrowser({ isVisible = true }: RoomBrowserProps) {
                 key={room.id}
                 action={room.id !== currentRoomId}
                 active={room.id === currentRoomId}
-                onClick={() => room.id !== currentRoomId && handleSelectRoom(room.id)}
-                className={room.id === currentRoomId ? 'cursor-default' : ''}
+                onClick={() =>
+                  room.id !== currentRoomId && handleSelectRoom(room.id)
+                }
+                className={room.id === currentRoomId ? "cursor-default" : ""}
               >
                 <div>
                   <strong>{room.short_name}</strong>
                   <div className="small text-muted">{room.id}</div>
                   {room.id === currentRoomId && (
-                    <Badge bg="primary" className="mt-1">Salle actuelle</Badge>
+                    <Badge bg="primary" className="mt-1">
+                      Salle actuelle
+                    </Badge>
                   )}
                 </div>
               </ListGroup.Item>

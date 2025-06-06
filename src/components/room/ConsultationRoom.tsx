@@ -159,7 +159,7 @@ export default function ConsultationRoom({
   return (
     <div
       className="h-100 top-0 position-absolute"
-      style={{ width: "100%", flex: "0 0 80%", maxWidth: "80%" }}
+      style={{ width: "100%", flex: "0 0 80%", maxWidth: "80%", pointerEvents: "none" }}
     >
       <div
         style={{ marginTop: "8.5em", height: "60%", overflowY: "auto" }}
