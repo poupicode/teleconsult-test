@@ -81,6 +81,11 @@ export class PeerConnection implements IPeerConnection {
     private clientId: string;
     private readyToNegotiate: boolean = false;
     private presenceResetTimeout: ReturnType<typeof setTimeout> | null = null;
+    
+    // Protection against multiple resets and failed state tracking
+    private isResetting: boolean = false;
+    private failedStateCount: number = 0;
+    private lastFailedStateTime: number = 0;
 
     // ICE debugging
     private iceConnectionTimeout: NodeJS.Timeout | null = null;
@@ -221,8 +226,13 @@ export class PeerConnection implements IPeerConnection {
                         clearTimeout(this.iceConnectionTimeout);
                         this.iceConnectionTimeout = null;
                     }
-                    console.log(`[WebRTC-ICE] Connection established in ${Date.now() - this.iceStartTime}ms`);
+                    console.log(`[WebRTC-ICE] ✅ Connection established in ${Date.now() - this.iceStartTime}ms`);
                     console.log(`[WebRTC-ICE] Using TURN relay: ${this.hasRelay ? 'Yes' : 'No/Unknown'}`);
+
+                    // Reset failure counters on successful connection
+                    this.failedStateCount = 0;
+                    this.lastFailedStateTime = 0;
+                    console.log('[WebRTC-ICE] 🔄 Failure counters reset due to successful connection');
 
                     // Analyze detailed statistics after connection
                     setTimeout(() => this.getDetailedConnectionStats(), 1000);
@@ -232,12 +242,32 @@ export class PeerConnection implements IPeerConnection {
                     console.error('[WebRTC-ICE] ❌ Connection failed. This is likely due to a TURN server issue or network restriction.');
                     this.logIceStats();
 
-                    // Try Perfect Negotiation automatic reconnection if both peers are still present
+                    // Track failed state occurrences for smart recovery
+                    const now = Date.now();
+                    const timeSinceLastFailed = now - this.lastFailedStateTime;
+                    this.lastFailedStateTime = now;
+
+                    // If we've been in failed state multiple times recently, use global reset
+                    if (timeSinceLastFailed < 30000) { // Within 30 seconds
+                        this.failedStateCount++;
+                    } else {
+                        this.failedStateCount = 1; // Reset count if it's been a while
+                    }
+
                     if (this.signaling.hasPatientAndPractitioner()) {
-                        console.log('[WebRTC-ICE] 🔄 Both peers present, attempting Perfect Negotiation reconnection...');
-                        setTimeout(() => {
-                            this.perfectNegotiation.attemptReconnection();
-                        }, 1000); // Small delay to let logs complete
+                        if (this.failedStateCount >= 2) {
+                            console.log('[WebRTC-ICE] 🚨 Persistent failed state detected, performing GLOBAL reset...');
+                            setTimeout(() => {
+                                this.forceGlobalReset().catch(err => {
+                                    console.error('[WebRTC-ICE] Global reset failed:', err);
+                                });
+                            }, 3000); // Longer delay for global reset
+                        } else {
+                            console.log('[WebRTC-ICE] 🔄 First failed attempt, performing standard reset...');
+                            setTimeout(() => {
+                                this.resetPeerConnection();
+                            }, 2000); // Standard delay for first attempt
+                        }
                     } else {
                         console.log('[WebRTC-ICE] 👤 Peer absent, not attempting reconnection');
                     }
@@ -618,7 +648,14 @@ export class PeerConnection implements IPeerConnection {
 
     // Reset the RTC peer connection
     private resetPeerConnection() {
-        console.log('[WebRTC] Resetting peer connection for room:', this.roomId);
+        // Prevent multiple concurrent resets
+        if (this.isResetting) {
+            console.log('[WebRTC] ⚠️ Reset already in progress, skipping...');
+            return;
+        }
+
+        this.isResetting = true;
+        console.log('[WebRTC] 🔄 Resetting peer connection for room:', this.roomId);
 
         // Close the data channel
         this.dataChannelManager.closeDataChannel();
@@ -724,7 +761,43 @@ export class PeerConnection implements IPeerConnection {
             }
         });
 
-        console.log('[WebRTC] Peer connection has been reset for room:', this.roomId);
+        console.log('[WebRTC] ✅ Peer connection has been reset for room:', this.roomId);
+        
+        // Reset the flag to allow future resets
+        this.isResetting = false;
+    }
+
+    /**
+     * Force un reset complet et global de la connexion WebRTC
+     * Utilisé quand l'état 'failed' persiste malgré les tentatives de reconnexion
+     */
+    async forceGlobalReset(): Promise<void> {
+        console.log('[WebRTC] 🚨 Force global reset requested - handling persistent failed state');
+
+        try {
+            // Force reset même si déjà en cours
+            this.isResetting = false;
+            
+            // Reset complet de la connexion
+            this.resetPeerConnection();
+
+            // Attendre un délai pour que le reset soit complet
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            // Si les deux participants sont présents, forcer une nouvelle négociation
+            if (this.signaling.hasPatientAndPractitioner()) {
+                console.log('[WebRTC] 🔄 Both participants present after global reset, triggering new negotiation');
+                
+                // Notifier Perfect Negotiation que la room est prête
+                this.perfectNegotiation.onRoomReady();
+            }
+
+            console.log('[WebRTC] ✅ Global reset completed successfully');
+        } catch (error) {
+            console.error('[WebRTC] ❌ Global reset failed:', error);
+            this.isResetting = false; // Ensure flag is reset even on error
+            throw error;
+        }
     }
 
     /**
@@ -734,40 +807,28 @@ export class PeerConnection implements IPeerConnection {
      */
     private isConnectionHealthy(): boolean {
         // Check peer connection state
-        const pc = this.getPeerConnection();
-        if (!pc) {
+        if (!this.pc) {
             console.log('[WebRTC] No peer connection available');
             return false;
         }
 
-        const connectionState = pc.connectionState;
-        const iceState = pc.iceConnectionState;
-        const signalingState = pc.signalingState;
+        const connectionState = this.pc.connectionState;
+        const iceConnectionState = this.pc.iceConnectionState;
+        const signalingState = this.pc.signalingState;
 
-        // VERY TOLERANT Criteria - Massively favor recovery:
+        console.log(`[WebRTC] Connection health check - Connection: ${connectionState}, ICE: ${iceConnectionState}, Signaling: ${signalingState}`);
 
-        // 1. Connection: Only definitively broken states are rejected
-        const isConnectionBroken = connectionState === 'failed' || connectionState === 'closed';
+        // Connection is healthy if:
+        // 1. Connection state is good (connected, connecting, or new)
+        // 2. ICE connection is not permanently failed
+        // 3. Signaling state is reasonable
+        const isConnectionStateOk = ['connected', 'connecting', 'new'].includes(connectionState);
+        const isIceStateOk = !['failed', 'closed'].includes(iceConnectionState);
+        const isSignalingStateOk = !['closed'].includes(signalingState);
 
-        // 2. ICE: Same logic, only definitive failures
-        const isIceBroken = iceState === 'failed' || iceState === 'closed';
+        const isHealthy = isConnectionStateOk && isIceStateOk && isSignalingStateOk;
 
-        // 3. Signaling: Accept ALL states except 'closed' (even transition states)
-        const isSignalingBroken = signalingState === 'closed';
-
-        // 4. DataChannel: NEVER be a health criterion - it can be recreated
-        // const dataChannelState = this.dataChannelManager?.isHealthy() ?? false;
-
-        console.log(`[WebRTC] Connection health check (ULTRA-TOLERANT): connection=${connectionState}(broken=${isConnectionBroken}), ice=${iceState}(broken=${isIceBroken}), signaling=${signalingState}(broken=${isSignalingBroken})`);
-
-        // Connection considered healthy if NO state is definitively broken
-        const isHealthy = !isConnectionBroken && !isIceBroken && !isSignalingBroken;
-
-        if (isHealthy) {
-            console.log('[WebRTC] ✅ Connection is healthy/recoverable, preserving existing connection');
-        } else {
-            console.log('[WebRTC] ❌ Connection is definitively broken, reset justified');
-        }
+        console.log(`[WebRTC] Connection health result: ${isHealthy ? 'HEALTHY' : 'UNHEALTHY'}`);
 
         return isHealthy;
     }
