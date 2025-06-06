@@ -11,13 +11,20 @@ import {
 import { v4 as uuidv4 } from "uuid";
 import { Alert, Badge } from "react-bootstrap";
 import RoomInformations from "./RoomInformations";
+import DoctorRoomManager from "@/components/room/DoctorRoomManager";
+import RoomList from "@/components/room/RoomList";
+import { supabase } from "@/lib/supabaseClient";
 
 interface ConsultationRoomProps {
   onPeerConnectionReady?: (peerConnection: PeerConnection) => void;
+  handleDisconnect: () => void;
+  onCreateRoom: (fn: () => Promise<void>) => void;
 }
 
 export default function ConsultationRoom({
   onPeerConnectionReady,
+  handleDisconnect,
+  onCreateRoom
 }: ConsultationRoomProps) {
   const dispatch = useDispatch();
   const { roomId, userRole, userId } = useSelector(
@@ -158,25 +165,51 @@ export default function ConsultationRoom({
 
   return (
     <div
-      className="h-100 top-0 position-absolute"
-      style={{ width: "100%", flex: "0 0 80%", maxWidth: "80%", pointerEvents: "none" }}
+      className="top-0 position-absolute h-100"
+      style={{
+        width: "100%",
+        flex: "0 0 78%",
+        maxWidth: "78%",
+        overflow: "hidden",
+      }}
     >
       <div
-        style={{ marginTop: "8.5em", height: "60%", overflowY: "auto" }}
-        className="ps-3 pe-3"
+        style={{
+          marginTop: "7em",
+          overflowY: "auto",
+          height: roomId ? "60%" : "calc(100% - 7em)",
+        }}
+        className="p-4 ps-3 pe-3"
       >
         {!roomId ? (
           // Remplacer et mettre ici l'affichage/interface de création de salle
           // ou de sélection de salle
-          <Alert variant="info">
-            Veuillez sélectionner ou créer une salle pour démarrer une
-            consultation.
-          </Alert>
+          <div>
+            {/* <Alert variant="info">
+              Veuillez sélectionner ou créer une salle pour démarrer une
+              consultation.
+            </Alert> */}
+            {/* RoomBrowser pour le praticien */}
+            {userKind === "practitioner" && (
+              <div className="mb-4">
+                <DoctorRoomManager onCreateRoom={onCreateRoom} />
+              </div>
+            )}
+            {/* RoomList pour les patients */}
+            {userKind === "patient" && (
+              <div className="mb-5">
+                <RoomList />
+              </div>
+            )}
+          </div>
         ) : (
           <>
             {/* Ici, la barre d'informations de la salle de consultation (en bas de l'écran et qui est en position absolute) */}
-            <RoomInformations roomReady={roomReady} userRole={userRole} />
-
+            <RoomInformations
+              roomReady={roomReady}
+              userKind={userKind}
+              handleDisconnect={handleDisconnect}
+            />
             {/* Mettre ici l'affichage des données */}
             <Alert
               variant={

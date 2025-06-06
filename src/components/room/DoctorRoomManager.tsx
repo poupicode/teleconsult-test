@@ -5,7 +5,13 @@ import { useDispatch } from "react-redux";
 import { roomIdUpdated } from "@/features/room/roomSlice";
 import { supabase } from "@/lib/supabaseClient";
 
-export default function DoctorRoomManager() {
+export default function DoctorRoomManager({
+  onCreateRoom,
+}: {
+  onCreateRoom: (fn: () => Promise<void>) => void;
+}) {
+  // State pour stocker les rooms et l'état d'édition
+  // Utilisation de useState pour gérer les rooms et l'état d'édition des noms
   const [rooms, setRooms] = useState<Room[]>([]);
   const [editingRooms, setEditingRooms] = useState<Record<string, string>>({});
   const dispatch = useDispatch();
@@ -18,14 +24,21 @@ export default function DoctorRoomManager() {
   const loadRooms = async () => {
     const result = await RoomSupabase.getAllRooms();
     if (result) setRooms(result);
+    console.log("Rooms loaded:", result);
   };
 
-  const handleCreateRoom = async () => {
-    const newRoom = await RoomSupabase.createRoom("nouvelle salle");
+  const handleCreateRoom = React.useCallback(async () => {
+    const newRoom = await RoomSupabase.createRoom("Nouvelle salle");
     if (newRoom) {
       setRooms((prev) => [...prev, newRoom]);
     }
-  };
+  }, []);
+
+  React.useEffect(() => {
+    if (onCreateRoom) {
+      onCreateRoom(handleCreateRoom);
+    }
+  }, [onCreateRoom, handleCreateRoom]);
 
   const handleUpdateName = (id: string, value: string) => {
     setEditingRooms((prev) => ({ ...prev, [id]: value }));
@@ -56,16 +69,7 @@ export default function DoctorRoomManager() {
   };
 
   return (
-    <div>
-      <h3 className="fw-bold text-primary mb-3">Salles de consultation</h3>
-      <Button
-        variant="danger"
-        className="rounded-pill mb-4 text-white"
-        onClick={handleCreateRoom}
-      >
-        Créer une salle
-      </Button>
-
+    <div className="h-80 pt-4">
       <Row className="gy-4">
         {rooms.map((room) => (
           <Col key={room.id} md={6} lg={4}>
@@ -75,7 +79,7 @@ export default function DoctorRoomManager() {
             >
               <Card.Body>
                 <Form.Group>
-                  <Form.Label className="fw-bold">Nom de la salle :</Form.Label>
+                  <Form.Label className="fw-bold">{room.short_name}</Form.Label>
                   <Form.Control
                     type="text"
                     value={editingRooms[room.id] ?? room.short_name}

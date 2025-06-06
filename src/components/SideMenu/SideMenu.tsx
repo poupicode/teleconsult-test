@@ -59,7 +59,7 @@ const SideMenu = ({ isInformationsEntered, userKind, patientInformations, isCons
         </li>
         {/* Afficher les informations du patient si elles sont disponibles (se réactualise quand on rentre les informations dans patientInformations (dans le composant parent ConsultationPage)) */}
         {isInformationsEntered && userKind==="patient" && (
-          <li key="patient" className="mt-2 p-2">
+          <li key="patient" className="mt-2 p-2" style={{height: "unset"}}>
             <PatientInformations patientInformations={patientInformations} />
           </li>
         )}

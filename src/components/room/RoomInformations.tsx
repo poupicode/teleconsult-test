@@ -2,13 +2,17 @@ import { Container, ListGroup, Card, Button, CardTitle } from "react-bootstrap";
 import { useState } from "react";
 import { Role } from "../../features/room/rtc/peer";
 
+type RoomInformationsType = {
+  roomReady: boolean;
+  userKind: string | null;
+  handleDisconnect: () => void;
+};
+
 const RoomInformations = ({
   roomReady,
-  userRole,
-}: {
-  roomReady: boolean;
-  userRole: Role | null;
-}) => {
+  userKind,
+  handleDisconnect,
+}: RoomInformationsType) => {
   // useState pour l'animation au survol de la barre d'informations de la salle de consultation
   const [informationsHovered, setInformationsHovered] = useState(false);
 
@@ -28,9 +32,8 @@ const RoomInformations = ({
         />
         {/* Groupe des éléments d'informations */}
         <ListGroup
-          className="border-0 justify-content-between"
+          className="border-0 flex-row justify-content-between"
           variant="flush"
-          horizontal
         >
           {/* Les informations de la salle */}
           <ListGroup.Item
@@ -74,7 +77,7 @@ const RoomInformations = ({
             as={"li"}
             className="bg-transparent border-0 mt-2 mb-2"
           >
-            {userRole === Role.PATIENT && (
+            {userKind === "patient" && (
               <h3
                 style={{
                   transition: "0.4s ease",
@@ -94,11 +97,11 @@ const RoomInformations = ({
             <p className={`m-0 ${!informationsHovered ? "fw-medium" : ""}`}>
               {!roomReady
                 ? `En attente de ${
-                    userRole === Role.PRACTITIONER
+                    userKind === "practitioner"
                       ? "du patient"
                       : "du praticien"
                   }`
-                : userRole === Role.PATIENT && "Dr. "}
+                : userKind === "patient" && "Dr. "}
             </p>
           </ListGroup.Item>
 
@@ -113,6 +116,7 @@ const RoomInformations = ({
               className={`secondary-btn ps-4 pe-4 ${
                 !informationsHovered ? "pb-1 pt-1" : ""
               }`}
+              onClick={handleDisconnect}
             >
               Quitter la salle
             </Button>

@@ -1,4 +1,4 @@
-import { useState, useEffect, use } from "react";
+import React, { useState, useEffect, use } from "react";
 import {
   Container,
   Row,
@@ -139,13 +139,29 @@ export default function ConsultationPage() {
   // (pour afficher le formulaire ou la consultation)
   const [isConsultationTab, setIsConsultationTab] = useState(false);
 
+  const [receiveHandleCreateRoom, setReceiveHandleCreateRoom] = React.useState<
+    (() => Promise<void>) | null
+  >(null);
+
+  const getHandleCreateRoom = React.useCallback((fn: () => Promise<void>) => {
+    setReceiveHandleCreateRoom(() => fn);
+  }, []);
+
+  const handleCreateRoom = React.useCallback(async () => {
+    if (receiveHandleCreateRoom) {
+      await receiveHandleCreateRoom(); // appelle la fonction async de l'enfant
+    } else {
+      alert("Fonction pas encore reçue");
+    }
+  }, [receiveHandleCreateRoom]);
+
   return (
     <Container fluid>
       <Row>
         {/* Colonne gauche : Side Menu */}
         <Col
           className="bg-grey p-0"
-          style={{ flex: "0 0 20%", maxWidth: "20%" }}
+          style={{ flex: "0 0 22%", maxWidth: "22%" }}
         >
           {/* <SideMenu /> avec les props appropriées */}
           <SideMenu
@@ -158,7 +174,7 @@ export default function ConsultationPage() {
         </Col>
 
         {/* Colonne centrale : Consultation Room */}
-        <Col className="p-0" style={{ flex: "0 0 80%", maxWidth: "80%" }}>
+        <Col className="p-0 h-100" style={{ flex: "0 0 78%", maxWidth: "78%" }}>
           {/* Composant Header de tableau de bord */}
           <Header variant="dashboard">
             {!isConsultationTab ? (
@@ -175,9 +191,16 @@ export default function ConsultationPage() {
               // Afficher pour le praticien le titre "Choisissez une salle" avec les 2 boutons de création/suppression de salle
               <div className="d-flex flex-row align-items-center justify-content-between">
                 <h1>Choisissez une salle de consultation</h1>
+
                 {userKind === "practitioner" && (
                   <>
-                    {/* Mettre les éléments du praticien sur la création/suppression de salle */}
+                    <Button
+                      variant="danger"
+                      className="rounded-pill mb-4 text-white"
+                      onClick={handleCreateRoom}
+                    >
+                      Créer une salle
+                    </Button>
                   </>
                 )}
               </div>
@@ -209,6 +232,11 @@ export default function ConsultationPage() {
             // Si l'onglet de consultation est actif (du menu latéral), afficher : (mettre dans ConsultationRoom toute la logique de la page de consultation : création de salle, affichage de la consultation, chat, etc.)
             // Le bouton de création de salle pour le praticien à mettre dans le header
             <>
+              <ConsultationRoom
+                onPeerConnectionReady={handlePeerConnectionReady}
+                handleDisconnect={handleDisconnect}
+                onCreateRoom={getHandleCreateRoom}
+              />
               {/* Composant de gestion des données Bluetooth */}
               {/* {userKind === "patient" && peerConnection && (
                 <BluetoothContext peerConnection={peerConnection} />
@@ -218,20 +246,17 @@ export default function ConsultationPage() {
               )} */}
 
               {/* RoomBrowser pour le praticien */}
-              {userKind === "practitioner" && (
+              {/* {userKind === "practitioner" && (
                 <div className="mb-4">
                   <DoctorRoomManager />
                 </div>
-              )}
+              )} */}
               {/* RoomList pour les patients */}
-              {userKind === "patient" && (
+              {/* {userKind === "patient" && (
                 <div className="mb-5">
                   <RoomList />
                 </div>
-              )}
-              <ConsultationRoom
-                onPeerConnectionReady={handlePeerConnectionReady}
-              />
+              )} */}
 
               {/* <Card className="mb-3">
                 <Card.Header>

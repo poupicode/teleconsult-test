@@ -51,8 +51,6 @@ export default function RoomList() {
 
   return (
     <div>
-      <h5 className="mb-4 fw-bold">Salles disponibles</h5>
-
       {loading ? (
         <Spinner animation="border" variant="primary" />
       ) : rooms.length > 0 ? (
