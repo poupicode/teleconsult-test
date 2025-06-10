@@ -1,39 +1,70 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { RootState } from '@/app/store';
-import { RoomSupabase } from '../../features/room/roomSupabase';
-import { PeerConnection, Role } from '../../features/room/rtc/peer';
-import { participantJoined, userIdSet, userRoleSet } from '../../features/room/roomSlice';
-import { v4 as uuidv4 } from 'uuid';
-import { Alert, Badge } from 'react-bootstrap';
+import React, { useEffect, useState, useRef } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import { RootState } from "@/app/store";
+import { RoomSupabase } from "../../features/room/roomSupabase";
+import { PeerConnection, Role } from "../../features/room/rtc/peer";
+import {
+  participantJoined,
+  userIdSet,
+  userRoleSet,
+} from "../../features/room/roomSlice";
+import { v4 as uuidv4 } from "uuid";
+import { Alert, Badge } from "react-bootstrap";
+import RoomInformations from "./RoomInformations";
+import DoctorRoomManager from "@/components/room/DoctorRoomManager";
+import RoomList from "@/components/room/RoomList";
+import { supabase } from "@/lib/supabaseClient";
+import BluetoothContext from "@/components/bluetooth/BluetoothContext";
+import DoctorInterface from "@/components/bluetooth/DoctorInterface";
 
 interface ConsultationRoomProps {
   onPeerConnectionReady?: (peerConnection: PeerConnection) => void;
+  handleDisconnect: () => void;
+  onCreateRoom: (fn: () => Promise<void>) => void;
+  onSendConnect: (fn: () => Promise<void>) => void;
 }
 
-export default function ConsultationRoom({ onPeerConnectionReady }: ConsultationRoomProps) {
+export default function ConsultationRoom({
+  onPeerConnectionReady,
+  handleDisconnect,
+  onCreateRoom,
+  onSendConnect
+}: ConsultationRoomProps) {
   const dispatch = useDispatch();
-  const { roomId, userRole, userId } = useSelector((state: RootState) => state.room);
+
+  // Récupérer les informations de l'utilisateur et de la salle (si il y a)
+  const { roomId, userRole, userId } = useSelector(
+    (state: RootState) => state.room
+  );
+
+  // Récupérer le rôle de l'utilisateur
   const userKind = useSelector((state: RootState) => state.user.user_kind);
 
-  const [peerConnection, setPeerConnection] = useState<PeerConnection | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<string>('disconnected');
+  // Gestion de la connexion
+  const [peerConnection, setPeerConnection] = useState<PeerConnection | null>(
+    null
+  );
+  const [connectionStatus, setConnectionStatus] =
+    useState<string>("disconnected");
+  
+  // Etat pour voir si la salle est prête ou non (c'est-à-dire si on est dedans ou pas)
   const [roomReady, setRoomReady] = useState<boolean>(false);
   const [negotiationRole, setNegotiationRole] = useState<'polite' | 'impolite' | null>(null);
 
   // Reference to track the previously connected room
   const previousRoomIdRef = useRef<string | null>(null);
 
-  // Generate a user ID if none exists
+  // Générer un id d'utilisateir s'il y en a pas
   useEffect(() => {
     if (!userId) {
       const newUserId = uuidv4();
       dispatch(userIdSet(newUserId));
     }
 
-    // Set user role based on user kind
+    // Définir le rôle de l'utilisateur dans Role en fonction de user kind
     if (userKind && !userRole) {
-      const role = userKind === 'practitioner' ? Role.PRACTITIONER : Role.PATIENT;
+      const role =
+        userKind === "practitioner" ? Role.PRACTITIONER : Role.PATIENT;
       dispatch(userRoleSet(role));
     }
   }, [userId, userRole, userKind, dispatch]);
@@ -73,7 +104,7 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
     } else if (!roomId && peerConnection) {
       peerConnection.disconnect();
       setPeerConnection(null);
-      setConnectionStatus('disconnected');
+      setConnectionStatus("disconnected");
       setRoomReady(false);
       setNegotiationRole(null);
     }
@@ -162,53 +193,78 @@ export default function ConsultationRoom({ onPeerConnectionReady }: Consultation
       await peer.connect();
 
       // Add the participant to the store
-      dispatch(participantJoined({
-        id: userId,
-        role: userRole,
-        isConnected: true
-      }));
-
+      dispatch(
+        participantJoined({
+          id: userId,
+          role: userRole,
+          isConnected: true,
+        })
+      );
     } catch (error) {
-      console.error('Error setting up WebRTC:', error);
+      console.error("Error setting up WebRTC:", error);
     }
   };
 
   return (
-    <div className="p-4">
-      <h2 className="mb-4">Consultation Room</h2>
-
-      {!roomId ? (
-        <Alert variant="info">
-          Please select or create a room to start a consultation.
-        </Alert>
-      ) : (
-        <>
-          <Alert variant={connectionStatus === 'connected' ? 'success' :
-            connectionStatus === 'connecting' ? 'warning' : 'danger'}>
-            Connection status: <strong>{connectionStatus}</strong>
-            {roomReady && (
-              <Badge bg="success" className="ms-2">
-                Room ready ({userRole === Role.PRACTITIONER ? 'Patient connected' : 'Practitioner connected'})
-                {negotiationRole && (
-                  <span className="ms-1">
-                    - Negotiation role: {negotiationRole === 'polite' ? 'Polite (waits)' : 'Impolite (initiates)'}
-                  </span>
-                )}
-              </Badge>
+    <div
+      className="top-0 position-absolute h-100"
+      style={{
+        width: "100%",
+        flex: "0 0 78%",
+        maxWidth: "78%",
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          marginTop: "7.5em",
+          overflowY: "auto",
+          height: roomId ? "60%" : "calc(100% - 7.5em)",
+        }}
+        className="p-4 ps-3 pe-3"
+      >
+        {!roomId ? (
+          // Remplacer et mettre ici l'affichage/interface de création de salle
+          // ou de sélection de salle
+          <div>
+            {/* <Alert variant="info">
+              Veuillez sélectionner ou créer une salle pour démarrer une
+              consultation.
+            </Alert> */}
+            {/* RoomBrowser pour le praticien */}
+            {userKind === "practitioner" && (
+              <div className="mb-3">
+                <DoctorRoomManager onCreateRoom={onCreateRoom} />
+              </div>
             )}
-            {!roomReady && (
-              <Badge bg="warning" className="ms-2">
-                Waiting for {userRole === Role.PRACTITIONER ? 'patient' : 'practitioner'}
-                {negotiationRole && (
-                  <span className="ms-1">
-                    - Role: {negotiationRole === 'polite' ? 'Polite' : 'Impolite'}
-                  </span>
-                )}
-              </Badge>
+            {/* RoomList pour les patients */}
+            {userKind === "patient" && (
+              <div className="mb-3">
+                <RoomList />
+              </div>
             )}
-          </Alert>
-        </>
-      )}
+          </div>
+        ) : (
+          <>
+            {/* Ici, la barre d'informations de la salle de consultation (en bas de l'écran et qui est en position absolute) */}
+            <RoomInformations
+              roomReady={roomReady}
+              userKind={userKind}
+              handleDisconnect={handleDisconnect}
+              roomId={roomId}
+              connectionStatus={connectionStatus}
+            />
+            {/* Mettre ici l'affichage des données */}
+            {/* Composant de gestion des données Bluetooth */}
+            {userKind === "patient" && peerConnection && (
+              <BluetoothContext peerConnection={peerConnection} onSendConnect={onSendConnect} />
+            )}
+            {userKind === "practitioner" && peerConnection && (
+              <DoctorInterface peerConnection={peerConnection} />
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

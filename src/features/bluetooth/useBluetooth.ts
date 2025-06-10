@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import deviceType from './config';
 import { configureNotifications } from './services';
 
@@ -17,16 +17,15 @@ type UseBluetoothOptions = {
 export function useBluetooth({ onMeasurement }: UseBluetoothOptions = {}) {
   // État de connexion Bluetooth
   const [status, setStatus] = useState('En attente...');
-  const [connectedCards, setConnectedCards] = useState<ConnectedCard[]>([]);
-  const deviceRef = useRef<BluetoothDevice | null>(null);
+  const [connectedCards, setConnectedCards] = useState<ConnectedCard[]>([]); // Liste des cartes connectées et leurs mesures
+  const deviceRef = useRef<BluetoothDevice | null>(null); // Référence à l’appareil connecté
 
   // Services Bluetooth compatibles définis dans le fichier config
   const supportedServices = Object.keys(deviceType) as Array<Extract<keyof typeof deviceType, string>>;
 
-  // Fonction principale pour se connecter à un appareil Bluetooth
-  const connect = async () => {
+  const connect = React.useCallback(async () => {
     try {
-      // Filtre les services disponibles
+      // Prépare les filtres pour ne chercher que les services supportés
       const filters = supportedServices.map((svc) => ({ services: [svc] }));
       const device = await navigator.bluetooth.requestDevice({
         filters,
@@ -40,7 +39,7 @@ export function useBluetooth({ onMeasurement }: UseBluetoothOptions = {}) {
       const server = await device.gatt?.connect();
       setStatus('Connecté !');
 
-      // Gère la reconnexion automatique si l'appareil se déconnecte
+      // Écoute les déconnexions pour tenter une reconnexion automatique
       device.addEventListener('gattserverdisconnected', () => reconnectDevice(device));
 
       if (!server) throw new Error('Impossible d’obtenir le GATT server');
@@ -65,9 +64,9 @@ export function useBluetooth({ onMeasurement }: UseBluetoothOptions = {}) {
       console.error(err);
       setStatus('Erreur de connexion : ' + err.message);
     }
-  };
+  }, []);
 
-  // Tentative de reconnexion automatique après déconnexion
+  // Fonction appelée en cas de déconnexion : tente une reconnexion automatique
   const reconnectDevice = async (device: BluetoothDevice) => {
     setStatus('Tentative de reconnexion…');
     try {

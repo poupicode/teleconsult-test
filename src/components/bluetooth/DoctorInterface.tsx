@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { useDoctorData } from '@/features/bluetooth/useDoctorData';
 import { PeerConnection } from '@/features/room/rtc/peer/connection/peer-connection';
 
+// Props attendues : peerConnection est optionnelle
 interface DoctorInterfaceProps {
   peerConnection?: PeerConnection; // La connexion WebRTC transmise en props
 }
