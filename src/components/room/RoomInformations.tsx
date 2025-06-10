@@ -7,7 +7,7 @@ type RoomInformationsType = {
   userKind: string | null;
   handleDisconnect: () => void;
   roomId: string;
-  connectionStatus: string
+  connectionStatus: string;
 };
 
 const RoomInformations = ({
@@ -15,7 +15,7 @@ const RoomInformations = ({
   userKind,
   handleDisconnect,
   roomId,
-  connectionStatus
+  connectionStatus,
 }: RoomInformationsType) => {
   // useState pour l'animation au survol de la barre d'informations de la salle de consultation
   const [informationsHovered, setInformationsHovered] = useState(false);
@@ -43,9 +43,44 @@ const RoomInformations = ({
       onMouseLeave={() => setInformationsHovered(false)}
     >
       {/* Ensemble contenant les éléments de la barre d'informations */}
-      <div className="position-relative" style={{ width: "calc(100vw - 26em)" }}>
+      <div
+        className="position-relative"
+        style={{ width: "calc(100vw - 26em)" }}
+      >
         {/* Badge d'état de connexion */}
-        <div className={`position-absolute small rounded-5 ${!connectionStatus ? "bg-blue color-white" : "bg-pink color-red"}`} style={{bottom: "calc(100% + .5em)", left: "-1em", padding: ".2em .6em"}}>État : <strong className={!connectionStatus ? "color-white" : "color-red"}>{!connectionStatus ? "Connecté" : "Déconnecté"}</strong></div>
+        <div
+          className={`position-absolute small rounded-5 ${
+            connectionStatus === "connected"
+              ? "bg-blue color-white"
+              : connectionStatus === "connecting"
+              ? "bg-lightblue color-blue"
+              : "bg-pink color-red"
+          }`}
+          style={{
+            bottom: "calc(100% + .5em)",
+            left: "-1em",
+            padding: ".2em .6em",
+          }}
+        >
+          État :{" "}
+          <strong
+            className={`text-capitalize ${
+              connectionStatus === "connected"
+                ? "color-white"
+                : connectionStatus === "connecting"
+                ? "color-blue"
+                : "color-red"
+            }`}
+          >
+            {connectionStatus === "connected"
+              ? "connecté"
+              : connectionStatus === "connecting"
+              ? "connexion en cours"
+              : connectionStatus === "disconnected"
+              ? "déconnecté"
+              : connectionStatus}
+          </strong>
+        </div>
 
         {/* Séparateur */}
         <hr
@@ -117,14 +152,15 @@ const RoomInformations = ({
                   !informationsHovered ? "mb-0" : ""
                 }`}
               >
-                Praticien {roomReady && "connecté"}
+                Praticien{" "}
+                {roomReady && connectionStatus === "connected" && "connecté"}
               </h3>
             )}
 
             {/* Etat de connextion du patient / praticien */}
             {/* Si connecté, afficher le nom du médecin pour le patient ou 'Patient connecté' pour le médecin */}
             <p className={`m-0 ${!informationsHovered ? "fw-medium" : ""}`}>
-              {!roomReady ? (
+              {!roomReady && connectionStatus !== "connected" ? (
                 `En attente ${
                   userKind === "practitioner" ? "du patient" : "du praticien"
                 }`
