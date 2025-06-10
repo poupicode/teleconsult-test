@@ -111,15 +111,6 @@ export default function ConsultationPage() {
     }
   }, [roomId]);
 
-  // Fonction pour créer une nouvelle salle lorsque le praticien clique sur le bouton "Créer une salle"
-  // Elle utilise RoomSupabase pour créer une salle avec un nom généré automatiquement
-  const onCreateRoomClick = async () => {
-    const room = await RoomSupabase.createRoom("Ma salle privée");
-    if (room) {
-      dispatch(roomIdUpdated(room.id));
-    }
-  };
-
   // Lorsque showRoomBrowser change, si on l'affiche, on définit refreshTrigger à true
   useEffect(() => {
     if (showRoomBrowser) {
