@@ -23,6 +23,10 @@ import Header from "@/components/Header";
 import DoctorRoomManager from "@/components/room/DoctorRoomManager";
 import { useSimpleRoomPersistence } from "@/hooks/useSimpleRoomPersistence";
 import { useSimpleBeforeUnload } from "@/hooks/useSimpleBeforeUnload";
+import { useAppSelector } from "@/hooks/useMediaStream";
+import { VideoThumbnail } from "@/components/stream/VideoThumbnail";
+import { VideoDeviceSelector } from "@/components/mediaDevices/VideoDeviceSelector";
+import { RefreshDeviceButton } from "@/components/mediaDevices/RefreshDevicesButton";
 
 // Définition des types pour les données du formulaire pour les informations du patient/praticien
 type InformationsDetails = {
@@ -36,6 +40,12 @@ type InformationsDetails = {
 };
 
 export default function ConsultationPage() {
+  const localCameraId = useAppSelector((state) => state.streams.local.camera?.streamId);
+const localInstrumentId = useAppSelector((state) => state.streams.local.instrument?.streamId);
+const remoteCameraId = useAppSelector((state) => state.streams.remote.camera?.streamId);
+const remoteInstrumentId = useAppSelector((state) => state.streams.remote.instrument?.streamId);
+const selectedStreamId = useAppSelector((state) => state.selectedStream.streamId);
+
   // Récupération des données du store Redux : le rôle de l'utilisateur, l'ID de la salle, etc.
   const userKind = useSelector((state: RootState) => state.user.user_kind);
   const roomId = useSelector((state: RootState) => state.room.roomId);
@@ -292,9 +302,31 @@ export default function ConsultationPage() {
           >
             <div className="w-100 px-2" style={{ height: "calc(100vh - 4.7em)", marginTop: "4em", borderLeft: "#c0d4ec solid 1px" }}>
               {/* Mettre le flux et le chat ici */}
-              <div className="w-100 h-100 bg-blue"></div>
-            </div>
-          </Col>
+            <div className="p-3">
+        <h5>Caméra locale</h5>
+        <VideoThumbnail
+          streamid={localCameraId}
+          muted
+          autoPlay
+          style={{ width: "100%", maxHeight: "200px" }}
+        />
+        <VideoDeviceSelector deviceType="camera" />
+
+        <h5 className="mt-4">Instrument local</h5>
+        <VideoThumbnail
+          streamid={localInstrumentId}
+          muted
+          autoPlay
+          style={{ width: "100%", maxHeight: "200px" }}
+        />
+        <VideoDeviceSelector deviceType="instrument" />
+
+        <div className="mt-4">
+          <RefreshDeviceButton />
+        </div>
+      </div>
+    </div>
+  </Col>
         )}
       </Row>
     </Container>
