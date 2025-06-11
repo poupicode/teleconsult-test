@@ -201,6 +201,7 @@ export default function ConsultationPage() {
               connectionStatus={connectionStatus}
               setIsInformationsPanelOpened={setIsInformationsPanelOpened}
               isInformationsPanelOpened={isInformationsPanelOpened}
+              setIsConsultationTab={setIsConsultationTab}
             />
           </Col>
         )}

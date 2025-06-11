@@ -24,6 +24,7 @@ type InformationsEntered = {
   roomId: string | null;
   connectionStatus: string;
   setIsInformationsPanelOpened: (value: boolean) => void;
+  setIsConsultationTab: (value: boolean) => void;
   isInformationsPanelOpened: boolean
 };
 
@@ -36,21 +37,26 @@ const SideMenu = ({
   patientInformations,
   praticienInformations,
   setIsInformationsPanelOpened,
-  isInformationsPanelOpened
+  isInformationsPanelOpened,
+  setIsConsultationTab
 }: InformationsEntered) => {
   // Pour juste mettre le style des boutons d'onglet sur actif ou inactif (et pour changer d'onglet) quand on clique dessus (sur le bouton "Informations du praticien/patient" ou "Consultation")
 
   return (
-    <div className={`w-100 p-2 ${styles.h100vh}`} style={{overflowY: "auto"}}>
+    <div className={`w-100 p-2 ${styles.h100vh}`} style={{ overflowY: "auto" }}>
       {/* Si les informations sont entrées, activer la navigation sur le menu latéral */}
       {!roomId ? (
-        userKind === "patient" ? (
-          <PatientInformations patientInformations={patientInformations} />
-        ) : (
-          <PraticionnerInformations
-            praticienInformations={praticienInformations}
-          />
-        )
+        <>
+          {userKind === "patient" ? (
+            <PatientInformations patientInformations={patientInformations} setIsConsultationTab={setIsConsultationTab} />
+          ) : (
+            <PraticionnerInformations
+              praticienInformations={praticienInformations}
+              setIsConsultationTab={setIsConsultationTab}
+            />
+          )}
+          
+        </>
       ) : (
         <RoomInformations
           userKind={userKind}

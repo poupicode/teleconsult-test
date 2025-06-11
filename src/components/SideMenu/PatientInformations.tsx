@@ -1,4 +1,4 @@
-import { Card } from "react-bootstrap";
+import { Card, Button } from "react-bootstrap";
 
 // Composant pour afficher les informations du patient
 type InformationsFormDetails = {
@@ -14,14 +14,20 @@ type InformationsFormDetails = {
 // Types pour les données du formulaire d'informations
 type InformationsFormData = {
   patientInformations: InformationsFormDetails | null;
+  setIsConsultationTab: (value: boolean) => void;
 };
 
 // Composant pour afficher les informations du patient dans le menu latéral
-const PatientInformations = ({ patientInformations } : InformationsFormData) => {
+const PatientInformations = ({
+  patientInformations,
+  setIsConsultationTab,
+}: InformationsFormData) => {
   return (
-    <Card className="p-0" style={{marginTop: "3.5em"}}>
+    <Card className="p-0" style={{ marginTop: "3.5em" }}>
       <Card.Body>
-        <Card.Title as={"h3"} className="color-red fs-5 m-0">Patient</Card.Title>
+        <Card.Title as={"h3"} className="color-red fs-5 m-0">
+          Patient
+        </Card.Title>
         <hr className="mb-3" />
         <ul>
           <li className="mb-1">
@@ -51,6 +57,13 @@ const PatientInformations = ({ patientInformations } : InformationsFormData) => 
             </small>
           </li>
         </ul>
+        <Button
+          size="sm"
+          className="secondary-btn mt-3 mx-auto d-block"
+          onClick={() => setIsConsultationTab(false)}
+        >
+          Modifier
+        </Button>
       </Card.Body>
     </Card>
   );
