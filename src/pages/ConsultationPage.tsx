@@ -304,26 +304,24 @@ const selectedStreamId = useAppSelector((state) => state.selectedStream.streamId
               {/* Mettre le flux et le chat ici */}
             <div className="p-3">
         <h5>Caméra locale</h5>
-        <VideoThumbnail
-          streamid={localCameraId}
-          muted
-          autoPlay
-          style={{ width: "100%", maxHeight: "200px" }}
-        />
-        <VideoDeviceSelector deviceType="camera" />
+  <VideoThumbnail
+    streamid={localCameraId}
+    muted
+    autoPlay
+    style={{ width: "100%", maxHeight: "200px" }}
+  />
+  <VideoDeviceSelector deviceType="camera" />
 
-        <h5 className="mt-4">Instrument local</h5>
-        <VideoThumbnail
-          streamid={localInstrumentId}
-          muted
-          autoPlay
-          style={{ width: "100%", maxHeight: "200px" }}
-        />
-        <VideoDeviceSelector deviceType="instrument" />
+  <h5 className="mt-4">Caméra distante</h5>
+  <VideoThumbnail
+    streamid={remoteCameraId}
+    autoPlay
+    style={{ width: "100%", maxHeight: "200px" }}
+  />
 
-        <div className="mt-4">
-          <RefreshDeviceButton />
-        </div>
+  <div className="mt-4">
+    <RefreshDeviceButton />
+  </div>
       </div>
     </div>
   </Col>

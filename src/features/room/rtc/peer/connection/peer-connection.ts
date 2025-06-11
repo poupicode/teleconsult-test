@@ -8,6 +8,7 @@ import { Role, ChatMessage } from '../models/types';
 import { DataChannelManager } from '../data-channel/data-channel-manager';
 import { setupPeerConnectionListeners, IPeerConnection } from '../handlers/connection-handlers';
 import { PerfectNegotiation } from '../negotiation/perfect-negotiation';
+import { StreamsByDevice, streamUpdated } from '@/features/streams/streamSlice';
 
 // Debug logging control - set to false in production
 const DEBUG_LOGS = import.meta.env.DEV || false;
@@ -375,6 +376,31 @@ export class PeerConnection implements IPeerConnection {
     private setupListeners() {
         // Setup listeners for the PeerConnection
         setupPeerConnectionListeners(this, this.pc);
+
+        this.pc.ontrack = (event) => {
+    const remoteStream = event.streams[0];
+    const track = event.track;
+
+    console.log('[WebRTC] 🎥 Remote track received:', track.kind, remoteStream.id);
+
+    // 👉 Détermine le type de device en fonction du type de track
+    const deviceType = track.kind === 'video' ? 'camera' : 'instrument'; // ou autre logique si tu as mieux
+
+    // 👉 Stocke ou met à jour le MediaStream localement
+    if (!this.remoteStreams[deviceType]) {
+        this.remoteStreams[deviceType] = remoteStream;
+    }
+
+    // 👉 Mets à jour Redux
+    store.dispatch(streamUpdated({
+        origin: 'remote',
+        deviceType,
+        streamDetails: { streamId: remoteStream.id }
+    }));
+
+    // 👉 Tu peux aussi stocker la référence complète dans un MediaStreamsContext ici
+};
+
 
         // Setup listeners for chat messages from DataChannelManager
         this.dataChannelManager.onChatMessage((message) => {
@@ -853,5 +879,12 @@ export class PeerConnection implements IPeerConnection {
         //Pour accéder au gestionnaire du canal de données WebRTC depuis un autre composant
         return this.dataChannelManager;
     }
+
+    private remoteStreams: { [deviceType: string]: MediaStream } = {};
+    
+    getRemoteStream(deviceType: keyof StreamsByDevice): MediaStream | undefined {
+    return this.remoteStreams[deviceType];
+}
+
 
 }
