@@ -378,28 +378,30 @@ export class PeerConnection implements IPeerConnection {
         setupPeerConnectionListeners(this, this.pc);
 
         this.pc.ontrack = (event) => {
-    const remoteStream = event.streams[0];
-    const track = event.track;
+  const track = event.track;
 
-    console.log('[WebRTC] 🎥 Remote track received:', track.kind, remoteStream.id);
+  console.log('[WebRTC] 🎥 Remote track received:', track.kind);
 
-    // 👉 Détermine le type de device en fonction du type de track
-    const deviceType = track.kind === 'video' ? 'camera' : 'instrument'; // ou autre logique si tu as mieux
+  const deviceType = track.kind === "video" ? "camera" : "instrument";
 
-    // 👉 Stocke ou met à jour le MediaStream localement
-    if (!this.remoteStreams[deviceType]) {
-        this.remoteStreams[deviceType] = remoteStream;
-    }
+  // Initialiser le MediaStream s’il n’existe pas
+  if (!this.remoteStreams[deviceType]) {
+    this.remoteStreams[deviceType] = new MediaStream();
+  }
 
-    // 👉 Mets à jour Redux
-    store.dispatch(streamUpdated({
-        origin: 'remote',
-        deviceType,
-        streamDetails: { streamId: remoteStream.id }
-    }));
+  // Ajouter la track
+  this.remoteStreams[deviceType].addTrack(track);
 
-    // 👉 Tu peux aussi stocker la référence complète dans un MediaStreamsContext ici
+  // Mettre à jour Redux avec l’ID du stream reconstruit
+  store.dispatch(
+    streamUpdated({
+      origin: "remote",
+      deviceType,
+      streamDetails: { streamId: this.remoteStreams[deviceType].id },
+    })
+  );
 };
+
 
 
         // Setup listeners for chat messages from DataChannelManager
