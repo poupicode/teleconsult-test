@@ -35,7 +35,6 @@ export default function DoctorInterface({ peerConnection }: DoctorInterfaceProps
 
   return (
     <div className="p-4 border rounded-md space-y-4">
-      <h2 className="font-bold text-lg">Mesures reçues</h2>
       {Object.entries(doctorServices).length === 0 ? (
         <p className="text-gray-500">Aucune mesure reçue pour le moment.</p>
       ) : (

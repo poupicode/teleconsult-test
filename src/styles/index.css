@@ -82,11 +82,11 @@ hr {
 
 header {
   border-bottom: #c0d4ec solid 1px;
-  margin-top: 3.5em !important;
+  /* margin-top: 3.5em !important; */
 }
 
 .public-header {
-  padding: 1em 0 0.5em;
+  padding: 4.5em 0 0.5em;
   width: calc(100vw - 12em);
   margin: 0 auto;
   h1 {
@@ -94,13 +94,21 @@ header {
     font-size: 2em !important;
   }
 }
-.dashboard-header {
-  padding: 1em 0 0.5em;
-  width: calc(100vw - 28em);
-  margin: 0 1em;
+.dashboard-header,
+.consultation-header {
   h1 {
     font-size: 1.7em !important;
   }
+}
+.dashboard-header {
+  padding: 4.5em 0 0.5em!important;
+  width: calc(100vw - 28em)!important;
+  margin: 0 1em!important;
+}
+.consultation-header {
+  padding: 4.5em .5em 0.5em!important;
+  width: 100%!important;
+  margin: 0!important;
 }
 
 button {

@@ -8,11 +8,13 @@ import React, { useState, useEffect } from "react";
 interface BluetoothContextProps {
   peerConnection: PeerConnection;
   onSendConnect: (fn: () => Promise<void>) => void;
+  onSendStatus: (status: string) => void;
 }
 
 export default function BluetoothContext({
   peerConnection,
-  onSendConnect
+  onSendConnect,
+  onSendStatus,
 }: BluetoothContextProps) {
   // Initialisation du hook Bluetooth avec une fonction de rappel "onMeasurement"
   // Cette fonction est appelée à chaque nouvelle mesure reçue via Bluetooth
@@ -34,15 +36,16 @@ export default function BluetoothContext({
     }
   }, [onSendConnect, connect]);
 
+  React.useEffect(() => {
+    if (onSendStatus) {
+      onSendStatus(status);
+    }
+  }, [onSendStatus, status]);
+
+
   return (
     <div className="p-4 border rounded-md space-y-4">
-      <h3 className="font-bold text-lg fs-5">Connexion Bluetooth</h3>
-      {/* <ButtonConnexionApp
-        label="Se connecter"
-        onClick={connect}
-        variant="primary"
-      /> */}
-      <p>État : {status}</p>
+      <p className="text-gray-500">Aucune mesure reçue pour le moment.</p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {connectedCards.map((card) => (
           <ServiceCard

@@ -1,25 +1,26 @@
-import { ListGroup, Button } from "react-bootstrap";
+import {
+  ListGroup,
+  Button,
+  Card,
+  OverlayTrigger,
+  Popover,
+  Row,
+  Col,
+} from "react-bootstrap";
 import { useState, useEffect } from "react";
 import { RoomSupabase, Room } from "@/features/room/roomSupabase";
 
 type RoomInformationsType = {
-  roomReady: boolean;
   userKind: string | null;
-  handleDisconnect: () => void;
   roomId: string;
   connectionStatus: string;
 };
 
 const RoomInformations = ({
-  roomReady,
   userKind,
-  handleDisconnect,
   roomId,
   connectionStatus,
 }: RoomInformationsType) => {
-  // useState pour l'animation au survol de la barre d'informations de la salle de consultation
-  const [informationsHovered, setInformationsHovered] = useState(false);
-
   // State pour stocker les rooms et l'état d'édition
   // Utilisation de useState pour gérer les rooms et l'état d'édition des noms
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -37,159 +38,160 @@ const RoomInformations = ({
 
   return (
     // L'ensemble de la barre d'informations de la salle de consultation (pour que le bg prennent toute la largeur disponible)
-    <div
-      className="position-absolute w-100 bottom-0 bg-white-pink z-3"
-      onMouseEnter={() => setInformationsHovered(true)}
-      onMouseLeave={() => setInformationsHovered(false)}
-    >
-      {/* Ensemble contenant les éléments de la barre d'informations */}
-      <div
-        className="position-relative"
-        style={{ width: "calc(100vw - 26em)" }}
-      >
-        {/* Badge d'état de connexion */}
-        <div
-          className={`position-absolute small rounded-5 ${
-            connectionStatus === "connected"
-              ? "bg-blue color-white"
-              : connectionStatus === "connecting"
-              ? "bg-lightblue color-blue"
-              : "bg-pink color-red"
-          }`}
-          style={{
-            bottom: "calc(100% + .5em)",
-            left: "-1em",
-            padding: ".2em .6em",
-          }}
-        >
-          État :{" "}
-          <strong
-            className={`text-capitalize ${
-              connectionStatus === "connected"
-                ? "color-white"
-                : connectionStatus === "connecting"
-                ? "color-blue"
-                : "color-red"
-            }`}
+    <div style={{ marginTop: "3.5em" }}>
+      <Card className="bg-white-pink p-0 mb-2">
+        <Card.Body style={{padding: ".8em"}}>
+          <Card.Title className="fs-5 fw-semibold" as={"h2"}>
+            Consultation en cours
+          </Card.Title>
+          <hr className="mt-1 mb-3" />
+          <p className="m-0 fw-medium">
+            Salle : {rooms.find((r) => r.id === roomId)?.short_name}
+          </p>
+          <p
+            className="m-0"
+            style={{
+              fontSize: ".8em",
+            }}
           >
-            {connectionStatus === "connected"
-              ? "connecté"
-              : connectionStatus === "connecting"
-              ? "connexion en cours"
-              : connectionStatus === "disconnected"
-              ? "déconnecté"
-              : connectionStatus}
-          </strong>
-        </div>
-
-        {/* Séparateur */}
-        <hr
-          style={{ transition: "0.4s ease" }}
-          className={`ms-3 me-3 mb-0 ${!informationsHovered ? "mt-0" : "mt-2"}`}
-        />
-
-        {/* Groupe des éléments d'informations */}
-        <ListGroup
-          className="border-0 flex-row justify-content-between"
-          variant="flush"
-        >
-          {/* Les informations de la salle */}
-          <ListGroup.Item
-            as={"li"}
-            className="bg-transparent border-0 mt-2 mb-2"
-          >
-            {/* Titre de la section informations de la salle */}
-            <h3
-              className={`fs-5 color-red mb-0`}
-              style={{
-                transition: "0.4s ease",
-                overflow: "hidden",
-                ...(informationsHovered
-                  ? { maxHeight: "200px", opacity: 1, height: "1.5em" }
-                  : { maxHeight: "0", opacity: 0, height: "0" }),
-              }}
-            >
-              Consultation en cours
-            </h3>
-
-            {/* Nom de la salle */}
-            <p className={`m-0 ${!informationsHovered ? "fw-medium" : ""}`}>
-              Salle : {rooms.find((r) => r.id === roomId)?.short_name}
-            </p>
-
-            {/* ID de la salle */}
-            <p
-              className="m-0"
-              style={{
-                fontSize: ".8em",
-                transition: "max-height 0.4s ease, opacity 0.4s ease",
-                overflow: "hidden",
-                ...(informationsHovered
-                  ? { maxHeight: "200px", opacity: 1 }
-                  : { maxHeight: "0", opacity: 0 }),
-              }}
-            >
-              <small className="color-lightblue">{roomId}</small>
-            </p>
-          </ListGroup.Item>
-
-          {/* Les informations de la connexion du patient/praticien et des informations du praticien pour le patient */}
-          <ListGroup.Item
-            as={"li"}
-            className="bg-transparent border-0 mt-2 mb-2"
-          >
-            {userKind === "patient" && (
-              // Titre de la section information du praticien (affiché uniquement côté patient)
-              <h3
-                style={{
-                  transition: "0.4s ease",
-                  overflow: "hidden",
-                  ...(informationsHovered
-                    ? { maxHeight: "200px", opacity: 1, height: "1.5em" }
-                    : { maxHeight: "0", opacity: 0, height: "0" }),
-                }}
-                className={`fs-5 color-red ${
-                  !informationsHovered ? "mb-0" : ""
-                }`}
-              >
-                Praticien{" "}
-                {roomReady && connectionStatus === "connected" && "connecté"}
-              </h3>
-            )}
-
-            {/* Etat de connextion du patient / praticien */}
-            {/* Si connecté, afficher le nom du médecin pour le patient ou 'Patient connecté' pour le médecin */}
-            <p className={`m-0 ${!informationsHovered ? "fw-medium" : ""}`}>
-              {!roomReady && connectionStatus !== "connected" ? (
-                `En attente ${
-                  userKind === "practitioner" ? "du patient" : "du praticien"
+            <small className="color-lightblue">{roomId}</small>
+          </p>
+        </Card.Body>
+      </Card>
+      <Card className="bg-white-pink p-0 mb-2">
+        <Card.Body style={{padding: ".8em"}}>
+          <Card.Title className="fs-5 fw-semibold" as={"h2"}>
+            {userKind === "patient" ? "Praticien" : "Patient"}
+            {roomId && connectionStatus === "connected" && "connecté"}
+          </Card.Title>
+          <hr className="mt-1 mb-3" />
+          <p className="m-0 fw-medium">
+            {connectionStatus !== "connected"
+              ? `En attente du ${
+                  userKind === "patient" ? "praticien" : "patient"
                 }`
-              ) : userKind === "patient" ? (
-                "Dr. Nom Prénom"
-              ) : (
-                <strong>Patient connecté</strong>
-              )}
-            </p>
-          </ListGroup.Item>
-
-          {/* Bouton pour quitter la consultation */}
-          {/* Il manque la fonction de déconnexion de la salle à ajouter/relier */}
-          <ListGroup.Item
-            as={"li"}
-            className="bg-transparent border-0 mt-auto mb-auto"
+              : userKind === "patient"
+              ? "Dr. Nom Prénom"
+              : "Nom Prénom"}
+          </p>
+          <p
+            className="m-0"
+            style={{
+              fontSize: ".8em",
+            }}
           >
-            <Button
-              style={{ transition: "0.4s ease" }}
-              className={`secondary-btn ps-4 pe-4 ${
-                !informationsHovered ? "pb-1 pt-1" : ""
-              }`}
-              onClick={handleDisconnect}
-            >
-              Quitter la salle
-            </Button>
-          </ListGroup.Item>
-        </ListGroup>
-      </div>
+            <small>
+              {connectionStatus === "connected" &&
+                userKind === "patient" &&
+                "Profession"}
+            </small>
+          </p>
+        </Card.Body>
+      </Card>
+      <Card className="bg-white-pink p-0 mb-2">
+        <Card.Body style={{padding: ".8em"}}>
+          <Card.Title className="fs-5 fw-semibold" as={"h2"}>
+            État de la connexion
+          </Card.Title>
+          <hr className="mt-1 mb-3" />
+          <Row className="w-100 mx-auto mb-2 flex-wrap">
+            <Col md={6} className="p-0 px-1">
+              <OverlayTrigger
+                trigger={["hover", "focus"]}
+                placement="top"
+                overlay={
+                  <Popover className="roomPopup bg-white-pink border-0 card p-0 rounded-2">
+                    <Popover.Body className="p-1 small fw-medium">
+                      État de la connexion
+                    </Popover.Body>
+                  </Popover>
+                }
+              >
+                <div
+                  className={`px-1 pt-1 pb-1 w-100 text-center rounded-5 small ${
+                    connectionStatus === "connected"
+                      ? "bg-blue color-white"
+                      : connectionStatus === "connecting"
+                      ? "bg-lightblue color-blue"
+                      : "bg-pink color-red"
+                  }`}
+                >
+                  <strong
+                    className={`text-capitalize ${
+                      connectionStatus === "connected"
+                        ? "color-white"
+                        : connectionStatus === "connecting"
+                        ? "color-blue"
+                        : "color-red"
+                    }`}
+                  >
+                    {connectionStatus === "connected"
+                      ? "connecté"
+                      : connectionStatus === "connecting"
+                      ? "en cours"
+                      : connectionStatus === "disconnected"
+                      ? "déconnecté"
+                      : connectionStatus}
+                  </strong>
+                </div>
+              </OverlayTrigger>
+            </Col>
+            <Col md={6} className="p-0 px-1">
+              <OverlayTrigger
+                trigger={["hover", "focus"]}
+                placement="top"
+                overlay={
+                  <Popover className="roomPopup bg-white-pink border-0 card p-0 rounded-2">
+                    <Popover.Body className="p-1 small fw-medium">
+                      État de la connexion
+                    </Popover.Body>
+                  </Popover>
+                }
+              >
+                <div className="bg-lightblue px-1 pt-1 pb-1 w-100 text-center rounded-5 small">
+                  état
+                </div>
+              </OverlayTrigger>
+            </Col>
+          </Row>
+          <Row className="w-100 mx-auto">
+            <Col md={6} className="p-0 px-1">
+              <OverlayTrigger
+                trigger={["hover", "focus"]}
+                placement="top"
+                overlay={
+                  <Popover className="roomPopup bg-white-pink border-0 card p-0 rounded-2">
+                    <Popover.Body className="p-1 small fw-medium">
+                      État de la connexion
+                    </Popover.Body>
+                  </Popover>
+                }
+              >
+                <div className="bg-lightblue px-1 pt-1 pb-1 w-100 text-center rounded-5 small">
+                  état
+                </div>
+              </OverlayTrigger>
+            </Col>
+            <Col md={6} className="p-0 px-1">
+              <OverlayTrigger
+                trigger={["hover", "focus"]}
+                placement="top"
+                overlay={
+                  <Popover className="roomPopup bg-white-pink border-0 card p-0 rounded-2">
+                    <Popover.Body className="p-1 small fw-medium">
+                      État de la connexion
+                    </Popover.Body>
+                  </Popover>
+                }
+              >
+                <div className="bg-lightblue px-1 pt-1 pb-1 w-100 text-center rounded-5 small">
+                  état
+                </div>
+              </OverlayTrigger>
+            </Col>
+          </Row>
+        </Card.Body>
+      </Card>
     </div>
   );
 };

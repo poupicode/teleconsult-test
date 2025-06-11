@@ -4,10 +4,11 @@ import { Card } from "react-bootstrap";
 type InformationsFormDetails = {
   name: string;
   first_name: string;
-  birth_date: string;
-  gender: "Homme" | "Femme";
-  patient_number: number;
-  consultation_reason: string;
+  birth_date?: string;
+  gender?: "Homme" | "Femme";
+  patient_number?: number;
+  consultation_reason?: string;
+  occupation?: string;
 };
 
 // Types pour les données du formulaire d'informations
@@ -18,7 +19,7 @@ type InformationsFormData = {
 // Composant pour afficher les informations du patient dans le menu latéral
 const PatientInformations = ({ patientInformations } : InformationsFormData) => {
   return (
-    <Card className="m-0 p-0">
+    <Card className="p-0" style={{marginTop: "3.5em"}}>
       <Card.Body>
         <Card.Title as={"h3"} className="color-red fs-5 m-0">Patient</Card.Title>
         <hr className="mb-3" />

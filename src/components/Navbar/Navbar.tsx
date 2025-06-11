@@ -22,7 +22,7 @@ const AppNavbar = () => {
   }, [location.pathname]);
 
   return (
-    <Navbar className={`bg-blue position-fixed w-100 z-3 p-0`} expand="lg">
+    <Navbar className={`bg-blue position-fixed w-100 p-0`} style={{zIndex: "200"}} expand="lg">
       {/* Motif de fond de la Navbar */}
       <NavbarPattern />
 

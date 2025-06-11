@@ -9,26 +9,31 @@ import {
   userRoleSet,
 } from "../../features/room/roomSlice";
 import { v4 as uuidv4 } from "uuid";
-import { Alert, Badge } from "react-bootstrap";
-import RoomInformations from "./RoomInformations";
+import { Alert, Badge, Button } from "react-bootstrap";
+
 import DoctorRoomManager from "@/components/room/DoctorRoomManager";
 import RoomList from "@/components/room/RoomList";
 import { supabase } from "@/lib/supabaseClient";
 import BluetoothContext from "@/components/bluetooth/BluetoothContext";
 import DoctorInterface from "@/components/bluetooth/DoctorInterface";
+import Header from "@/components/Header";
 
 interface ConsultationRoomProps {
   onPeerConnectionReady?: (peerConnection: PeerConnection) => void;
   handleDisconnect: () => void;
   onCreateRoom: (fn: () => Promise<void>) => void;
-  onSendConnect: (fn: () => Promise<void>) => void;
+  isConsultationTab: boolean;
+  connectionStatus: string;
+  setConnectionStatus: (value: string) => void;
 }
 
 export default function ConsultationRoom({
   onPeerConnectionReady,
   handleDisconnect,
   onCreateRoom,
-  onSendConnect
+  isConsultationTab,
+  connectionStatus,
+  setConnectionStatus,
 }: ConsultationRoomProps) {
   const dispatch = useDispatch();
 
@@ -44,12 +49,12 @@ export default function ConsultationRoom({
   const [peerConnection, setPeerConnection] = useState<PeerConnection | null>(
     null
   );
-  const [connectionStatus, setConnectionStatus] =
-    useState<string>("disconnected");
-  
+
   // Etat pour voir si la salle est prête ou non (c'est-à-dire si on est dedans ou pas)
   const [roomReady, setRoomReady] = useState<boolean>(false);
-  const [negotiationRole, setNegotiationRole] = useState<'polite' | 'impolite' | null>(null);
+  const [negotiationRole, setNegotiationRole] = useState<
+    "polite" | "impolite" | null
+  >(null);
 
   // Reference to track the previously connected room
   const previousRoomIdRef = useRef<string | null>(null);
@@ -75,16 +80,20 @@ export default function ConsultationRoom({
     if (previousRoomIdRef.current && previousRoomIdRef.current !== roomId) {
       // Clean up the old connection
       if (peerConnection) {
-        console.log(`[ConsultationRoom] Room changed from ${previousRoomIdRef.current} to ${roomId}, disconnecting previous peer connection`);
+        console.log(
+          `[ConsultationRoom] Room changed from ${previousRoomIdRef.current} to ${roomId}, disconnecting previous peer connection`
+        );
 
         // Disable the current connection
         const disconnect = async () => {
           await peerConnection.disconnect();
-          console.log('[ConsultationRoom] Previous peer connection disconnected');
+          console.log(
+            "[ConsultationRoom] Previous peer connection disconnected"
+          );
 
           // Reset state after disconnection
           setPeerConnection(null);
-          setConnectionStatus('disconnected');
+          setConnectionStatus("disconnected");
           setRoomReady(false);
           setNegotiationRole(null);
         };
@@ -133,10 +142,12 @@ export default function ConsultationRoom({
 
     // Clean up previous connection if it exists
     if (peerConnection) {
-      console.log('[ConsultationRoom] Disconnecting existing peer connection before connecting to new room');
+      console.log(
+        "[ConsultationRoom] Disconnecting existing peer connection before connecting to new room"
+      );
 
       // Disable all callbacks and current state before disconnecting
-      setConnectionStatus('disconnecting');
+      setConnectionStatus("disconnecting");
       setRoomReady(false);
       setNegotiationRole(null);
 
@@ -146,11 +157,13 @@ export default function ConsultationRoom({
 
       // Slightly longer delay to ensure all disconnections are properly completed
       // and that Supabase channels are correctly closed
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 500));
     }
 
     try {
-      console.log(`[ConsultationRoom] Creating new peer connection for room: ${roomId}`);
+      console.log(
+        `[ConsultationRoom] Creating new peer connection for room: ${roomId}`
+      );
       // Create a new peer connection
       const peer = new PeerConnection(roomId, userId, userRole);
       setPeerConnection(peer);
@@ -169,20 +182,26 @@ export default function ConsultationRoom({
         if (isReady) {
           const negotiationState = peer.getPerfectNegotiationState();
           const isPolite = negotiationState.isPolite;
-          setNegotiationRole(isPolite ? 'polite' : 'impolite');
+          setNegotiationRole(isPolite ? "polite" : "impolite");
 
           if (isPolite) {
-            console.log('[ConsultationRoom] 🤝 Room is ready and we are the polite peer (waits for offers), waiting for impolite peer to initialize...');
+            console.log(
+              "[ConsultationRoom] 🤝 Room is ready and we are the polite peer (waits for offers), waiting for impolite peer to initialize..."
+            );
 
             // Small delay to ensure the impolite peer is ready to negotiate
             // Perfect Negotiation automatically handles who initiates the connection
             setTimeout(() => {
-              console.log('[ConsultationRoom] 🤝 Polite peer is now ready to receive connection from impolite peer');
+              console.log(
+                "[ConsultationRoom] 🤝 Polite peer is now ready to receive connection from impolite peer"
+              );
               // The impolite peer will detect our presence and automatically initiate the connection
               // via Perfect Negotiation - no manual intervention needed
             }, 1000);
           } else {
-            console.log('[ConsultationRoom] 🚀 Room is ready and we are the impolite peer (initiates offers), Perfect Negotiation will handle connection initiation');
+            console.log(
+              "[ConsultationRoom] 🚀 Room is ready and we are the impolite peer (initiates offers), Perfect Negotiation will handle connection initiation"
+            );
           }
         } else {
           setNegotiationRole(null);
@@ -205,39 +224,76 @@ export default function ConsultationRoom({
     }
   };
 
+  // Stocker dans un state la fonction de connexion Bluetooth envoyé et remonté depuis BluetoothContext dans ConsultationRoom
+  const [receiveHandleConnect, setReceiveHandleConnect] = React.useState<
+    (() => Promise<void>) | null
+  >(null);
+
+  // Récupérer la fonction de connexion Bluetooth envoyé et remonté depuis BluetoothContext dans ConsultationRoom
+  const getHandleConnect = React.useCallback((fn: () => Promise<void>) => {
+    setReceiveHandleConnect(() => fn);
+  }, []);
+
+  // Créer la fonction au click qui va appeler la fonction de connexion BluetoothContext envoyé et remonté depuis DoctorRoomManager dans ConsultationRoom
+  const handleConnect = React.useCallback(async () => {
+    if (receiveHandleConnect) {
+      receiveHandleConnect();
+    } else {
+      alert("Fonction pas encore reçue");
+    }
+  }, [receiveHandleConnect]);
+
+  const [receiveBluetoothStatus, setReceiveBluetoothStatus] = React.useState<String | null
+  >(null);
+
+  const getBluetoothStatus = (data: string) => {
+    setReceiveBluetoothStatus(data);
+  };
+
   return (
-    <div
-      className="top-0 position-absolute h-100"
-      style={{
-        width: "100%",
-        flex: "0 0 78%",
-        maxWidth: "78%",
-        overflow: "hidden",
-      }}
-    >
-      <div
-        style={{
-          marginTop: "7.5em",
-          overflowY: "auto",
-          height: roomId ? "60%" : "calc(100% - 7.5em)",
-        }}
-        className="p-4 ps-3 pe-3"
-      >
+    <div className="position-relative h-100">
+      <div className="w-100 ps-3 pe-2 m-0 h-100" style={{ overflow: "visible" }}>
+        {roomId && (
+          <Header variant="consultation">
+            {userKind === "practitioner" ? (
+              // Si on est dans l'onglet "Consultation", qu'une salle a été choisie et que l'utilisateur est un praticien
+              // Afficher le titre "Salle de téléconsultation"
+              <h2 className="fs-3">Mesures reçues</h2>
+            ) : (
+              // Si on est dans l'onglet "Consultation", qu'une salle a été choisie et que l'utilisateur est un patient
+              // Afficher les éléments de connexion bluetooth côté patient et les informations des appareils
+              <>
+                <Button
+                  onClick={handleConnect}
+                  className="primary-btn pe-3 ps-3"
+                >
+                  Connecter un appareil
+                </Button>
+                <p
+                  className="m-0"
+                  style={{ maxWidth: "24em", fontSize: ".7em" }}
+                >
+                  État : {receiveBluetoothStatus}
+                </p>
+              </>
+            )}
+          </Header>
+        )}
+
         {!roomId ? (
-          // Remplacer et mettre ici l'affichage/interface de création de salle
-          // ou de sélection de salle
-          <div>
-            {/* <Alert variant="info">
-              Veuillez sélectionner ou créer une salle pour démarrer une
-              consultation.
-            </Alert> */}
-            {/* RoomBrowser pour le praticien */}
+          <div
+            className="mt-3 w-100 px-3 pt-3"
+            style={{
+              overflowY: "auto",
+              overflowX: "hidden",
+              height: "calc(100% - 1em)",
+            }}
+          >
             {userKind === "practitioner" && (
               <div className="mb-3">
                 <DoctorRoomManager onCreateRoom={onCreateRoom} />
               </div>
             )}
-            {/* RoomList pour les patients */}
             {userKind === "patient" && (
               <div className="mb-3">
                 <RoomList />
@@ -245,26 +301,35 @@ export default function ConsultationRoom({
             )}
           </div>
         ) : (
-          <>
-            {/* Ici, la barre d'informations de la salle de consultation (en bas de l'écran et qui est en position absolute) */}
-            <RoomInformations
-              roomReady={roomReady}
-              userKind={userKind}
-              handleDisconnect={handleDisconnect}
-              roomId={roomId}
-              connectionStatus={connectionStatus}
-            />
-            {/* Mettre ici l'affichage des données */}
-            {/* Composant de gestion des données Bluetooth */}
+          <div
+            style={{
+              overflowY: "auto",
+              height: "calc(100% - 9.5em)",
+            }}
+            className="mt-3"
+          >
             {userKind === "patient" && peerConnection && (
-              <BluetoothContext peerConnection={peerConnection} onSendConnect={onSendConnect} />
+              <BluetoothContext
+                peerConnection={peerConnection}
+                onSendConnect={getHandleConnect}
+                onSendStatus={getBluetoothStatus}
+              />
             )}
             {userKind === "practitioner" && peerConnection && (
               <DoctorInterface peerConnection={peerConnection} />
             )}
-          </>
+          </div>
         )}
       </div>
+      {roomId && (
+        <Button
+          className="secondary-btn position-absolute pe-3 ps-3"
+          style={{ bottom: ".6em", left: ".6em" }}
+          onClick={handleDisconnect}
+        >
+          Quitter la salle
+        </Button>
+      )}
     </div>
   );
 }
