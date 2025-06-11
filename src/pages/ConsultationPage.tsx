@@ -13,16 +13,14 @@ import { RootState } from "@/app/store";
 import { roomIdUpdated } from "@/features/room/roomSlice";
 import { RoomSupabase } from "@/features/room/roomSupabase";
 import { PeerConnection } from "@/features/room/rtc/peer";
-import RoomBrowser from "@/components/room/RoomBrowser";
-import RoomList from "@/components/room/RoomList";
 import ConsultationRoom from "@/components/room/ConsultationRoom";
 import ChatBox from "@/components/chat/ChatBox";
 import SideMenu from "@/components/SideMenu";
 import InformationsForm from "@/components/InformationsForm";
 import Header from "@/components/Header";
-import DoctorRoomManager from "@/components/room/DoctorRoomManager";
 import { useSimpleRoomPersistence } from "@/hooks/useSimpleRoomPersistence";
 import { useSimpleBeforeUnload } from "@/hooks/useSimpleBeforeUnload";
+import InformationsPanel from "@/components/room/InformationsPanel";
 
 // Définition des types pour les données du formulaire pour les informations du patient/praticien
 type InformationsDetails = {
@@ -144,16 +142,16 @@ export default function ConsultationPage() {
 
   // Pour afficher les informations du patient et du praticien dans la console une fois qu'elles sont définies par le formulaire
   //  A enlever en production
-  useEffect(() => {
-    if (praticienInformations) {
-      console.log("Informations praticien :", praticienInformations);
-    }
-  }, [praticienInformations]);
-  useEffect(() => {
-    if (patientInformations) {
-      console.log("Informations patient :", patientInformations);
-    }
-  }, [patientInformations]);
+  // useEffect(() => {
+  //   if (praticienInformations) {
+  //     console.log("Informations praticien :", praticienInformations);
+  //   }
+  // }, [praticienInformations]);
+  // useEffect(() => {
+  //   if (patientInformations) {
+  //     console.log("Informations patient :", patientInformations);
+  //   }
+  // }, [patientInformations]);
 
   // Gestion du bouton de création de salle dans le header
 
@@ -181,8 +179,10 @@ export default function ConsultationPage() {
   }, [receiveHandleCreateRoom]);
 
   const [connectionStatus, setConnectionStatus] =
-      useState<string>("disconnected");
+    useState<string>("disconnected");
 
+  const [isInformationsPanelOpened, setIsInformationsPanelOpened] =
+    useState<boolean>(false);
   return (
     <Container fluid>
       <Row className="h-100">
@@ -199,6 +199,8 @@ export default function ConsultationPage() {
               praticienInformations={praticienInformations}
               roomId={roomId}
               connectionStatus={connectionStatus}
+              setIsInformationsPanelOpened={setIsInformationsPanelOpened}
+              isInformationsPanelOpened={isInformationsPanelOpened}
             />
           </Col>
         )}
@@ -210,10 +212,10 @@ export default function ConsultationPage() {
             height: !roomId ? "calc(100vh - 7.7em)" : "100vh",
             flex: isConsultationTab
               ? roomId
-                ? "0 0 52%"
+                ? "0 0 56%"
                 : "0 0 78%"
               : "0 0 100%",
-            maxWidth: isConsultationTab ? (roomId ? "52%" : "78%") : "100%",
+            maxWidth: isConsultationTab ? (roomId ? "56%" : "78%") : "100%",
           }}
         >
           {/* Composant Header de tableau de bord */}
@@ -270,29 +272,42 @@ export default function ConsultationPage() {
                 connectionStatus={connectionStatus}
                 setConnectionStatus={setConnectionStatus}
               />
-
-              {/* Nouvelle carte pour le chatbox sous la consultation en cours */}
-              {/* {roomId && (
-                <Card className="mb-3">
-                  <ChatBox peerConnection={peerConnection} />
-                </Card>
-              )} */}
             </>
           )}
         </Col>
-        {roomId && (
+        {isConsultationTab && roomId && (
           <Col
             className="w-100 p-0 position-relative"
             style={{
               height: "calc(100% - 2em)",
-              flex: isConsultationTab && roomId ? "0 0 26%" : "",
-              maxWidth: isConsultationTab && roomId ? "26%" : "",
-              // borderLeft: "#c0d4ec solid 1px"
+              flex: isConsultationTab && roomId ? "0 0 22%" : "",
+              maxWidth: isConsultationTab && roomId ? "22%" : "",
             }}
           >
-            <div className="w-100 px-2" style={{ height: "calc(100vh - 4.7em)", marginTop: "4em", borderLeft: "#c0d4ec solid 1px" }}>
-              {/* Mettre le flux et le chat ici */}
-              <div className="w-100 h-100 bg-blue"></div>
+            <div
+              className="w-100 px-2 position-relative d-flex flex-column"
+              style={{
+                height: "calc(100vh - 4.7em)",
+                marginTop: "4em",
+                borderLeft: "#c0d4ec solid 1px",
+              }}
+            >
+              <div
+                className="w-100 rounded-3 mb-2"
+                style={{ aspectRatio: "16/9", backgroundColor: "black" }}
+              ></div>
+              {/* <div className="bg-pink" style={{ flexGrow: "1" }}>
+                Test
+              </div> */}
+              <ChatBox peerConnection={peerConnection} />
+              <InformationsPanel
+                patientInformations={patientInformations}
+                userKind={userKind}
+                setIsConsultationTab={setIsConsultationTab}
+                connectionStatus={connectionStatus}
+                setIsInformationsPanelOpened={setIsInformationsPanelOpened}
+                isInformationsPanelOpened={isInformationsPanelOpened}
+              />
             </div>
           </Col>
         )}

@@ -116,7 +116,8 @@ button {
 }
 
 .primary-btn,
-.secondary-btn {
+.secondary-btn,
+.other-btn {
   border-radius: 100px !important;
   font-weight: 600 !important;
   padding: 8px 50px !important;
@@ -152,6 +153,15 @@ button {
   border-top: #fad0d1 solid 1px !important;
 }
 
+.other-btn {
+  background-color: #fad0d1 !important;
+  color: #2a5867 !important;
+}
+.other-btn:hover {
+  background-color: #f0edf4 !important;
+  color: #2a5867 !important;
+}
+
 ul {
   list-style: none;
   padding: 0 !important;
@@ -172,10 +182,15 @@ ul {
 .bg-pink {
   background-color: #fad0d1 !important;
 }
+.bg-red {
+  background-color: #da6254 !important;
+}
 .color-white {
   color: #fffbfc !important;
 }
-
+.color-pink{
+  color: #fad0d1 !important;
+}
 .color-lightblue {
   color: #c0d4ec !important;
 }

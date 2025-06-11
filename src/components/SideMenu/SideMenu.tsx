@@ -23,6 +23,8 @@ type InformationsEntered = {
   praticienInformations: InformationsDetails | null;
   roomId: string | null;
   connectionStatus: string;
+  setIsInformationsPanelOpened: (value: boolean) => void;
+  isInformationsPanelOpened: boolean
 };
 
 // Composant pour le menu latéral de la page de consultation
@@ -33,6 +35,8 @@ const SideMenu = ({
   userKind,
   patientInformations,
   praticienInformations,
+  setIsInformationsPanelOpened,
+  isInformationsPanelOpened
 }: InformationsEntered) => {
   // Pour juste mettre le style des boutons d'onglet sur actif ou inactif (et pour changer d'onglet) quand on clique dessus (sur le bouton "Informations du praticien/patient" ou "Consultation")
 
@@ -52,6 +56,10 @@ const SideMenu = ({
           userKind={userKind}
           roomId={roomId}
           connectionStatus={connectionStatus}
+          patientInformations={patientInformations}
+          praticienInformations={praticienInformations}
+          setIsInformationsPanelOpened={setIsInformationsPanelOpened}
+          isInformationsPanelOpened={isInformationsPanelOpened}
         />
       )}
     </div>
