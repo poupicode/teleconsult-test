@@ -66,16 +66,6 @@ const PatientInformationsDisplay = ({
             </p>
           </Col>
         </Row>
-        {userKind === "patient" && (
-          <Button
-            className="secondary-btn pe-3 ps-3 pt-1 pb-1 position-absolute"
-            size="sm"
-            style={{ bottom: ".3em", right: ".3em" }}
-            onClick={handleModify}
-          >
-            Modifier
-          </Button>
-        )}
       </Card.Body>
     </Card>
   );

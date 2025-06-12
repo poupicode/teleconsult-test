@@ -189,6 +189,14 @@ export default function ConsultationPage() {
       setIsInformationsPanelOpened(!isInformationsPanelOpened);
     }
   }
+
+  useEffect(()=>{
+    if (connectionStatus==="connected"){
+      setIsInformationsPanelOpened(true)
+    } else {
+      setIsInformationsPanelOpened(false)
+    }
+  },[connectionStatus])
   return (
     <Container fluid>
       <Row className="h-100">
