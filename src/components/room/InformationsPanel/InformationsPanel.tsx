@@ -17,7 +17,7 @@ type InformationPanelProps = {
   patientInformations: InformationsDetails | null;
   userKind: "patient" | "practitioner" | null;
   setIsConsultationTab: (value: boolean) => void;
-  setIsInformationsPanelOpened: (value: boolean) => void;
+  handleOpenVideoPanel: () => void;
   connectionStatus: string;
   isInformationsPanelOpened: boolean;
 };
@@ -27,7 +27,7 @@ const InformationsPanel = ({
   userKind,
   setIsConsultationTab,
   connectionStatus,
-  setIsInformationsPanelOpened,
+  handleOpenVideoPanel,
   isInformationsPanelOpened,
 }: InformationPanelProps) => {
   const [areCrossedIcons, setAreCrossedIcons] = useState<
@@ -219,7 +219,7 @@ const InformationsPanel = ({
           left: ".8em",
           filter: "drop-shadow(-2px 2px 7px rgba(0, 0, 0, 0.2))"
         }}
-        onClick={() => setIsInformationsPanelOpened(false)}
+        onClick={handleOpenVideoPanel}
       >
         <svg
           width="56"

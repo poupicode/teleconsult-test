@@ -22,8 +22,6 @@ interface ConsultationRoomProps {
   onPeerConnectionReady?: (peerConnection: PeerConnection) => void;
   handleDisconnect: () => void;
   onCreateRoom: (fn: () => Promise<void>) => void;
-  isConsultationTab: boolean;
-  connectionStatus: string;
   setConnectionStatus: (value: string) => void;
 }
 
@@ -31,8 +29,6 @@ export default function ConsultationRoom({
   onPeerConnectionReady,
   handleDisconnect,
   onCreateRoom,
-  isConsultationTab,
-  connectionStatus,
   setConnectionStatus,
 }: ConsultationRoomProps) {
   const dispatch = useDispatch();

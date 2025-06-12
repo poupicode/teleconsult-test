@@ -183,6 +183,12 @@ export default function ConsultationPage() {
 
   const [isInformationsPanelOpened, setIsInformationsPanelOpened] =
     useState<boolean>(false);
+
+  function handleOpenVideoPanel() {
+    if (connectionStatus === "connected") {
+      setIsInformationsPanelOpened(!isInformationsPanelOpened);
+    }
+  }
   return (
     <Container fluid>
       <Row className="h-100">
@@ -199,8 +205,7 @@ export default function ConsultationPage() {
               praticienInformations={praticienInformations}
               roomId={roomId}
               connectionStatus={connectionStatus}
-              setIsInformationsPanelOpened={setIsInformationsPanelOpened}
-              isInformationsPanelOpened={isInformationsPanelOpened}
+              handleOpenVideoPanel={handleOpenVideoPanel}
               setIsConsultationTab={setIsConsultationTab}
             />
           </Col>
@@ -269,8 +274,6 @@ export default function ConsultationPage() {
                 onPeerConnectionReady={handlePeerConnectionReady}
                 handleDisconnect={handleDisconnect}
                 onCreateRoom={getHandleCreateRoom}
-                isConsultationTab={isConsultationTab}
-                connectionStatus={connectionStatus}
                 setConnectionStatus={setConnectionStatus}
               />
             </>
@@ -295,18 +298,20 @@ export default function ConsultationPage() {
             >
               <div
                 className="w-100 rounded-3 mb-2"
-                style={{ aspectRatio: "16/9", backgroundColor: "black" }}
+                style={{
+                  aspectRatio: "16/9",
+                  backgroundColor: "black",
+                  cursor: connectionStatus === "connected" ? "pointer" : "",
+                }}
+                onClick={handleOpenVideoPanel}
               ></div>
-              {/* <div className="bg-pink" style={{ flexGrow: "1" }}>
-                Test
-              </div> */}
               <ChatBox peerConnection={peerConnection} />
               <InformationsPanel
                 patientInformations={patientInformations}
                 userKind={userKind}
                 setIsConsultationTab={setIsConsultationTab}
                 connectionStatus={connectionStatus}
-                setIsInformationsPanelOpened={setIsInformationsPanelOpened}
+                handleOpenVideoPanel={handleOpenVideoPanel}
                 isInformationsPanelOpened={isInformationsPanelOpened}
               />
             </div>

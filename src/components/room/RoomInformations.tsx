@@ -27,8 +27,7 @@ type RoomInformationsType = {
   connectionStatus: string;
   patientInformations: InformationsDetails | null;
   praticienInformations: InformationsDetails | null;
-  setIsInformationsPanelOpened: (value: boolean) => void;
-  isInformationsPanelOpened: boolean;
+  handleOpenVideoPanel: () => void;
 };
 
 const RoomInformations = ({
@@ -37,8 +36,7 @@ const RoomInformations = ({
   connectionStatus,
   patientInformations,
   praticienInformations,
-  setIsInformationsPanelOpened,
-  isInformationsPanelOpened,
+  handleOpenVideoPanel,
 }: RoomInformationsType) => {
   // State pour stocker les rooms et l'état d'édition
   // Utilisation de useState pour gérer les rooms et l'état d'édition des noms
@@ -121,12 +119,14 @@ const RoomInformations = ({
               </p>
             </>
           )}
-          <Button
-            className="other-btn mt-3 p-0 px-2 mt-2"
-            onClick={() => setIsInformationsPanelOpened(!isInformationsPanelOpened)}
-          >
-            <small>Voir infos patient</small>
-          </Button>
+          {connectionStatus === "connected" && (
+            <Button
+              className="other-btn mt-3 p-0 px-2 mt-2"
+              onClick={handleOpenVideoPanel}
+            >
+              <small>Voir infos patient</small>
+            </Button>
+          )}
         </Card.Body>
       </Card>
       <Card className="bg-white-pink p-0">
