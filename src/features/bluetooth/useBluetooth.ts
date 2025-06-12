@@ -132,7 +132,11 @@ export function useBluetooth({ onMeasurement }: UseBluetoothOptions = {}) {
       }
       return [...prev, updatedCard];
     });
+
+
   };
+
+  
 
   // Retourne les infos de connexion + les cardes + la fonction de connexion
   return { status, connectedCards, connect };

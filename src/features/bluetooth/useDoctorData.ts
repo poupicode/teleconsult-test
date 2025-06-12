@@ -13,15 +13,14 @@ export function useDoctorData() {
 
   // Fonction appelée automatiquement par le système WebRTC quand une mesure arrive
   const receiveData = (rawDataReceived: any) => {
-    console.log('[Médecin] Payload reçu :', rawDataReceived);
-setNewData(rawDataReceived); // on stocke directement le payload brut reçu (déjà filtré en amont)
-
+    console.log("[Médecin] Payload reçu :", rawDataReceived);
+    setNewData(rawDataReceived); // on stocke directement le payload brut reçu (déjà filtré en amont)
   };
 
   // Fonction qui extrait le service (clé) et les mesures à partir du payload
   const processNewData = (currentData: object) => {
-    const service = Object.keys(currentData)[0];// ex: 'blood_pressure'
-    const measures = (currentData as any)[service];// ex: { systolique: 120, ... }
+    const service = Object.keys(currentData)[0]; // ex: 'blood_pressure'
+    const measures = (currentData as any)[service]; // ex: { systolique: 120, ... }
 
     // On ajoute ou remplace les mesures pour ce service dans le state principal
     setDoctorServices((prev) => ({
@@ -39,6 +38,7 @@ setNewData(rawDataReceived); // on stocke directement le payload brut reçu (dé
   }, [newData]);
 
   return {
-    doctorServices,//les mesures prêtes à être affichées
-    receiveData };//la fonction à passer à onMeasurement()
+    doctorServices, //les mesures prêtes à être affichées
+    receiveData,
+  }; //la fonction à passer à onMeasurement()
 }

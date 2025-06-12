@@ -239,8 +239,8 @@ export default function ConsultationRoom({
     }
   }, [receiveHandleConnect]);
 
-  const [receiveBluetoothStatus, setReceiveBluetoothStatus] = React.useState<String | null
-  >(null);
+  const [receiveBluetoothStatus, setReceiveBluetoothStatus] =
+    React.useState<String | null>(null);
 
   const getBluetoothStatus = (data: string) => {
     setReceiveBluetoothStatus(data);
@@ -248,34 +248,7 @@ export default function ConsultationRoom({
 
   return (
     <div className="position-relative h-100">
-      <div className="w-100 ps-3 pe-2 m-0 h-100" style={{ overflow: "visible" }}>
-        {roomId && (
-          <Header variant="consultation">
-            {userKind === "practitioner" ? (
-              // Si on est dans l'onglet "Consultation", qu'une salle a été choisie et que l'utilisateur est un praticien
-              // Afficher le titre "Salle de téléconsultation"
-              <h2 className="fs-3">Mesures reçues</h2>
-            ) : (
-              // Si on est dans l'onglet "Consultation", qu'une salle a été choisie et que l'utilisateur est un patient
-              // Afficher les éléments de connexion bluetooth côté patient et les informations des appareils
-              <>
-                <Button
-                  onClick={handleConnect}
-                  className="primary-btn pe-3 ps-3"
-                >
-                  Connecter un appareil
-                </Button>
-                <p
-                  className="m-0"
-                  style={{ maxWidth: "24em", fontSize: ".7em" }}
-                >
-                  État : {receiveBluetoothStatus}
-                </p>
-              </>
-            )}
-          </Header>
-        )}
-
+      <div className="w-100 m-0 h-100" style={{ overflow: "visible" }}>
         {!roomId ? (
           <div
             className="mt-3 w-100 px-3 pt-3"
@@ -297,35 +270,61 @@ export default function ConsultationRoom({
             )}
           </div>
         ) : (
-          <div
-            style={{
-              overflowY: "auto",
-              height: "calc(100% - 9.5em)",
-            }}
-            className="mt-3"
-          >
-            {userKind === "patient" && peerConnection && (
-              <BluetoothContext
-                peerConnection={peerConnection}
-                onSendConnect={getHandleConnect}
-                onSendStatus={getBluetoothStatus}
-              />
-            )}
-            {userKind === "practitioner" && peerConnection && (
-              <DoctorInterface peerConnection={peerConnection} />
-            )}
-          </div>
+          <>
+            <div className="w-100 pe-3 ps-2">
+              <Header variant="consultation">
+                {userKind === "practitioner" ? (
+                  // Si on est dans l'onglet "Consultation", qu'une salle a été choisie et que l'utilisateur est un praticien
+                  // Afficher le titre "Salle de téléconsultation"
+                  <h2 className="fs-3">Mesures reçues</h2>
+                ) : (
+                  // Si on est dans l'onglet "Consultation", qu'une salle a été choisie et que l'utilisateur est un patient
+                  // Afficher les éléments de connexion bluetooth côté patient et les informations des appareils
+                  <>
+                    <Button
+                      onClick={handleConnect}
+                      className="primary-btn pe-3 ps-3"
+                    >
+                      Connecter un appareil
+                    </Button>
+                    <p
+                      className="m-0"
+                      style={{ maxWidth: "24em", fontSize: ".7em" }}
+                    >
+                      État : {receiveBluetoothStatus}
+                    </p>
+                  </>
+                )}
+              </Header>
+            </div>
+            <div
+              style={{
+                overflowY: "auto",
+                height: "calc(100% - 9.5em)",
+              }}
+              className="pt-3 pe-2 ps-1"
+            >
+              {userKind === "patient" && peerConnection && (
+                <BluetoothContext
+                  peerConnection={peerConnection}
+                  onSendConnect={getHandleConnect}
+                  onSendStatus={getBluetoothStatus}
+                />
+              )}
+              {userKind === "practitioner" && peerConnection && (
+                <DoctorInterface peerConnection={peerConnection} />
+              )}
+            </div>
+            <Button
+              className="secondary-btn position-absolute pe-3 ps-3"
+              style={{ bottom: ".6em", left: ".6em" }}
+              onClick={handleDisconnect}
+            >
+              Quitter la salle
+            </Button>
+          </>
         )}
       </div>
-      {roomId && (
-        <Button
-          className="secondary-btn position-absolute pe-3 ps-3"
-          style={{ bottom: ".6em", left: ".6em" }}
-          onClick={handleDisconnect}
-        >
-          Quitter la salle
-        </Button>
-      )}
     </div>
   );
 }

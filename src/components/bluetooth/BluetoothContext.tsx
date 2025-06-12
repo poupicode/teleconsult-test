@@ -10,6 +10,13 @@ interface BluetoothContextProps {
   onSendConnect: (fn: () => Promise<void>) => void;
   onSendStatus: (status: string) => void;
 }
+interface ConnectedCard {
+  device: BluetoothDevice;
+  server: BluetoothRemoteGATTServer;
+  service: string;
+  deviceName: string;
+  measurements: { name: string; data: string | number }[];
+}
 
 export default function BluetoothContext({
   peerConnection,
@@ -28,6 +35,37 @@ export default function BluetoothContext({
     },
   });
 
+  const [mergedConnectedCards, setMergedConnectedCards] = useState<object>({});
+
+  const transformConnectedCards = () => {
+    // let tempConnectedCards = connectedCards.map(
+    //   ({ service, measurements }) => ({ service, measurements })
+    // );
+  //   Object.fromEntries(
+  // Object.entries(data).map(([key, arr]) => [key, Object.assign({}, ...arr)])
+// );
+    let tempConnectedCards = Object.fromEntries(
+      connectedCards
+        .map(({ service, measurements }) => ({ service, measurements }))
+        .map(({ service, measurements }) => [service, measurements])
+    );
+    setMergedConnectedCards(tempConnectedCards);
+
+    // setMergedConnectedCards(
+    //   Object.fromEntries(data.map(({ nom, mesures }) => [nom, mesures]))
+    // );
+  };
+
+  useEffect(() => {
+    transformConnectedCards();
+    console.log(
+      `---------------------
+      mergedConnectedCards
+      ----------------------`,
+      mergedConnectedCards
+    );
+  }, [connectedCards]);
+
   // Envoyer la fonction de connexion avec un appareil Bluetooth à l'élément parent
   // Car le bouton de connexion avec un appareil bluetooth est dans ConsultationPage mais il faut garder la logique ici pour mettre à jour l'affichage correctement des données
   React.useEffect(() => {
@@ -42,18 +80,44 @@ export default function BluetoothContext({
     }
   }, [onSendStatus, status]);
 
+  useEffect(() => {
+    console.log(
+      `------------
+        connectedCards
+        --------------`,
+      connectedCards
+    );
+  }, [connectedCards]);
+
+  // function transformConnectedCards(){
+  //   connectedCards.map((service) => {
+  //     service={[obj.nom]: Object.assign({}, ...obj.mesures)}
+  //   })
+  // }
+  // setConnectedCardsFiltred()
+  // connectedCards.map((service) => {
+  //   // service = { [obj.nom]: Object.assign({}, ...obj.mesures) };
+  //   console.log(`----------------------
+  //     service
+  //     --------------------------`, service)
+  // });
 
   return (
-    <div className="p-4 border rounded-md space-y-4">
-      <p className="text-gray-500">Aucune mesure reçue pour le moment.</p>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="p-0 w-100">
+      {status === "En attente..." && (
+        <p className="pe-3 ps-2">Aucune mesure reçue pour le moment.</p>
+      )}
+
+      <div className="w-100 d-flex flex-wrap">
         {connectedCards.map((card) => (
-          <ServiceCard
-            key={`${card.device.id}-${card.service}`}
-            service={card.service}
-            measurements={card.measurements}
-            deviceName={card.deviceName}
-          />
+          <div className="w-50 px-2">
+            <ServiceCard
+              key={`${card.device.id}-${card.service}`}
+              service={card.service}
+              measurements={card.measurements}
+              deviceName={card.deviceName}
+            />
+          </div>
         ))}
       </div>
     </div>

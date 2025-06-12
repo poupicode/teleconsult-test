@@ -197,7 +197,7 @@ ul {
 .card {
   border: none !important;
   padding: 8px;
-  filter: drop-shadow(-3px 3px 10px rgba(0, 0, 0, 0.2));
+  filter: drop-shadow(-3px 3px 8px rgba(0, 0, 0, 0.2));
   border-radius: 18px !important;
   h3 {
     border: none !important;

@@ -1,29 +1,49 @@
-// components/ServiceCard.tsx
-import React from 'react';
+import React, { useEffect } from "react";
+import { Card, Row, Button } from "react-bootstrap";
+import MeasureCard from "./MeasureCard";
 
 interface ServiceCardProps {
   service: string;
   measurements: { name: string; data: string | number }[];
-  deviceName: string;
+  deviceName?: string;
 }
 
-const ServiceCard: React.FC<ServiceCardProps> = ({ service, measurements, deviceName }) => {
+const ServiceCard: React.FC<ServiceCardProps> = ({
+  service,
+  measurements,
+  deviceName,
+}) => {
+  // useEffect(()=>{
+  //   console.log(`------------
+  //     measurements
+  //     --------------`, measurements)
+  // }, [measurements])
   return (
-    <div className="border rounded-lg p-4 w-full max-w-md shadow-md">
-      <h3 className="text-lg font-semibold capitalize mb-2">{service.replace('_', ' ')}</h3>
-      <p className="text-sm text-gray-600 mb-2">Appareil : {deviceName}</p>
-      <ul className="list-disc pl-5 mt-2 space-y-1 text-sm">
+    <Card className="p-2 pb-0 card bg-grey w-100 rounded-3">
+      <Card.Body className="p-0">
+        <h3 className="fs-6 fw-bold text-capitalize mb-0 mt-1">
+          {service.replace("_", " ")}
+        </h3>
+        <p className="mb-3 color-red" style={{ fontSize: ".7em" }}>
+          Appareil : {deviceName}
+        </p>
+
+        
         {measurements.length > 0 ? (
-          measurements.map((item, index) => (
-            <li key={index}>
-              <strong>{item.name}</strong> : {item.data}
-            </li>
-          ))
+          <MeasureCard measurements={measurements} />
+          
         ) : (
-          <li>Aucune mesure disponible</li>
+          <p>Aucune mesure disponible</p>
         )}
-      </ul>
-    </div>
+        <Button
+          className="tertiary-btn w-100 mt-2"
+          style={{ fontSize: ".8em" }}
+          variant="link"
+        >
+          Afficher l'historique
+        </Button>
+      </Card.Body>
+    </Card>
   );
 };
 
