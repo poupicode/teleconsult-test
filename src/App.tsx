@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import AuthPage from "./pages/AuthPage";
 import HomePage from "./pages/HomePage";
@@ -13,13 +13,35 @@ import ConsultationPage from "./pages/ConsultationPage";
 import ModifyAccountPage from "./pages/ModifyAccountPage";
 import BackgroundPattern from "./components/BackgroundPattern";
 import MediaStreamsContext from "./contexts/MediaStreamsContext"; // 👈
+import { MediaStreamList, VideoDevicesType } from "./features/room/rtc/peer/models/types";
+import VideoDevicesContext from "./contexts/VideoDevicesContext";
 
 function App() {
-  const [mediaStreams, setMediaStreams] = useState({}); // 👈 ajoute le state
+  //const [session, setSession] = useState({} as Session | null);
+  // context
+  const [videoDevices, setVideoDevices] = useState<VideoDevicesType>([]);
+  const [mediaStreams, setMediaStreams] = useState<MediaStreamList>({});
+  //const [mediaStreams, setMediaStreams] = useState<MediaStreamListType>({});
+
+  //#region MediaStreamsContext
+
+  /* TO AVOID RACE CONDITION, USE REF TO UPDATE STATE VARIABLE */
+  // Reference the state variable to be able to update it from the context
+  const _mediaStreams = useRef(mediaStreams);
+  // Custom function to update the state variable by making sure the ref is updated as well
+  const addMediaStreams = (value: MediaStreamList) => {
+    // Update the ref with the new value
+    _mediaStreams.current = { ..._mediaStreams.current, ...value };
+    // Set the state with the new value
+    setMediaStreams(_mediaStreams.current);
+  };
 
   return (
     <AuthProvider>
-      <MediaStreamsContext.Provider value={[mediaStreams, setMediaStreams]}> {/* 👈 wrap ici */}
+      <MediaStreamsContext.Provider value={[mediaStreams, addMediaStreams]}>
+        <VideoDevicesContext.Provider
+              value={[videoDevices, setVideoDevices]}
+            >
         <BrowserRouter>
           <BackgroundPattern />
           <AppNavbar />
@@ -35,6 +57,7 @@ function App() {
             <Route path="/" element={<HomePage />} />
           </Routes>
         </BrowserRouter>
+        </VideoDevicesContext.Provider>
       </MediaStreamsContext.Provider>
     </AuthProvider>
   );

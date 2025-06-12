@@ -40,11 +40,13 @@ type InformationsDetails = {
 };
 
 export default function ConsultationPage() {
-  const localCameraId = useAppSelector((state) => state.streams.local.camera?.streamId);
-const localInstrumentId = useAppSelector((state) => state.streams.local.instrument?.streamId);
-const remoteCameraId = useAppSelector((state) => state.streams.remote.camera?.streamId);
-const remoteInstrumentId = useAppSelector((state) => state.streams.remote.instrument?.streamId);
-const selectedStreamId = useAppSelector((state) => state.selectedStream.streamId);
+  const streamIds = {
+    localCamera: useAppSelector((state) => state.streams.local.camera?.streamId),
+    localInstrument: useAppSelector((state) => state.streams.local.instrument?.streamId),
+    remoteCamera: useAppSelector((state) => state.streams.remote.camera?.streamId),
+    remoteInstrument: useAppSelector((state) => state.streams.remote.instrument?.streamId),
+    selectedStream: useAppSelector((state) => state.selectedStream.streamId),
+  };
 
   // Récupération des données du store Redux : le rôle de l'utilisateur, l'ID de la salle, etc.
   const userKind = useSelector((state: RootState) => state.user.user_kind);
@@ -305,19 +307,19 @@ const selectedStreamId = useAppSelector((state) => state.selectedStream.streamId
             <div className="p-3">
         <h5>Caméra locale</h5>
   <VideoThumbnail
-    streamid={localCameraId}
-    muted
-    autoPlay
-    style={{ width: "100%", maxHeight: "200px" }}
+    streamid={streamIds.localCamera}
+                        muted
+                        autoPlay
+                        style={{ maxWidth: "100%" }}
   />
-  <VideoDeviceSelector deviceType="camera" />
+  <VideoDeviceSelector deviceType="camera"></VideoDeviceSelector>
 
   <h5 className="mt-4">Caméra distante</h5>
   <VideoThumbnail
-    streamid={remoteCameraId}
-    autoPlay
-    style={{ width: "100%", maxHeight: "200px" }}
-  />
+                        streamid={streamIds.remoteCamera}
+                        autoPlay
+                        style={{ maxWidth: "100%" }}
+                      ></VideoThumbnail>
 
   <div className="mt-4">
     <RefreshDeviceButton />
