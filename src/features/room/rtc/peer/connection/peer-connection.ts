@@ -146,6 +146,9 @@ export class PeerConnection implements IPeerConnection {
             this.role
         );
 
+                // Setup peer connection listeners
+        this.setupListeners();
+
         // Initialize Perfect Negotiation with reference to this PeerConnection instance
         this.perfectNegotiation = new PerfectNegotiation(
             this.pc,
@@ -162,9 +165,6 @@ export class PeerConnection implements IPeerConnection {
                 this.onConnectionStateChangeCallback(state);
             }
         });
-
-        // Setup peer connection listeners
-        this.setupListeners();
 
         // Setup custom ICE debugging
         this.setupIceDebugging();
