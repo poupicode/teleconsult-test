@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useContext } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, store } from "@/app/store";
 import { RoomSupabase } from "../../features/room/roomSupabase";
-import { PeerConnection, Role } from "../../features/room/rtc/peer";
+import { MediaStreamList, PeerConnection, Role } from "../../features/room/rtc/peer";
 import {
   participantJoined,
   userIdSet,
@@ -18,7 +18,7 @@ import BluetoothContext from "@/components/bluetooth/BluetoothContext";
 import DoctorInterface from "@/components/bluetooth/DoctorInterface";
 import Header from "@/components/Header";
 import MediaStreamsContext from "@/contexts/MediaStreamsContext";
-import { StreamsByDevice } from "@/features/streams/streamSlice";
+import { StreamsByDevice, streamUpdated } from "@/features/streams/streamSlice";
 
 interface ConsultationRoomProps {
   onPeerConnectionReady?: (peerConnection: PeerConnection) => void;
@@ -39,7 +39,7 @@ export default function ConsultationRoom({
 }: ConsultationRoomProps) {
   const dispatch = useDispatch();
 
-  const [mediaStreams] = useContext(MediaStreamsContext); // dans ton component
+  const [mediaStreams, addMediaStreams] = useContext(MediaStreamsContext); // dans ton component
   // Récupérer les informations de l'utilisateur et de la salle (si il y a)
   const { roomId, userRole, userId } = useSelector(
     (state: RootState) => state.room
@@ -184,6 +184,7 @@ for (const [device, streamDetails] of Object.entries(localStreams)) {
 
 // Ensuite seulement
 await peer.connect();
+addStreamsToStore(peer, addMediaStreams); // si `addMediaStreams` vient du contexte
 
 
       // Handle connection state changes
@@ -350,4 +351,24 @@ await peer.connect();
       )}
     </div>
   );
+}
+function addStreamsToStore(telemedPC : PeerConnection, addMediaStreams: (streams: MediaStreamList) => void) {
+  // Getting all the remote streams from the peerConnection
+  const remoteStreams = telemedPC.remoteStreams;
+
+  // TODO Make an action for that takes remoteStreams as a parameter
+  // For each stream, add it to the redux store
+  for (const [device, stream] of Object.entries(remoteStreams)) {
+    // Add the stream to the mediaStreams context
+    addMediaStreams({ [stream.id]: stream });
+
+    // Add the stream to the redux store
+    store.dispatch(
+      streamUpdated({
+        origin: "remote",
+        deviceType: device as keyof StreamsByDevice,
+        streamDetails: { streamId: stream.id },
+      })
+    );
+  }
 }

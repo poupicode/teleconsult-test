@@ -171,8 +171,10 @@ export class PeerConnection implements IPeerConnection {
     }
     
     private onTrack = (event: RTCTrackEvent) => {
-        console.debug("Track event");
-        console.debug("Track event transceiver", event.transceiver);
+        console.debug("[onTrack] 📹 Track received:", event.track);
+  console.debug("[onTrack] Track kind:", event.track.kind);
+  console.debug("[onTrack] Associated transceiver:", event.transceiver);
+  console.debug("[onTrack] Stream in event:", event.streams);
 
         const currentDefaultTransceiver = DEFAULT_TRANSCEIVERS[this.numReceivers];
         
