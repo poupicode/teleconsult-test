@@ -34,37 +34,20 @@ export default function DoctorInterface({
     tryRegister();
   }, [peerConnection, receiveData]); // Se relance uniquement si peerConnection ou receiveData changent
 
-  useEffect(() => {
-    console.log(
-      `----------------
-    doctorServices
-    ----------------------`,
-      doctorServices
-    );
-  });
-
   return (
     <div>
       {Object.entries(doctorServices).length === 0 ? (
         <p className="pe-3 ps-2">Aucune mesure reçue pour le moment.</p>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="w-100 d-flex flex-wrap">
           {Object.entries(doctorServices).map(([service, entry], index) => (
-            <div key={index}>
-              <h3 className="font-semibold mb-2">{service.replace("_", " ")}</h3>
-              <ul className="list-disc pl-5 space-y-1">
-                {Object.entries(entry).map(([key, value]) => (
-                  <li key={key}>
-                    <strong>{key}</strong>: {String(value)}
-                  </li>
-                ))}
-              </ul>
+            <div className="w-50 px-2">
+              <ServiceCard
+                key={`${service}-${index}`}
+                service={service}
+                measurements={entry}
+              />
             </div>
-            // <ServiceCard
-            //   key={index}
-            //   service={service}
-            //   measurements={entry}
-            // />
           ))}
         </div>
       )}

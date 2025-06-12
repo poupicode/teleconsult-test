@@ -10,13 +10,6 @@ interface BluetoothContextProps {
   onSendConnect: (fn: () => Promise<void>) => void;
   onSendStatus: (status: string) => void;
 }
-interface ConnectedCard {
-  device: BluetoothDevice;
-  server: BluetoothRemoteGATTServer;
-  service: string;
-  deviceName: string;
-  measurements: { name: string; data: string | number }[];
-}
 
 export default function BluetoothContext({
   peerConnection,
@@ -35,35 +28,26 @@ export default function BluetoothContext({
     },
   });
 
-  const [mergedConnectedCards, setMergedConnectedCards] = useState<object>({});
+  // Transformer les données côté infirmière pour avoir la même structure que ceux côté médecin
+  const [mergedConnectedCards, setMergedConnectedCards] =
+    useState<object>({});
 
   const transformConnectedCards = () => {
-    // let tempConnectedCards = connectedCards.map(
-    //   ({ service, measurements }) => ({ service, measurements })
-    // );
-  //   Object.fromEntries(
-  // Object.entries(data).map(([key, arr]) => [key, Object.assign({}, ...arr)])
-// );
     let tempConnectedCards = Object.fromEntries(
-      connectedCards
-        .map(({ service, measurements }) => ({ service, measurements }))
-        .map(({ service, measurements }) => [service, measurements])
+      connectedCards.map(({ service, deviceName, measurements }) => {
+        const merged = Object.assign(
+          {},
+          ...measurements.map(({ name, data }) => ({ [name]: data }))
+        );
+        // Ajout du nom de l'appareil à la fin des mesures du services
+        return [service, { ...merged, deviceName }];
+      })
     );
     setMergedConnectedCards(tempConnectedCards);
-
-    // setMergedConnectedCards(
-    //   Object.fromEntries(data.map(({ nom, mesures }) => [nom, mesures]))
-    // );
   };
 
   useEffect(() => {
     transformConnectedCards();
-    console.log(
-      `---------------------
-      mergedConnectedCards
-      ----------------------`,
-      mergedConnectedCards
-    );
   }, [connectedCards]);
 
   // Envoyer la fonction de connexion avec un appareil Bluetooth à l'élément parent
@@ -80,28 +64,6 @@ export default function BluetoothContext({
     }
   }, [onSendStatus, status]);
 
-  useEffect(() => {
-    console.log(
-      `------------
-        connectedCards
-        --------------`,
-      connectedCards
-    );
-  }, [connectedCards]);
-
-  // function transformConnectedCards(){
-  //   connectedCards.map((service) => {
-  //     service={[obj.nom]: Object.assign({}, ...obj.mesures)}
-  //   })
-  // }
-  // setConnectedCardsFiltred()
-  // connectedCards.map((service) => {
-  //   // service = { [obj.nom]: Object.assign({}, ...obj.mesures) };
-  //   console.log(`----------------------
-  //     service
-  //     --------------------------`, service)
-  // });
-
   return (
     <div className="p-0 w-100">
       {status === "En attente..." && (
@@ -109,13 +71,14 @@ export default function BluetoothContext({
       )}
 
       <div className="w-100 d-flex flex-wrap">
-        {connectedCards.map((card) => (
+        {/* Pour chaque service, créer une card */}
+        {Object.entries(mergedConnectedCards).map(([service, entry], index) => (
           <div className="w-50 px-2">
+            {/* Transmission du nom du service et des mesures en objet */}
             <ServiceCard
-              key={`${card.device.id}-${card.service}`}
-              service={card.service}
-              measurements={card.measurements}
-              deviceName={card.deviceName}
+              key={`${service}-${index}`}
+              service={service}
+              measurements={entry}
             />
           </div>
         ))}

@@ -23,6 +23,7 @@ interface ConsultationRoomProps {
   handleDisconnect: () => void;
   onCreateRoom: (fn: () => Promise<void>) => void;
   setConnectionStatus: (value: string) => void;
+  connectionStatus: string;
 }
 
 export default function ConsultationRoom({
@@ -30,6 +31,7 @@ export default function ConsultationRoom({
   handleDisconnect,
   onCreateRoom,
   setConnectionStatus,
+  connectionStatus,
 }: ConsultationRoomProps) {
   const dispatch = useDispatch();
 
@@ -284,6 +286,7 @@ export default function ConsultationRoom({
                     <Button
                       onClick={handleConnect}
                       className="primary-btn pe-3 ps-3"
+                      disabled={connectionStatus !== "connected" && true}
                     >
                       Connecter un appareil
                     </Button>

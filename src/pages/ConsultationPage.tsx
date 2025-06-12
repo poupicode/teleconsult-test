@@ -275,6 +275,7 @@ export default function ConsultationPage() {
                 handleDisconnect={handleDisconnect}
                 onCreateRoom={getHandleCreateRoom}
                 setConnectionStatus={setConnectionStatus}
+                connectionStatus={connectionStatus}
               />
             </>
           )}

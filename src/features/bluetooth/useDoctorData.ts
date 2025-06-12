@@ -7,7 +7,7 @@ type DoctorServices = {
 // Hook principal utilisé pour recevoir et stocker les mesures
 export function useDoctorData() {
   // État principal contenant toutes les mesures organisées par service
-  const [doctorServices, setDoctorServices] = useState<DoctorServices>({});
+  const [doctorServices, setDoctorServices] = useState<object>({});
   // État temporaire utilisé pour stocker une nouvelle mesure reçue avant traitement
   const [newData, setNewData] = useState<object | null>(null);
 
