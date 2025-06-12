@@ -196,7 +196,7 @@ const InformationsForm = ({
                     defaultValue={
                       isInformationsEntered && userKind === "patient"
                         ? patientInformations?.gender ?? ""
-                        : ""
+                        : "Homme"
                     }
                     className="bg-grey"
                     {...register("gender", {
