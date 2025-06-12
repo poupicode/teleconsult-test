@@ -85,7 +85,7 @@ const InformationsForm = ({
                       ? userKind === "patient"
                         ? patientInformations?.name
                         : praticienInformations?.name
-                      : ""
+                      : "tt"
                   }
                   {...register("name", {
                     required: "Nom requis",
@@ -112,7 +112,7 @@ const InformationsForm = ({
                       ? userKind === "patient"
                         ? patientInformations?.first_name
                         : praticienInformations?.first_name
-                      : ""
+                      : "tt"
                   }
                   {...register("first_name", {
                     required: "Prénom requis",
@@ -151,7 +151,7 @@ const InformationsForm = ({
                             ?.birth_date!.split("/")
                             .reverse()
                             .join("-") ?? ""
-                        : ""
+                        : "2025-10-10"
                     }
                     {...register("birth_date", { required: "Date requise" })}
                   />
@@ -174,7 +174,7 @@ const InformationsForm = ({
                     defaultValue={
                       isInformationsEntered && userKind === "patient"
                         ? patientInformations?.patient_number ?? ""
-                        : ""
+                        : "56789"
                     }
                     {...register("patient_number", {
                       required: "Numéro requis",
@@ -227,7 +227,7 @@ const InformationsForm = ({
                     defaultValue={
                       isInformationsEntered && userKind === "patient"
                         ? patientInformations?.consultation_reason ?? ""
-                        : ""
+                        : "eeee"
                     }
                     {...register("consultation_reason", {
                       required: "Motif requis",
@@ -256,7 +256,7 @@ const InformationsForm = ({
                   defaultValue={
                     isInformationsEntered
                       ? praticienInformations?.occupation
-                      : ""
+                      : "ttt"
                   }
                   {...register("occupation", {
                     required: "Profession requise",
