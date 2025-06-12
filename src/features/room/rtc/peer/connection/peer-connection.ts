@@ -135,6 +135,9 @@ export class PeerConnection implements IPeerConnection {
         // Initialize WebRTC peer connection with the ICE configuration
         this.pc = new RTCPeerConnection(iceConfig);
 
+        this.setupStreamsAndTransceivers(this.pc);
+
+
         // Initialize DataChannel manager with a function that always returns the current peer connection
         this.dataChannelManager = new DataChannelManager(
             () => this.pc,  // This function will always provide the current peer connection
@@ -186,6 +189,25 @@ export class PeerConnection implements IPeerConnection {
 
     get remoteStreams() {
         return this._remoteStreams;
+    }
+
+    public replaceDeviceStream = (stream: MediaStream, device: keyof StreamsByDevice) => {
+        if (!this.rtcRtpSenders[device]) {
+            console.error("No RTCRtpSender found for device", device);
+            return;
+        }
+
+        // Go through each track of the stream 
+        const tracks = stream.getTracks();
+        for (const track of tracks) {
+            // Replace the track in the right RTCRtpSender
+            const sender = this.rtcRtpSenders[device][track.kind];
+            if (!sender) {
+                console.warn(`No RTCRtpSender found device "${device}", track "${track.label}" (${track.kind})`, track);
+            }else{
+                sender.replaceTrack(track);
+            }
+        }
     }
 
 public setupStreamsAndTransceivers = (peerConnection: RTCPeerConnection ) => {
@@ -463,6 +485,8 @@ public setupStreamsAndTransceivers = (peerConnection: RTCPeerConnection ) => {
     private setupListeners() {
         // Setup listeners for the PeerConnection
         setupPeerConnectionListeners(this, this.pc);
+
+        this.pc.addEventListener("track", this.onTrack);
 
         // Setup listeners for chat messages from DataChannelManager
         this.dataChannelManager.onChatMessage((message) => {

@@ -30,6 +30,7 @@ export function VideoThumbnail(props: VideoThumbnailProps) {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [mediaStreams] = useContext(MediaStreamsContext);
+  console.log("[VideoThumbnail] 🔍 mediaStreams context:", mediaStreams);
 
   const videoElementRef = useRef<HTMLVideoElement>(null);
 
