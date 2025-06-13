@@ -3,7 +3,7 @@ import { useContext } from 'react';
 import { Form } from 'react-bootstrap';
 import { useRef, useEffect } from 'react';
 import { VideoDevicesContext } from "@/contexts/VideoDevicesContext";
-import { getStreamFromVideoDeviceId, getVideoDevices } from "./VideoDeviceHelper";
+import { getStreamFromVideoDeviceId, getVideoDevices } from "./videoDeviceHelper";
 
 // redux
 import { useAppDispatch } from '@/hooks/useMediaStream';
