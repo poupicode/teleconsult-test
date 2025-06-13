@@ -8,7 +8,15 @@ import { Role, ChatMessage } from '../models/types';
 import { DataChannelManager } from '../data-channel/data-channel-manager';
 import { setupPeerConnectionListeners, IPeerConnection } from '../handlers/connection-handlers';
 import { PerfectNegotiation } from '../negotiation/perfect-negotiation';
+import { StreamsByDevice } from '@/features/streams/streamSlice';
 
+
+const DEFAULT_TRANSCEIVERS: { device: keyof StreamsByDevice, kind: "audio" | "video" }[] = [
+    { device: "camera", kind: "audio" },
+    { device: "camera", kind: "video" },
+    { device: "instrument", kind: "video" },
+    { device: "screen", kind: "video" }
+]
 // Debug logging control - set to false in production
 const DEBUG_LOGS = import.meta.env.DEV || false;
 
@@ -72,6 +80,15 @@ interface CandidateTypeCount {
 }
 
 export class PeerConnection implements IPeerConnection {
+    private numReceivers = 0;
+    private _remoteStreams: { [device: string]: MediaStream } = {}
+    private _localStreams: { [device: string]: MediaStream } = {}
+    private rtcRtpSenders: {
+        [device: string]: {
+            [kind: string]: RTCRtpSender
+        }
+    } = {};
+
     private pc: RTCPeerConnection;
     private signaling: SignalingService;
     private dataChannelManager: DataChannelManager;
@@ -118,6 +135,9 @@ export class PeerConnection implements IPeerConnection {
         // Initialize WebRTC peer connection with the ICE configuration
         this.pc = new RTCPeerConnection(iceConfig);
 
+        this.setupStreamsAndTransceivers(this.pc);
+
+
         // Initialize DataChannel manager with a function that always returns the current peer connection
         this.dataChannelManager = new DataChannelManager(
             () => this.pc,  // This function will always provide the current peer connection
@@ -125,6 +145,9 @@ export class PeerConnection implements IPeerConnection {
             this.clientId,
             this.role
         );
+
+                // Setup peer connection listeners
+        this.setupListeners();
 
         // Initialize Perfect Negotiation with reference to this PeerConnection instance
         this.perfectNegotiation = new PerfectNegotiation(
@@ -143,12 +166,101 @@ export class PeerConnection implements IPeerConnection {
             }
         });
 
-        // Setup peer connection listeners
-        this.setupListeners();
-
         // Setup custom ICE debugging
         this.setupIceDebugging();
     }
+    
+    private onTrack = (event: RTCTrackEvent) => {
+        console.debug("[onTrack] Track received:", event.track);
+  console.debug("[onTrack] Track kind:", event.track.kind);
+  console.debug("[onTrack] Associated transceiver:", event.transceiver);
+  console.debug("[onTrack] Stream in event:", event.streams);
+
+        const currentDefaultTransceiver = DEFAULT_TRANSCEIVERS[this.numReceivers];
+        
+        // We add the new transceiver to its corresponding stream in remote streams
+        this._remoteStreams[currentDefaultTransceiver.device].addTrack(event.transceiver.receiver.track);
+
+        this.numReceivers++;
+    }
+        
+    // Expose streams
+    get localStreams() {
+        return this._localStreams;
+    }
+
+    get remoteStreams() {
+        return this._remoteStreams;
+    }
+
+    public replaceDeviceStream = (stream: MediaStream, device: keyof StreamsByDevice) => {
+        if (!this.rtcRtpSenders[device]) {
+            console.error("No RTCRtpSender found for device", device);
+            return;
+        }
+
+        // Go through each track of the stream 
+        const tracks = stream.getTracks();
+        for (const track of tracks) {
+            // Replace the track in the right RTCRtpSender
+            const sender = this.rtcRtpSenders[device][track.kind];
+            if (!sender) {
+                console.warn(`No RTCRtpSender found device "${device}", track "${track.label}" (${track.kind})`, track);
+            }else{
+                sender.replaceTrack(track);
+            }
+        }
+    }
+
+public setupStreamsAndTransceivers = (peerConnection: RTCPeerConnection ) => {
+        console.debug("Setting up dummy streams and transceivers");
+        // Create one empty stream per device found in DEFAULT_TRANSCEIVERS
+        // MediaStreams are used to group and identify tracks sent to the peerConnection
+        for (const { device } of DEFAULT_TRANSCEIVERS) {
+            if (!this._localStreams[device])
+                this._localStreams[device] = new MediaStream();
+            if (!this._remoteStreams[device])
+                this._remoteStreams[device] = new MediaStream();
+        }
+
+        console.debug("TelemedPeerConnection: Placeholder MediaStreams created for each device");
+        console.debug(this._localStreams, this._remoteStreams)
+
+        // Add transceivers to the peer connection, for future tracks
+        for (const { device, kind } of DEFAULT_TRANSCEIVERS) {
+            // Create Transceiver and add it to the peer connection
+            const rtcRtpTransceiver = peerConnection.addTransceiver(kind, { streams: [this._localStreams[device]] });
+
+            if (!rtcRtpTransceiver) {
+                console.error("Error creating transceiver", device, kind, this._localStreams[device]);
+                throw new Error("Error creating transceiver for device");
+            }
+            // Store Transceiver locally (to enable the usage of replaceTrack later)
+            if (!this.rtcRtpSenders[device])
+                this.rtcRtpSenders[device] = {}
+
+            this.rtcRtpSenders[device][kind] = rtcRtpTransceiver.sender;
+        }
+
+        console.debug("TelemedPeerConnection: Transceivers (senders) created for each device and kind");
+        console.debug(this.rtcRtpSenders)
+    }
+
+
+    // This function will be called when we receives an answer
+    public setRemoteDescription = async (description: RTCSessionDescription) => {
+        console.debug("setRemoteDescription", description);
+        // Set the remote description
+        return this.pc.setRemoteDescription(description);
+    }
+
+    // Set local description
+    public setLocalDescription = async (description?: RTCSessionDescription) => {
+        console.debug("setLocalDescription", description);
+        // Set the local description
+        return this.pc.setLocalDescription(description);
+    }
+
 
     // Check if TURN configuration is valid
     private checkTurnConfiguration(iceConfig: RTCConfiguration) {
@@ -229,12 +341,12 @@ export class PeerConnection implements IPeerConnection {
                     break;
 
                 case 'failed':
-                    console.error('[WebRTC-ICE] ❌ Connection failed. This is likely due to a TURN server issue or network restriction.');
+                    console.error('[WebRTC-ICE] Connection failed. This is likely due to a TURN server issue or network restriction.');
                     this.logIceStats();
 
                     // Try Perfect Negotiation automatic reconnection if both peers are still present
                     if (this.signaling.hasPatientAndPractitioner()) {
-                        console.log('[WebRTC-ICE] 🔄 Both peers present, attempting Perfect Negotiation reconnection...');
+                        console.log('[WebRTC-ICE] Both peers present, attempting Perfect Negotiation reconnection...');
                         setTimeout(() => {
                             this.perfectNegotiation.attemptReconnection();
                         }, 1000); // Small delay to let logs complete
@@ -250,7 +362,7 @@ export class PeerConnection implements IPeerConnection {
                     setTimeout(() => {
                         if (this.pc.iceConnectionState === 'disconnected' &&
                             this.signaling.hasPatientAndPractitioner()) {
-                            console.log('[WebRTC-ICE] 🔄 Still disconnected after 2s, attempting reconnection...');
+                            console.log('[WebRTC-ICE] Still disconnected after 2s, attempting reconnection...');
                             this.perfectNegotiation.attemptReconnection();
                         }
                     }, 2000); // Short timeout: optimal for teleconsultation UX
@@ -375,6 +487,8 @@ export class PeerConnection implements IPeerConnection {
     private setupListeners() {
         // Setup listeners for the PeerConnection
         setupPeerConnectionListeners(this, this.pc);
+
+        this.pc.addEventListener("track", this.onTrack);
 
         // Setup listeners for chat messages from DataChannelManager
         this.dataChannelManager.onChatMessage((message) => {

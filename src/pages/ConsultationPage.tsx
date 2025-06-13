@@ -20,6 +20,7 @@ import InformationsForm from "@/components/InformationsForm";
 import Header from "@/components/Header";
 import { useSimpleRoomPersistence } from "@/hooks/useSimpleRoomPersistence";
 import { useSimpleBeforeUnload } from "@/hooks/useSimpleBeforeUnload";
+
 import InformationsPanel from "@/components/room/InformationsPanel";
 
 // Définition des types pour les données du formulaire pour les informations du patient/praticien
@@ -34,6 +35,8 @@ type InformationsDetails = {
 };
 
 export default function ConsultationPage() {
+  
+
   // Récupération des données du store Redux : le rôle de l'utilisateur, l'ID de la salle, etc.
   const userKind = useSelector((state: RootState) => state.user.user_kind);
   const roomId = useSelector((state: RootState) => state.room.roomId);
@@ -324,6 +327,8 @@ export default function ConsultationPage() {
                 isInformationsPanelOpened={isInformationsPanelOpened}
               />
             </div>
+              
+
           </Col>
         )}
       </Row>

@@ -151,7 +151,7 @@ const InformationsForm = ({
                             ?.birth_date!.split("/")
                             .reverse()
                             .join("-") ?? ""
-                        : ""
+                        : "2025-10-10"
                     }
                     {...register("birth_date", { required: "Date requise" })}
                   />
