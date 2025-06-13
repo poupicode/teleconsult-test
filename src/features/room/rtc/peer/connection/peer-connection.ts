@@ -171,7 +171,7 @@ export class PeerConnection implements IPeerConnection {
     }
     
     private onTrack = (event: RTCTrackEvent) => {
-        console.debug("[onTrack] 📹 Track received:", event.track);
+        console.debug("[onTrack] Track received:", event.track);
   console.debug("[onTrack] Track kind:", event.track.kind);
   console.debug("[onTrack] Associated transceiver:", event.transceiver);
   console.debug("[onTrack] Stream in event:", event.streams);
@@ -341,12 +341,12 @@ public setupStreamsAndTransceivers = (peerConnection: RTCPeerConnection ) => {
                     break;
 
                 case 'failed':
-                    console.error('[WebRTC-ICE] ❌ Connection failed. This is likely due to a TURN server issue or network restriction.');
+                    console.error('[WebRTC-ICE] Connection failed. This is likely due to a TURN server issue or network restriction.');
                     this.logIceStats();
 
                     // Try Perfect Negotiation automatic reconnection if both peers are still present
                     if (this.signaling.hasPatientAndPractitioner()) {
-                        console.log('[WebRTC-ICE] 🔄 Both peers present, attempting Perfect Negotiation reconnection...');
+                        console.log('[WebRTC-ICE] Both peers present, attempting Perfect Negotiation reconnection...');
                         setTimeout(() => {
                             this.perfectNegotiation.attemptReconnection();
                         }, 1000); // Small delay to let logs complete
@@ -362,7 +362,7 @@ public setupStreamsAndTransceivers = (peerConnection: RTCPeerConnection ) => {
                     setTimeout(() => {
                         if (this.pc.iceConnectionState === 'disconnected' &&
                             this.signaling.hasPatientAndPractitioner()) {
-                            console.log('[WebRTC-ICE] 🔄 Still disconnected after 2s, attempting reconnection...');
+                            console.log('[WebRTC-ICE] Still disconnected after 2s, attempting reconnection...');
                             this.perfectNegotiation.attemptReconnection();
                         }
                     }, 2000); // Short timeout: optimal for teleconsultation UX
