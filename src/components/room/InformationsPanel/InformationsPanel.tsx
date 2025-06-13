@@ -2,6 +2,10 @@ import PatientInformationsDisplay from "./PatientInformationsDisplay";
 import VideoButton from "./VideoButton";
 import { useEffect, useState } from "react";
 import { Container, Row, Col, Card, Button } from "react-bootstrap";
+import { useAppSelector } from "@/hooks/useMediaStream";
+import { VideoThumbnail } from "@/components/stream/VideoThumbnail";
+import { VideoDeviceSelector } from "@/components/mediaDevices/VideoDeviceSelector";
+import { RefreshDeviceButton } from "@/components/mediaDevices/RefreshDevicesButton";
 
 type InformationsDetails = {
   name: string;
@@ -44,6 +48,13 @@ const InformationsPanel = ({
       }
       return updated;
     });
+  };
+  const streamIds = {
+    localCamera: useAppSelector((state) => state.streams.local.camera?.streamId),
+    localInstrument: useAppSelector((state) => state.streams.local.instrument?.streamId),
+    remoteCamera: useAppSelector((state) => state.streams.remote.camera?.streamId),
+    remoteInstrument: useAppSelector((state) => state.streams.remote.instrument?.streamId),
+    selectedStream: useAppSelector((state) => state.selectedStream.streamId),
   };
   return (
     <Container
@@ -203,6 +214,25 @@ const InformationsPanel = ({
             </li>
           </ul>
         </div>
+        <h5>Caméra locale</h5>
+  <VideoThumbnail
+    streamid={streamIds.localCamera}
+                        muted
+                        autoPlay
+                        style={{ maxWidth: "100%" }}
+  />
+  <VideoDeviceSelector deviceType="camera"></VideoDeviceSelector>
+
+  <h5 className="mt-4">Caméra distante</h5>
+  <VideoThumbnail
+                        streamid={streamIds.remoteCamera}
+                        autoPlay
+                        style={{ maxWidth: "100%" }}
+                      ></VideoThumbnail>
+
+  <div className="mt-4">
+    <RefreshDeviceButton />
+  </div>
         {(userKind === "patient" || connectionStatus === "connected") && (
           <PatientInformationsDisplay
             patientInformations={patientInformations}
