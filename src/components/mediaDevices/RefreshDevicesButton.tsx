@@ -1,7 +1,7 @@
 import { useContext } from "react";
 import { Button } from "react-bootstrap";
 import { VideoDevicesContext } from "@/contexts/VideoDevicesContext";
-import { getVideoDevices } from "./VideoDeviceHelper";
+import { getVideoDevices } from "./videoDeviceHelper";
 import { BiRefresh } from "react-icons/bi";
 
 export function RefreshDeviceButton() {
