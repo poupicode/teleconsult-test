@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+/**import React, { useEffect } from "react";
 import { useDoctorData } from "@/features/bluetooth/useDoctorData";
 import { PeerConnection } from "@/features/room/rtc/peer/connection/peer-connection";
 import ServiceCard from "./ServiceCard";
@@ -54,3 +54,4 @@ export default function DoctorInterface({
     </div>
   );
 }
+**/

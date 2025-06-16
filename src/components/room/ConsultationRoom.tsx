@@ -14,11 +14,11 @@ import { Alert, Badge, Button } from "react-bootstrap";
 import DoctorRoomManager from "@/components/room/DoctorRoomManager";
 import RoomList from "@/components/room/RoomList";
 import { supabase } from "@/lib/supabaseClient";
-import BluetoothContext from "@/components/bluetooth/BluetoothContext";
-import DoctorInterface from "@/components/bluetooth/DoctorInterface";
+import BluetoothContext from "@/components/bluetooth/BluetootServiceCard";
 import Header from "@/components/Header";
 import MediaStreamsContext from "@/contexts/MediaStreamsContext";
 import { StreamsByDevice, streamUpdated } from "@/features/streams/streamSlice";
+import BluetoothServiceCard from "@/components/bluetooth/BluetootServiceCard";
 
 interface ConsultationRoomProps {
   onPeerConnectionReady?: (peerConnection: PeerConnection) => void;
@@ -327,14 +327,15 @@ addStreamsToStore(peer, addMediaStreams); // si `addMediaStreams` vient du conte
               className="pt-3 pe-2 ps-1"
             >
               {userKind === "patient" && peerConnection && (
-                <BluetoothContext
+                <BluetoothServiceCard
+                role="patient"
                   peerConnection={peerConnection}
                   onSendConnect={getHandleConnect}
                   onSendStatus={getBluetoothStatus}
                 />
               )}
               {userKind === "practitioner" && peerConnection && (
-                <DoctorInterface peerConnection={peerConnection} />
+                <BluetoothServiceCard role="doctor" peerConnection={peerConnection} />
               )}
             </div>
             <Button
