@@ -1,44 +1,25 @@
 import { useState, useEffect } from "react";
+import { PeerConnection } from "@/features/room/rtc/peer/connection/peer-connection";
+import { setMeasure } from "../measures/measureSlice";
 
-type DoctorServices = {
-  [serviceName: string]: Record<string, string | number>; // précision du type si possible
-};
+interface UseDoctorDataOptions {
+  dispatch: (action: any) => void;
+  role: "practitioner" | "patient" | null;
+  peerConnection?: PeerConnection | null;
+}
 
 // Hook principal utilisé pour recevoir et stocker les mesures
-export function useDoctorData() {
-  // État principal contenant toutes les mesures organisées par service
-  const [doctorServices, setDoctorServices] = useState<object>({});
-  // État temporaire utilisé pour stocker une nouvelle mesure reçue avant traitement
-  const [newData, setNewData] = useState<object | null>(null);
-
+export function useDoctorData({ dispatch, role, peerConnection }: UseDoctorDataOptions) {
   // Fonction appelée automatiquement par le système WebRTC quand une mesure arrive
   const receiveData = (rawDataReceived: any) => {
     console.log("[Médecin] Payload reçu :", rawDataReceived);
-    setNewData(rawDataReceived); // on stocke directement le payload brut reçu (déjà filtré en amont)
+    dispatch(setMeasure(rawDataReceived)); // on envoie au store Redux si nécessaire
   };
 
-  // Fonction qui extrait le service (clé) et les mesures à partir du payload
-  const processNewData = (currentData: object) => {
-    const service = Object.keys(currentData)[0]; // ex: 'blood_pressure'
-    const measures = (currentData as any)[service]; // ex: { systolique: 120, ... }
-
-    // On ajoute ou remplace les mesures pour ce service dans le state principal
-    setDoctorServices((prev) => ({
-      ...prev,
-      [service]: measures,
-    }));
-  };
-
-  // À chaque fois que newData est mis à jour, on le traite immédiatement
   useEffect(() => {
-    if (newData) {
-      processNewData(newData);
-      setNewData(null);
+    if (role === "practitioner" && peerConnection?.isDataChannelAvailable()) {
+      const manager = peerConnection.getDataChannelManager();
+      manager.onMeasurement(receiveData);
     }
-  }, [newData]);
-
-  return {
-    doctorServices, //les mesures prêtes à être affichées
-    receiveData,
-  }; //la fonction à passer à onMeasurement()
+  }, [peerConnection, receiveData, role]);
 }

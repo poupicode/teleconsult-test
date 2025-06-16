@@ -1,4 +1,4 @@
-import React, { useState, useEffect, use } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Container,
   Row,
@@ -22,6 +22,7 @@ import { useSimpleRoomPersistence } from "@/hooks/useSimpleRoomPersistence";
 import { useSimpleBeforeUnload } from "@/hooks/useSimpleBeforeUnload";
 
 import InformationsPanel from "@/components/room/InformationsPanel";
+import { clearMeasures } from "@/features/measures/measureSlice";
 
 // Définition des types pour les données du formulaire pour les informations du patient/praticien
 type InformationsDetails = {
@@ -94,9 +95,13 @@ export default function ConsultationPage() {
       } finally {
         // Mettre à jour le state Redux pour indiquer qu'on n'est plus dans une room
         dispatch(roomIdUpdated(null));
+        // handleDisconnectBluetoothDevice();
+        dispatch(clearMeasures());
       }
     } else {
       dispatch(roomIdUpdated(null));
+      // handleDisconnectBluetoothDevice();
+      dispatch(clearMeasures());
     }
   };
 
@@ -193,13 +198,14 @@ export default function ConsultationPage() {
     }
   }
 
-  useEffect(()=>{
-    if (connectionStatus==="connected"){
-      setIsInformationsPanelOpened(true)
+  useEffect(() => {
+    if (connectionStatus === "connected") {
+      setIsInformationsPanelOpened(true);
     } else {
-      setIsInformationsPanelOpened(false)
+      setIsInformationsPanelOpened(false);
     }
-  },[connectionStatus])
+  }, [connectionStatus]);
+
   return (
     <Container fluid>
       <Row className="h-100">
