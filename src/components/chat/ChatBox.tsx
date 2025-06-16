@@ -98,13 +98,25 @@ const ChatBox: React.FC<ChatBoxProps> = ({ peerConnection }) => {
     // Si le DataChannel n'est pas encore ouvert, configurer une vérification périodique
     if (!peerConnection.isDataChannelAvailable()) {
       console.log("[ChatBox] DataChannel not ready yet, setting up polling");
-
+      
+      // Check if there are enough participants before polling
+      const hasEnoughParticipants = peerConnection.isRoomReady && peerConnection.isRoomReady();
+      
+      // Use a counter to reduce logging frequency
+      let pollCount = 0;
+      const LOG_FREQUENCY = 10; // Only log every 10 polls (10 seconds)
+      
       const intervalId = setInterval(() => {
         const isAvailable = peerConnection.isDataChannelAvailable();
-        console.log(
-          "[ChatBox] Checking DataChannel availability:",
-          isAvailable
-        );
+        
+        // Only log occasionally to reduce console spam
+        if (pollCount % LOG_FREQUENCY === 0) {
+          console.log(
+            "[ChatBox] Checking DataChannel availability:",
+            isAvailable
+          );
+        }
+        pollCount++;
 
         if (isAvailable) {
           setIsDataChannelOpen(true);

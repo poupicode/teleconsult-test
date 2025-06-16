@@ -20,9 +20,25 @@ const DEFAULT_TRANSCEIVERS: { device: keyof StreamsByDevice, kind: "audio" | "vi
 // Debug logging control - set to false in production
 const DEBUG_LOGS = import.meta.env.DEV || false;
 
-// Conditional logging functions
+// CONFIGURE LOG LEVELS - enable only what you need
+const CONFIG = {
+    SHOW_CONNECTION_LOGS: DEBUG_LOGS && true,
+    SHOW_ICE_LOGS: DEBUG_LOGS && false,     // Set to true only when debugging ICE issues
+    SHOW_SIGNALING_LOGS: DEBUG_LOGS && false, // Set to true only when debugging signaling
+    SHOW_ALL_ERRORS: true                    // Always show errors
+};
+
+// Conditional logging functions with category filtering
 const debugLog = (message: string, ...args: any[]) => {
-    if (DEBUG_LOGS) console.log(message, ...args);
+    const isICELog = message.includes('[WebRTC-ICE]') || message.includes('ICE candidate');
+    const isSignalingLog = message.includes('[Signaling]');
+    
+    if (!DEBUG_LOGS) return;
+    
+    if (isICELog && !CONFIG.SHOW_ICE_LOGS) return;
+    if (isSignalingLog && !CONFIG.SHOW_SIGNALING_LOGS) return;
+    
+    console.log(message, ...args);
 };
 
 const debugWarn = (message: string, ...args: any[]) => {
@@ -30,7 +46,7 @@ const debugWarn = (message: string, ...args: any[]) => {
 };
 
 const debugError = (message: string, ...args: any[]) => {
-    console.error(message, ...args); // Always log errors
+    if (CONFIG.SHOW_ALL_ERRORS) console.error(message, ...args); // Always log errors by default
 };
 
 // WebRTC interfaces for statistics
@@ -146,7 +162,7 @@ export class PeerConnection implements IPeerConnection {
             this.role
         );
 
-                // Setup peer connection listeners
+        // Setup peer connection listeners
         this.setupListeners();
 
         // Initialize Perfect Negotiation with reference to this PeerConnection instance
@@ -169,15 +185,15 @@ export class PeerConnection implements IPeerConnection {
         // Setup custom ICE debugging
         this.setupIceDebugging();
     }
-    
+
     public onTrack = (event: RTCTrackEvent) => {
         console.debug("[onTrack] Track received:", event.track);
-  console.debug("[onTrack] Track kind:", event.track.kind);
-  console.debug("[onTrack] Associated transceiver:", event.transceiver);
-  console.debug("[onTrack] Stream in event:", event.streams);
+        console.debug("[onTrack] Track kind:", event.track.kind);
+        console.debug("[onTrack] Associated transceiver:", event.transceiver);
+        console.debug("[onTrack] Stream in event:", event.streams);
 
         const currentDefaultTransceiver = DEFAULT_TRANSCEIVERS[this.numReceivers];
-        
+
         // We add the new transceiver to its corresponding stream in remote streams
         if (currentDefaultTransceiver && this._remoteStreams[currentDefaultTransceiver.device]) {
             this._remoteStreams[currentDefaultTransceiver.device].addTrack(event.transceiver.receiver.track);
@@ -186,7 +202,7 @@ export class PeerConnection implements IPeerConnection {
             console.error("[WebRTC] Could not find appropriate remote stream for received track", event.track);
         }
     }
-        
+
     // Expose streams
     get localStreams() {
         return this._localStreams;
@@ -219,7 +235,7 @@ export class PeerConnection implements IPeerConnection {
                     console.debug(`[WebRTC] Stopping old track for ${device}/${track.kind} before replacement`);
                     oldTrack.stop();
                 }
-                
+
                 sender.replaceTrack(track);
             }
         }
@@ -228,7 +244,7 @@ export class PeerConnection implements IPeerConnection {
         this._localStreams[device] = stream;
     }
 
-public setupStreamsAndTransceivers = (peerConnection: RTCPeerConnection ) => {
+    public setupStreamsAndTransceivers = (peerConnection: RTCPeerConnection) => {
         console.debug("Setting up dummy streams and transceivers");
         // Create one empty stream per device found in DEFAULT_TRANSCEIVERS
         // MediaStreams are used to group and identify tracks sent to the peerConnection

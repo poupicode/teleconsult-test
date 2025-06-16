@@ -59,7 +59,7 @@ export function VideoDeviceSelector(props: { deviceType: keyof StreamsByDevice }
     if (selectElement.current /*&& selectElement.current.value*/) {
       if (selectElement.current.selectedIndex < 0)
         selectElement.current.selectedIndex = 0;
-      
+
       try {
         // Arrêter l'ancien stream si présent
         // Rechercher l'ancien stream associé à ce device type
@@ -70,7 +70,7 @@ export function VideoDeviceSelector(props: { deviceType: keyof StreamsByDevice }
             .find(s => s.deviceType === props.deviceType && s.streamDetails?.streamId === stream.id);
           return !!streamEntry;
         });
-        
+
         if (oldStream) {
           console.debug(`Stopping previous stream for ${props.deviceType}`);
           oldStream.getTracks().forEach(track => track.stop());

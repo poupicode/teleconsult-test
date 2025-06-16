@@ -14,9 +14,25 @@ import { Role, NegotiationRole, NegotiationState } from '../models/types';
 // Debug logging control - set to false in production
 const DEBUG_LOGS = import.meta.env.DEV || false;
 
-// Conditional logging functions
+// CONFIGURE LOG LEVELS - enable only what you need
+const CONFIG = {
+    SHOW_NEGOTIATION_LOGS: DEBUG_LOGS && true, 
+    SHOW_ICE_LOGS: DEBUG_LOGS && false,     // Set to true only when debugging ICE issues
+    SHOW_SIGNALING_LOGS: DEBUG_LOGS && false, // Set to true only when debugging signaling
+    SHOW_ALL_ERRORS: true                    // Always show errors
+};
+
+// Conditional logging functions with category filtering
 const debugLog = (message: string, ...args: any[]) => {
-    if (DEBUG_LOGS) console.log(message, ...args);
+    const isICELog = message.includes('[WebRTC-ICE]') || message.includes('ICE candidate');
+    const isSignalingLog = message.includes('signaling') || message.includes('Signaling');
+    
+    if (!DEBUG_LOGS) return;
+    
+    if (isICELog && !CONFIG.SHOW_ICE_LOGS) return;
+    if (isSignalingLog && !CONFIG.SHOW_SIGNALING_LOGS) return;
+    
+    console.log(message, ...args);
 };
 
 const debugWarn = (message: string, ...args: any[]) => {
@@ -24,7 +40,7 @@ const debugWarn = (message: string, ...args: any[]) => {
 };
 
 const debugError = (message: string, ...args: any[]) => {
-    console.error(message, ...args); // Always log errors
+    if (CONFIG.SHOW_ALL_ERRORS) console.error(message, ...args); // Always log errors by default
 };
 
 export class PerfectNegotiation {
@@ -104,6 +120,15 @@ export class PerfectNegotiation {
         this.pc.onnegotiationneeded = async () => {
             try {
                 debugLog(`[PerfectNegotiation] Negotiation needed, isPolite: ${this.negotiationRole.isPolite}`);
+                
+                // Check if both peers are present before proceeding with negotiation
+                const allParticipants = this.signaling.getValidParticipants();
+                const bothPresent = allParticipants.length >= 2;
+                
+                if (!bothPresent) {
+                    debugLog('[PerfectNegotiation] Skipping negotiation - not enough participants yet');
+                    return; // Skip negotiation if not enough participants
+                }
 
                 this.negotiationState.makingOffer = true;
                 await this.pc.setLocalDescription();
@@ -129,9 +154,30 @@ export class PerfectNegotiation {
      * Handle ICE candidate events
      */
     private setupIceCandidateHandler() {
+        // Track ICE candidate counts to reduce logging noise
+        let iceCandidateCount = 0;
+        const MAX_DETAILED_CANDIDATES = 2;
+        
         this.pc.onicecandidate = ({ candidate }) => {
             if (candidate) {
-                debugLog('[PerfectNegotiation] Sending ICE candidate');
+                // Check if both peers are present before sending candidates
+                const allParticipants = this.signaling.getValidParticipants();
+                const bothPresent = allParticipants.length >= 2;
+                
+                if (!bothPresent) {
+                    // Don't send candidates if no other participant is present
+                    return;
+                }
+                
+                // Reduce logging noise
+                if (iceCandidateCount < MAX_DETAILED_CANDIDATES) {
+                    debugLog('[PerfectNegotiation] Sending ICE candidate');
+                } else if (iceCandidateCount === MAX_DETAILED_CANDIDATES) {
+                    debugLog(`[PerfectNegotiation] Sending additional ICE candidates (limiting logs)`);
+                }
+                
+                iceCandidateCount++;
+                
                 this.signaling.sendMessage({
                     type: 'ice-candidate',
                     roomId: this.roomId,

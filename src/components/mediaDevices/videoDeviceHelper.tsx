@@ -1,4 +1,4 @@
-export async function getVideoDevices() : Promise<MediaDeviceInfo[]> {
+export async function getVideoDevices(): Promise<MediaDeviceInfo[]> {
     let devices: MediaDeviceInfo[] = [];
     try {
         // Get Permission for video and audio
@@ -16,7 +16,7 @@ export async function getVideoDevices() : Promise<MediaDeviceInfo[]> {
     }
 }
 
-export async function getStreamFromVideoDeviceId(videoDeviceId: string) : Promise<MediaStream>{
+export async function getStreamFromVideoDeviceId(videoDeviceId: string): Promise<MediaStream> {
     try {
         return await navigator.mediaDevices.getUserMedia(
             { video: { deviceId: videoDeviceId }, audio: true }
