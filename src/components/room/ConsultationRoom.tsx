@@ -14,11 +14,11 @@ import { Alert, Badge, Button } from "react-bootstrap";
 import DoctorRoomManager from "@/components/room/DoctorRoomManager";
 import RoomList from "@/components/room/RoomList";
 import { supabase } from "@/lib/supabaseClient";
-import BluetoothContext from "@/components/bluetooth/BluetootServiceCard";
+import BluetoothContext from "@/components/bluetooth/BluetoothServiceCard";
 import Header from "@/components/Header";
 import MediaStreamsContext from "@/contexts/MediaStreamsContext";
 import { StreamsByDevice, streamUpdated } from "@/features/streams/streamSlice";
-import BluetoothServiceCard from "@/components/bluetooth/BluetootServiceCard";
+import BluetoothServiceCard from "@/components/bluetooth/BluetoothServiceCard";
 
 interface ConsultationRoomProps {
   onPeerConnectionReady?: (peerConnection: PeerConnection) => void;
