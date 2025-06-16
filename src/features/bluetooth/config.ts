@@ -38,7 +38,7 @@ const deviceType: DeviceType = {
       },
     },
 
-    deviceName: "Tensiomètre",
+    deviceName: "tensiomètre",
   },
 
   health_thermometer: {
@@ -57,7 +57,7 @@ const deviceType: DeviceType = {
       },
     },
 
-    deviceName: "Thermomètre",
+    deviceName: "thermomètre",
   },
 
   //Pour autres instruments, ajouter ici le service
