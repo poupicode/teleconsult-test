@@ -13,6 +13,10 @@ export default function DoctorInterface({
 }: DoctorInterfaceProps) {
   const { doctorServices, receiveData } = useDoctorData(); // Pour stocker et traiter les mesures reçues
 
+  useEffect(()=>{
+      console.log(`Données du store côté patient`, doctorServices)
+    },[doctorServices])
+
   useEffect(() => {
     if (!peerConnection) return; // Sécurité : on quitte si la connexion WebRTC n’est pas encore disponible
 
@@ -40,7 +44,7 @@ export default function DoctorInterface({
         <p className="pe-3 ps-2">Aucune mesure reçue pour le moment.</p>
       ) : (
         <div className="w-100 d-flex flex-wrap">
-          {Object.entries(doctorServices).map(([service, entry], index) => (
+          {/* {Object.entries(doctorServices).map(([service, entry], index) => (
             <div className="w-50 px-2">
               <ServiceCard
                 key={`${service}-${index}`}
@@ -48,7 +52,7 @@ export default function DoctorInterface({
                 measurements={entry}
               />
             </div>
-          ))}
+          ))} */}
         </div>
       )}
     </div>

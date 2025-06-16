@@ -6,6 +6,7 @@ import iceConfigReducer from '../features/room/rtc/ice/ice-config-slice';
 import chatReducer from '../features/chat/chatSlice';
 import selectedStreamReducer from '@/features/streams/selected-stream-slice';
 import streamReducer from '@/features/streams/streamSlice';
+import measureReducer from '../features/measures/measureSlice';
 
 export const store = configureStore({
     reducer: {
@@ -16,6 +17,7 @@ export const store = configureStore({
         chat: chatReducer,
         selectedStream: selectedStreamReducer,
         streams: streamReducer,
+        measure: measureReducer,
     },
 });
 
