@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback, use } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "@/app/store";
 import { RoomSupabase } from "../../features/room/roomSupabase";
@@ -14,9 +14,9 @@ import { Alert, Badge, Button } from "react-bootstrap";
 import DoctorRoomManager from "@/components/room/DoctorRoomManager";
 import RoomList from "@/components/room/RoomList";
 import { supabase } from "@/lib/supabaseClient";
-import BluetoothContext from "@/components/bluetooth/BluetoothContext";
-import DoctorInterface from "@/components/bluetooth/DoctorInterface";
 import Header from "@/components/Header";
+import BluetoothServiceCard from "@/components/bluetooth/BluetoothServiceCard";
+import { get } from "http";
 
 interface ConsultationRoomProps {
   onPeerConnectionReady?: (peerConnection: PeerConnection) => void;
@@ -222,28 +222,40 @@ export default function ConsultationRoom({
     }
   };
 
+  const allMeasuresStore = useSelector((state: RootState) => state.measure);
+
+  useEffect(() => {
+    console.log(`---------------------------------------------
+      [ConsultationRoom] allMeasuresStore:
+      -----------------------------------------`, allMeasuresStore); 
+  }
+  , [allMeasuresStore]);
+
   // Stocker dans un state la fonction de connexion Bluetooth envoyé et remonté depuis BluetoothContext dans ConsultationRoom
-  const [receiveHandleConnect, setReceiveHandleConnect] = React.useState<
-    (() => Promise<void>) | null
-  >(null);
+const [receiveHandleConnect, setReceiveHandleConnect] = React.useState<
+  (() => Promise<void>) | null
+>(null);
 
-  // Récupérer la fonction de connexion Bluetooth envoyé et remonté depuis BluetoothContext dans ConsultationRoom
-  const getHandleConnect = React.useCallback((fn: () => Promise<void>) => {
-    setReceiveHandleConnect(() => fn);
-  }, []);
+// Récupérer la fonction de connexion Bluetooth envoyé et remonté depuis BluetoothContext dans ConsultationRoom
+const getHandleConnect = React.useCallback((fn: () => Promise<void>) => {
+setReceiveHandleConnect(() => fn);
+}, []);
 
-  // Créer la fonction au click qui va appeler la fonction de connexion BluetoothContext envoyé et remonté depuis DoctorRoomManager dans ConsultationRoom
-  const handleConnect = React.useCallback(async () => {
-    if (receiveHandleConnect) {
-      receiveHandleConnect();
-    } else {
-      alert("Fonction pas encore reçue");
-    }
-  }, [receiveHandleConnect]);
+// Créer la fonction au click qui va appeler la fonction de connexion BluetoothContext envoyé et remonté depuis DoctorRoomManager dans ConsultationRoom
+const handleConnect = React.useCallback(async () => {
+if (receiveHandleConnect) {
+receiveHandleConnect();
+} else {
+  alert("Fonction pas encore reçue");
+}
+}, [receiveHandleConnect]);
 
+
+  // Stocker dans un state la fonction de déconnexion Bluetooth envoyé et remonté depuis BluetoothContext dans ConsultationRoom
   const [receiveBluetoothStatus, setReceiveBluetoothStatus] =
     React.useState<String | null>(null);
 
+  // Récupérer la fonction de déconnexion Bluetooth envoyé et remonté depuis BluetoothContext dans ConsultationRoom
   const getBluetoothStatus = (data: string) => {
     setReceiveBluetoothStatus(data);
   };
@@ -307,16 +319,12 @@ export default function ConsultationRoom({
               }}
               className="pt-3 pe-2 ps-1"
             >
-              {userKind === "patient" && peerConnection && (
-                <BluetoothContext
+              {peerConnection && <BluetoothServiceCard
+                  role={userKind}
                   peerConnection={peerConnection}
                   onSendConnect={getHandleConnect}
                   onSendStatus={getBluetoothStatus}
-                />
-              )}
-              {userKind === "practitioner" && peerConnection && (
-                <DoctorInterface peerConnection={peerConnection} />
-              )}
+                />}
             </div>
             <Button
               className="secondary-btn position-absolute pe-3 ps-3"
