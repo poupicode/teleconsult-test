@@ -28,27 +28,6 @@ export default function BluetoothContext({
     },
   });
 
-  // Transformer les données côté infirmière pour avoir la même structure que ceux côté médecin
-  const [mergedConnectedCards, setMergedConnectedCards] =
-    useState<object>({});
-
-  const transformConnectedCards = () => {
-    let tempConnectedCards = Object.fromEntries(
-      connectedCards.map(({ service, deviceName, measurements }) => {
-        const merged = Object.assign(
-          {},
-          ...measurements.map(({ name, data }) => ({ [name]: data }))
-        );
-        // Ajout du nom de l'appareil à la fin des mesures du services
-        return [service, { ...merged, deviceName }];
-      })
-    );
-    setMergedConnectedCards(tempConnectedCards);
-  };
-
-  useEffect(() => {
-    transformConnectedCards();
-  }, [connectedCards]);
 
   // Envoyer la fonction de connexion avec un appareil Bluetooth à l'élément parent
   // Car le bouton de connexion avec un appareil bluetooth est dans ConsultationPage mais il faut garder la logique ici pour mettre à jour l'affichage correctement des données
@@ -64,6 +43,10 @@ export default function BluetoothContext({
     }
   }, [onSendStatus, status]);
 
+  useEffect(()=>{
+    console.log(`Données du store côté patient`, connectedCards)
+  },[connectedCards])
+
   return (
     <div className="p-0 w-100">
       {status === "En attente..." && (
@@ -72,16 +55,15 @@ export default function BluetoothContext({
 
       <div className="w-100 d-flex flex-wrap">
         {/* Pour chaque service, créer une card */}
-        {Object.entries(mergedConnectedCards).map(([service, entry], index) => (
+        {/* {Object.entries(mergedConnectedCards).map(([service, entry], index) => (
           <div className="w-50 px-2">
-            {/* Transmission du nom du service et des mesures en objet */}
             <ServiceCard
               key={`${service}-${index}`}
               service={service}
               measurements={entry}
             />
           </div>
-        ))}
+        ))} */}
       </div>
     </div>
   );
