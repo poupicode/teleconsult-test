@@ -59,7 +59,12 @@ export class DataChannelManager {
     }
 
     // Configure les événements pour le dataChannel
-    setupDataChannel(channel: RTCDataChannel) {
+    setupDataChannel(channel: RTCDataChannel | null) {
+        if (!channel) {
+            console.error('[WebRTC] Cannot setup events for null data channel');
+            return;
+        }
+        
         channel.onopen = () => {
             console.log('[WebRTC] Data channel opened');
             // Forcer une mise à jour de l'interface en utilisant un dispatch vide
@@ -139,8 +144,13 @@ export class DataChannelManager {
 
     // Envoyer un message via le dataChannel
     sendDataChannelMessage(type: string, payload: any): boolean {
-        if (!this.dataChannel || this.dataChannel.readyState !== 'open') {
-            console.error('[WebRTC] Cannot send message, data channel not ready');
+        if (!this.dataChannel) {
+            console.error('[WebRTC] Cannot send message, data channel is null');
+            return false;
+        }
+        
+        if (this.dataChannel.readyState !== 'open') {
+            console.error(`[WebRTC] Cannot send message, data channel not ready (state: ${this.dataChannel.readyState})`);
             return false;
         }
 

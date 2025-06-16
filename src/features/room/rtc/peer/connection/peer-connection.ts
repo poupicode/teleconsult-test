@@ -170,7 +170,7 @@ export class PeerConnection implements IPeerConnection {
         this.setupIceDebugging();
     }
     
-    private onTrack = (event: RTCTrackEvent) => {
+    public onTrack = (event: RTCTrackEvent) => {
         console.debug("[onTrack] Track received:", event.track);
   console.debug("[onTrack] Track kind:", event.track.kind);
   console.debug("[onTrack] Associated transceiver:", event.transceiver);
@@ -179,9 +179,12 @@ export class PeerConnection implements IPeerConnection {
         const currentDefaultTransceiver = DEFAULT_TRANSCEIVERS[this.numReceivers];
         
         // We add the new transceiver to its corresponding stream in remote streams
-        this._remoteStreams[currentDefaultTransceiver.device].addTrack(event.transceiver.receiver.track);
-
-        this.numReceivers++;
+        if (currentDefaultTransceiver && this._remoteStreams[currentDefaultTransceiver.device]) {
+            this._remoteStreams[currentDefaultTransceiver.device].addTrack(event.transceiver.receiver.track);
+            this.numReceivers++;
+        } else {
+            console.error("[WebRTC] Could not find appropriate remote stream for received track", event.track);
+        }
     }
         
     // Expose streams
@@ -199,6 +202,9 @@ export class PeerConnection implements IPeerConnection {
             return;
         }
 
+        // Get reference to the old stream to clean up its tracks later
+        const oldStream = this._localStreams[device];
+
         // Go through each track of the stream 
         const tracks = stream.getTracks();
         for (const track of tracks) {
@@ -206,10 +212,20 @@ export class PeerConnection implements IPeerConnection {
             const sender = this.rtcRtpSenders[device][track.kind];
             if (!sender) {
                 console.warn(`No RTCRtpSender found device "${device}", track "${track.label}" (${track.kind})`, track);
-            }else{
+            } else {
+                // Stop old track before replacing it to avoid memory leak
+                const oldTrack = sender.track;
+                if (oldTrack) {
+                    console.debug(`[WebRTC] Stopping old track for ${device}/${track.kind} before replacement`);
+                    oldTrack.stop();
+                }
+                
                 sender.replaceTrack(track);
             }
         }
+
+        // Update the local stream reference with the new stream
+        this._localStreams[device] = stream;
     }
 
 public setupStreamsAndTransceivers = (peerConnection: RTCPeerConnection ) => {

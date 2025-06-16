@@ -17,7 +17,12 @@ export async function getVideoDevices() : Promise<MediaDeviceInfo[]> {
 }
 
 export async function getStreamFromVideoDeviceId(videoDeviceId: string) : Promise<MediaStream>{
-    return navigator.mediaDevices.getUserMedia(
-        { video: { deviceId: videoDeviceId }, audio: true }
-    );
+    try {
+        return await navigator.mediaDevices.getUserMedia(
+            { video: { deviceId: videoDeviceId }, audio: true }
+        );
+    } catch (err) {
+        console.error("Erreur lors de l'accès à l'appareil vidéo:", err);
+        throw err; // Propager l'erreur pour la gérer dans le composant appelant
+    }
 }

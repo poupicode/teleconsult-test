@@ -10,6 +10,7 @@ import { useAppDispatch } from '@/hooks/useMediaStream';
 import { streamUpdated, StreamsByDevice, StreamsState } from '@/features/streams/streamSlice';
 import MediaStreamsContext from '@/contexts/MediaStreamsContext';
 import { MediaStreamList } from '@/features/room/rtc/peer/models/types';
+import { store } from '@/app/store';
 //import { mediaDevicesListUpdated_Async } from 'actions/media-devices';
 
 export function VideoDeviceSelector(props: { deviceType: keyof StreamsByDevice }) {
@@ -58,25 +59,45 @@ export function VideoDeviceSelector(props: { deviceType: keyof StreamsByDevice }
     if (selectElement.current /*&& selectElement.current.value*/) {
       if (selectElement.current.selectedIndex < 0)
         selectElement.current.selectedIndex = 0;
-      //console.debug(selectElement.current.selectedIndex,selectElement.current.options.item(selectElement.current.selectedIndex)?.value);
-      const newStream = await getStreamFromVideoDeviceId(selectElement.current.value);
-
-      // Add the stream to mediaStreams context
-      let newStreams: MediaStreamList = mediaStreams;
-      newStreams[newStream.id as string] = newStream;
-      setMediaStreams(newStreams)
-
-      // Replace the corresponding stream in the store
-      const newStreamDetails = {
-        origin: "local" as keyof StreamsState,
-        deviceType: props.deviceType,
-        streamDetails: {
-          streamId: newStream.id
+      
+      try {
+        // Arrêter l'ancien stream si présent
+        // Rechercher l'ancien stream associé à ce device type
+        const oldStream = Object.values(mediaStreams).find(stream => {
+          if (!stream) return false;
+          // Vérifier dans le store si ce stream correspond au device type actuel
+          const streamEntry = Object.values(store.getState().streams.local || {})
+            .find(s => s.deviceType === props.deviceType && s.streamDetails?.streamId === stream.id);
+          return !!streamEntry;
+        });
+        
+        if (oldStream) {
+          console.debug(`Stopping previous stream for ${props.deviceType}`);
+          oldStream.getTracks().forEach(track => track.stop());
         }
+
+        const newStream = await getStreamFromVideoDeviceId(selectElement.current.value);
+
+        // Add the stream to mediaStreams context
+        // Créer une nouvelle copie de l'objet pour que React détecte le changement
+        const newStreams: MediaStreamList = { ...mediaStreams, [newStream.id]: newStream };
+        setMediaStreams(newStreams);
+
+        // Replace the corresponding stream in the store
+        const newStreamDetails = {
+          origin: "local" as keyof StreamsState,
+          deviceType: props.deviceType,
+          streamDetails: {
+            streamId: newStream.id
+          }
+        }
+
+        dispatch(streamUpdated(newStreamDetails));
+      } catch (err) {
+        console.error(`Erreur lors du changement d'appareil vidéo pour ${props.deviceType}:`, err);
+        // Informer l'utilisateur de l'erreur
+        alert(`Impossible d'accéder à la caméra. Veuillez vérifier les permissions.`);
       }
-
-      dispatch(streamUpdated(newStreamDetails))
-
     } else {
       console.error("No video device selected. Not getting stream");
     }
