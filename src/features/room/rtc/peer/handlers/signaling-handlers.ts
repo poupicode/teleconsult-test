@@ -9,7 +9,8 @@ export async function handleOffer(pc: RTCPeerConnection, offer: RTCSessionDescri
     }
 
     try {
-        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        // W3C Compliant: setRemoteDescription accepts RTCSessionDescriptionInit directly
+        await pc.setRemoteDescription(offer);
         console.log('[WebRTC] Set remote description (offer)');
 
         const answer = await pc.createAnswer();
@@ -21,17 +22,28 @@ export async function handleOffer(pc: RTCPeerConnection, offer: RTCSessionDescri
             roomId: roomId,
             content: pc.localDescription as RTCSessionDescriptionInit
         });
-    } catch (err) {
-        console.error('[WebRTC] Error handling offer:', err);
+    } catch (error) {
+        // W3C Compliant error handling with specific error types
+        if (error instanceof DOMException) {
+            console.error(`[WebRTC] DOM Exception handling offer: ${error.name} - ${error.message}`);
+        } else {
+            console.error('[WebRTC] Error handling offer:', error);
+        }
     }
 }
 
 export async function handleAnswer(pc: RTCPeerConnection, answer: RTCSessionDescriptionInit) {
     try {
-        await pc.setRemoteDescription(new RTCSessionDescription(answer));
+        // W3C Compliant: setRemoteDescription accepts RTCSessionDescriptionInit directly
+        await pc.setRemoteDescription(answer);
         console.log('[WebRTC] Set remote description (answer)');
-    } catch (err) {
-        console.error('[WebRTC] Error handling answer:', err);
+    } catch (error) {
+        // W3C Compliant error handling with specific error types
+        if (error instanceof DOMException) {
+            console.error(`[WebRTC] DOM Exception handling answer: ${error.name} - ${error.message}`);
+        } else {
+            console.error('[WebRTC] Error handling answer:', error);
+        }
     }
 }
 
@@ -50,8 +62,8 @@ export async function handleIceCandidate(pc: RTCPeerConnection, candidate: RTCIc
                 return;
             }
 
-            // Add the ICE candidate
-            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+            // W3C Compliant: addIceCandidate accepts RTCIceCandidateInit directly
+            await pc.addIceCandidate(candidate);
             console.log('[WebRTC-ICE] ✅ ICE candidate added successfully');
 
             // Additional log for TURN candidates
@@ -62,13 +74,14 @@ export async function handleIceCandidate(pc: RTCPeerConnection, candidate: RTCIc
             // End of candidate collection
             console.log('[WebRTC-ICE] 🏁 End of candidates marker received');
         }
-    } catch (err) {
-        console.error('[WebRTC] ❌ Error adding ICE candidate:', err);
-        console.error('[WebRTC] 🔍 Failed candidate:', candidate);
-
-        // Detailed error log for diagnosis
-        if (err instanceof Error) {
-            console.error('[WebRTC] 📋 Error details:', err.message);
+    } catch (error) {
+        // W3C Compliant error handling with specific error types
+        if (error instanceof DOMException) {
+            console.error(`[WebRTC] DOM Exception adding ICE candidate: ${error.name} - ${error.message}`);
+            console.error('[WebRTC] 🔍 Failed candidate:', candidate);
+        } else {
+            console.error('[WebRTC] ❌ Error adding ICE candidate:', error);
+            console.error('[WebRTC] 🔍 Failed candidate:', candidate);
         }
     }
 }

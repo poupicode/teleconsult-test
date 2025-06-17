@@ -280,16 +280,16 @@ export class PeerConnection implements IPeerConnection {
 
 
     // This function will be called when we receives an answer
-    public setRemoteDescription = async (description: RTCSessionDescription) => {
+    public setRemoteDescription = async (description: RTCSessionDescriptionInit) => {
         console.debug("setRemoteDescription", description);
-        // Set the remote description
+        // W3C Compliant: setRemoteDescription accepts RTCSessionDescriptionInit directly
         return this.pc.setRemoteDescription(description);
     }
 
     // Set local description
-    public setLocalDescription = async (description?: RTCSessionDescription) => {
+    public setLocalDescription = async (description?: RTCSessionDescriptionInit) => {
         console.debug("setLocalDescription", description);
-        // Set the local description
+        // W3C Compliant: setLocalDescription accepts RTCSessionDescriptionInit or undefined
         return this.pc.setLocalDescription(description);
     }
 
