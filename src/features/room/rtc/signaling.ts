@@ -8,6 +8,9 @@
 import { supabase } from '@/lib/supabaseClient';
 import { Role } from './peer';
 
+// Debug logging control
+const DEBUG_LOGS = import.meta.env.DEV || false;
+
 /**
  * Represents a signaling message exchanged between peers
  */
@@ -183,14 +186,18 @@ export class SignalingService {
      * This filters out any observers or admin connections without explicit roles
      */
     getValidParticipants(): UserPresence[] {
-        // 🩺 DIAGNOSTIC LOGS - TEMPORARY
-        console.log('🩺 [SIGNALING DIAGNOSTIC] Raw roomPresences:', this.roomPresences.map(p => ({ id: p.clientId, role: p.role })));
+        // 🩺 DIAGNOSTIC LOGS - ACTIVATED FOR DEBUGGING
+        if (DEBUG_LOGS) {
+            console.log('🩺 [SIGNALING DIAGNOSTIC] Raw roomPresences:', this.roomPresences.map(p => ({ id: p.clientId, role: p.role })));
+        }
         
         const validParticipants = this.roomPresences.filter(p =>
             p.role === Role.PATIENT || p.role === Role.PRACTITIONER
         );
         
-        console.log('🩺 [SIGNALING DIAGNOSTIC] Valid participants:', validParticipants.map(p => ({ id: p.clientId, role: p.role })));
+        if (DEBUG_LOGS) {
+            console.log('🩺 [SIGNALING DIAGNOSTIC] Valid participants:', validParticipants.map(p => ({ id: p.clientId, role: p.role })));
+        }
         
         return validParticipants;
     }

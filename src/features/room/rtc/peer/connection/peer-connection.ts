@@ -113,6 +113,7 @@ export class PeerConnection implements IPeerConnection {
     private roomId: string;
     private clientId: string;
     private readyToNegotiate: boolean = false;
+    private isConnecting: boolean = false; // Protection contre les connexions multiples
     private presenceResetTimeout: ReturnType<typeof setTimeout> | null = null;
 
     // ICE debugging
@@ -620,20 +621,32 @@ export class PeerConnection implements IPeerConnection {
 
     // Connect to signaling service and set up listeners
     async connect() {
-        console.log('[WebRTC] Connecting to signaling service');
+        console.log('[WebRTC] 🔗 Connecting to signaling service');
 
-        // Reset state before connecting
-        this.readyToNegotiate = false;
-        this.iceCandidates = { local: [], remote: [] };
-        this.hasRelay = false;
+        // 🚨 Protection contre les connexions multiples
+        if (this.isConnecting) {
+            console.warn('[WebRTC] ⚠️ Already connecting, ignoring duplicate connect() call');
+            return;
+        }
 
-        // Connect to signaling service
-        await this.signaling.connect();
+        this.isConnecting = true;
 
-        // Setup signaling listeners
-        await this.setupSignalingListeners();
+        try {
+            // Reset state before connecting
+            this.readyToNegotiate = false;
+            this.iceCandidates = { local: [], remote: [] };
+            this.hasRelay = false;
 
-        console.log('[WebRTC] Connected to signaling service and setup completed');
+            // Connect to signaling service
+            await this.signaling.connect();
+
+            // Setup signaling listeners
+            await this.setupSignalingListeners();
+
+            console.log('[WebRTC] ✅ Connected to signaling service and setup completed');
+        } finally {
+            this.isConnecting = false;
+        }
     }
 
     // Create an offer to establish connection

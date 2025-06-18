@@ -17,9 +17,9 @@ const DEBUG_LOGS = import.meta.env.DEV || false;
 // CONFIGURE LOG LEVELS - enable only what you need
 const CONFIG = {
     SHOW_NEGOTIATION_LOGS: DEBUG_LOGS && true, 
-    SHOW_ICE_LOGS: DEBUG_LOGS && false,     // Set to true only when debugging ICE issues
-    SHOW_SIGNALING_LOGS: DEBUG_LOGS && false, // Set to true only when debugging signaling
-    SHOW_ALL_ERRORS: true                    // Always show errors
+    SHOW_ICE_LOGS: DEBUG_LOGS && true,          // 🔧 TEMPORAIREMENT ACTIVÉ POUR DEBUG
+    SHOW_SIGNALING_LOGS: DEBUG_LOGS && true,    // 🔧 TEMPORAIREMENT ACTIVÉ POUR DEBUG
+    SHOW_ALL_ERRORS: true                       // Always show errors
 };
 
 // Conditional logging functions with category filtering
@@ -90,10 +90,12 @@ export class PerfectNegotiation {
 
         // Determine negotiation role using deterministic clientId comparison
         // This ensures stable roles regardless of connection/disconnection order
+        const determinedRole = this.determineRoleFromClientId();
         this.negotiationRole = {
-            isPolite: this.determineRoleFromClientId() === 'polite'
+            isPolite: determinedRole === 'polite'
         };
 
+        console.log(`🔧 [PerfectNegotiation] ROLE ASSIGNMENT: clientId=${clientId}, determinedRole=${determinedRole}, isPolite=${this.negotiationRole.isPolite}`);
         debugLog(`[PerfectNegotiation] Initialized with role: ${role}, isPolite: ${this.negotiationRole.isPolite}`);
 
         this.setupEventHandlers();
@@ -313,17 +315,21 @@ export class PerfectNegotiation {
         const participants = this.signaling.getValidParticipants();
         const others = participants.filter(p => p.clientId !== this.clientId);
 
-        // 🩺 DIAGNOSTIC LOGS - TEMPORARY
-        console.log('🩺 [ROLE DIAGNOSTIC] ===================');
-        console.log('🩺 My clientId:', this.clientId);
-        console.log('🩺 My business role:', this.role);
-        console.log('🩺 All participants:', participants.map(p => ({ id: p.clientId, role: p.role })));
-        console.log('🩺 Others:', others.map(p => ({ id: p.clientId, role: p.role })));
-        console.log('🩺 Others length:', others.length);
+        // 🩺 DIAGNOSTIC LOGS - ACTIVATED FOR DEBUGGING
+        if (DEBUG_LOGS) {
+            console.log('🩺 [ROLE DIAGNOSTIC] ===================');
+            console.log('🩺 My clientId:', this.clientId);
+            console.log('🩺 My business role:', this.role);
+            console.log('🩺 All participants:', participants.map(p => ({ id: p.clientId, role: p.role })));
+            console.log('🩺 Others:', others.map(p => ({ id: p.clientId, role: p.role })));
+            console.log('🩺 Others length:', others.length);
+        }
 
         if (others.length === 0) {
-            console.log('🩺 RESULT: impolite (alone in room)');
-            console.log('🩺 =====================================');
+            if (DEBUG_LOGS) {
+                console.log('🩺 RESULT: impolite (alone in room)');
+                console.log('🩺 =====================================');
+            }
             return 'impolite'; // Alone in room = ready to initiate when someone arrives
         }
 
@@ -331,10 +337,12 @@ export class PerfectNegotiation {
         const allIds = [this.clientId, ...others.map(p => p.clientId)].sort();
         const myPosition = allIds.indexOf(this.clientId);
 
-        console.log('🩺 Sorted IDs:', allIds);
-        console.log('🩺 My position:', myPosition);
-        console.log('🩺 RESULT:', myPosition === 0 ? 'impolite' : 'polite');
-        console.log('🩺 =====================================');
+        if (DEBUG_LOGS) {
+            console.log('🩺 Sorted IDs:', allIds);
+            console.log('🩺 My position:', myPosition);
+            console.log('🩺 RESULT:', myPosition === 0 ? 'impolite' : 'polite');
+            console.log('🩺 =====================================');
+        }
 
         debugLog(`[PerfectNegotiation] Deterministic role calculation: sortedIds=[${allIds.join(', ')}], myPosition=${myPosition}`);
 
@@ -395,13 +403,27 @@ export class PerfectNegotiation {
 
     /**
      * Reevaluate role if needed based on current participants
+     * Only change role if we're alone (prevents role conflicts during connection)
      */
     private reevaluateRoleIfNeeded(): void {
+        const participants = this.signaling.getValidParticipants();
+        const isAlone = participants.length <= 1;
+        
+        // Only reevaluate roles if we're alone or if connection is disconnected/failed
+        const connectionBroken = this.pc.connectionState === 'disconnected' || 
+                               this.pc.connectionState === 'failed' ||
+                               this.pc.connectionState === 'closed';
+        
+        if (!isAlone && !connectionBroken) {
+            debugLog(`[PerfectNegotiation] ✅ Roles stable - not alone (${participants.length} participants) and connection OK (${this.pc.connectionState})`);
+            return;
+        }
+
         const newRole = this.determineRoleFromClientId();
         const currentRole = this.negotiationRole.isPolite ? 'polite' : 'impolite';
 
         if (newRole !== currentRole) {
-            debugLog(`[PerfectNegotiation] 🔄 Role change needed: ${currentRole} → ${newRole} (deterministic)`);
+            debugLog(`[PerfectNegotiation] 🔄 Role change needed: ${currentRole} → ${newRole} (isAlone: ${isAlone}, connectionBroken: ${connectionBroken})`);
             this.performRoleSwitch(newRole);
         } else {
             debugLog(`[PerfectNegotiation] ✅ Role evaluation: staying ${currentRole} (stable)`);

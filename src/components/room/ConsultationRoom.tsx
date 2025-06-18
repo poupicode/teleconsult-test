@@ -74,7 +74,7 @@ export default function ConsultationRoom({
     }
   }, [userId, userRole, userKind, dispatch]);
 
-  // Explicitly disconnect the previous WebRTC connection when changing rooms
+  // Handle room connection/disconnection - UNIFIED EFFECT
   useEffect(() => {
     // If the roomId has changed and there was a previous room
     if (previousRoomIdRef.current && previousRoomIdRef.current !== roomId) {
@@ -104,13 +104,13 @@ export default function ConsultationRoom({
 
     // Update the reference for the next render
     previousRoomIdRef.current = roomId;
-  }, [roomId]);
 
-  // Handle room connection/disconnection
-  useEffect(() => {
+    // Handle new room connection
     if (roomId && userId && userRole) {
+      console.log('[ConsultationRoom] 🔗 Connecting to room (SINGLE CONNECTION):', roomId);
       handleRoomConnection(roomId);
     } else if (!roomId && peerConnection) {
+      console.log('[ConsultationRoom] 🔌 Disconnecting from room');
       peerConnection.disconnect();
       setPeerConnection(null);
       setConnectionStatus("disconnected");
