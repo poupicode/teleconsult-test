@@ -217,6 +217,10 @@ export default function ConsultationRoom({
         if (isReady) {
           const negotiationState = peer.getPerfectNegotiationState();
           const isPolite = negotiationState.isPolite;
+          
+          // 🚨 DIAGNOSTIC: Log role info for debugging
+          console.log(`[ConsultationRoom] 🔍 ROLE DIAGNOSTIC - clientId: ${userId}, isPolite: ${isPolite}`);
+          
           setNegotiationRole(isPolite ? "polite" : "impolite");
 
           if (isPolite) {

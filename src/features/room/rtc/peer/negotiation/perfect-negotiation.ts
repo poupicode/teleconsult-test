@@ -284,8 +284,8 @@ export class PerfectNegotiation {
 
 
     /**
-     * Determine negotiation role using deterministic clientId comparison
-     * Uses a simple deterministic approach: alphabetically first clientId = impolite
+     * Determine negotiation role using ULTRA-SIMPLE deterministic clientId comparison
+     * 🚨 CRITICAL FIX: Only compare between exactly 2 peers to avoid "both impolite" bug
      */
     private determineRoleFromClientId(): 'polite' | 'impolite' {
         const participants = this.signaling.getValidParticipants();
@@ -299,19 +299,30 @@ export class PerfectNegotiation {
         logger.diagnostic('Others:', others.map(p => ({ id: p.clientId, role: p.role })));
         logger.diagnostic('Others length:', others.length);
 
-        // 🔥 FIXED LOGIC: Always use deterministic comparison regardless of participant count
-        // Get all clientIds (including self) and sort them alphabetically
-        const allIds = [this.clientId, ...others.map(p => p.clientId)].sort();
-        const myPosition = allIds.indexOf(this.clientId);
+        // 🚨 CRITICAL FIX: If alone or no valid comparison possible, default to impolite
+        // This prevents the "both calculating different roles" bug
+        if (others.length === 0) {
+            logger.diagnostic('⭐ ALONE IN ROOM - defaulting to IMPOLITE (will be first to initiate)');
+            logger.diagnostic('=====================================');
+            return 'impolite';
+        }
 
-        logger.diagnostic('Sorted IDs:', allIds);
-        logger.diagnostic('My position:', myPosition);
-        logger.diagnostic('RESULT:', myPosition === 0 ? 'impolite' : 'polite');
+        // 🚨 CRITICAL FIX: For P2P, we only care about the OTHER peer in a 2-person call
+        // Take the first other participant (should be only one in P2P teleconsultation)
+        const otherPeer = others[0];
+        const comparison = this.clientId.localeCompare(otherPeer.clientId);
+        
+        // Simple: lexicographically smaller clientId = impolite (initiator)
+        const result = comparison < 0 ? 'impolite' : 'polite';
+
+        logger.diagnostic('Other peer clientId:', otherPeer.clientId);
+        logger.diagnostic('String comparison result:', comparison);
+        logger.diagnostic('RESULT:', result);
         logger.diagnostic('=====================================');
 
-        debugLog(`[PerfectNegotiation] Deterministic role calculation: sortedIds=[${allIds.join(', ')}], myPosition=${myPosition}`);
+        debugLog(`[PerfectNegotiation] P2P role calculation: me="${this.clientId}" vs other="${otherPeer.clientId}" → ${result}`);
 
-        return myPosition === 0 ? 'impolite' : 'polite';
+        return result;
     }
 
     /**
@@ -368,20 +379,26 @@ export class PerfectNegotiation {
 
     /**
      * Reevaluate role if needed based on current participants
-     * Simplified to always use deterministic role calculation
+     * 🚨 CRITICAL FIX: Avoid role changes when connection is established and working
      */
     private reevaluateRoleIfNeeded(): void {
         const participants = this.signaling.getValidParticipants();
         const hasPatientAndPractitioner = this.signaling.hasPatientAndPractitioner();
+
+        // 🚨 CRITICAL FIX: Don't change roles if connection is already established and working
+        const connectionEstablished = this.pc.connectionState === 'connected' || 
+                                     this.pc.connectionState === 'connecting';
+        
+        if (connectionEstablished && participants.length >= 2) {
+            debugLog(`[PerfectNegotiation] ✅ Connection established and stable - preserving current roles`);
+            return;
+        }
 
         // Only reevaluate roles if connection is disconnected/failed OR when participants change
         const connectionBroken = this.pc.connectionState === 'disconnected' ||
             this.pc.connectionState === 'failed' ||
             this.pc.connectionState === 'closed';
 
-        // 🔥 SIMPLIFIED LOGIC: Always calculate role deterministically
-        // The "waiting for both participants" logic was causing the "both polite" bug
-        
         const newRole = this.determineRoleFromClientId();
         const currentRole = this.negotiationRole.isPolite ? 'polite' : 'impolite';
 
