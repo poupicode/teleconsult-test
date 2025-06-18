@@ -10,38 +10,12 @@
 
 import { SignalingService, SignalingMessage } from '../../signaling';
 import { Role, NegotiationRole, NegotiationState } from '../models/types';
+import { logger, LogCategory } from '../../logger';
 
-// Debug logging control - set to false in production
-const DEBUG_LOGS = import.meta.env.DEV || false;
-
-// CONFIGURE LOG LEVELS - enable only what you need
-const CONFIG = {
-    SHOW_NEGOTIATION_LOGS: DEBUG_LOGS && true, 
-    SHOW_ICE_LOGS: DEBUG_LOGS && true,          // 🔧 TEMPORAIREMENT ACTIVÉ POUR DEBUG
-    SHOW_SIGNALING_LOGS: DEBUG_LOGS && true,    // 🔧 TEMPORAIREMENT ACTIVÉ POUR DEBUG
-    SHOW_ALL_ERRORS: true                       // Always show errors
-};
-
-// Conditional logging functions with category filtering
-const debugLog = (message: string, ...args: any[]) => {
-    const isICELog = message.includes('[WebRTC-ICE]') || message.includes('ICE candidate');
-    const isSignalingLog = message.includes('signaling') || message.includes('Signaling');
-    
-    if (!DEBUG_LOGS) return;
-    
-    if (isICELog && !CONFIG.SHOW_ICE_LOGS) return;
-    if (isSignalingLog && !CONFIG.SHOW_SIGNALING_LOGS) return;
-    
-    console.log(message, ...args);
-};
-
-const debugWarn = (message: string, ...args: any[]) => {
-    if (DEBUG_LOGS) console.warn(message, ...args);
-};
-
-const debugError = (message: string, ...args: any[]) => {
-    if (CONFIG.SHOW_ALL_ERRORS) console.error(message, ...args); // Always log errors by default
-};
+// Fonctions de logs simplifiées pour la migration
+const debugLog = (message: string, ...args: any[]) => logger.debug(LogCategory.NEGOTIATION, message, ...args);
+const debugWarn = (message: string, ...args: any[]) => logger.warn(LogCategory.NEGOTIATION, message, ...args);
+const debugError = (message: string, ...args: any[]) => logger.error(LogCategory.NEGOTIATION, message, ...args);
 
 export class PerfectNegotiation {
     private pc: RTCPeerConnection;
@@ -103,6 +77,8 @@ export class PerfectNegotiation {
 
         // If we're the impolite peer and room is ready, trigger DataChannel creation
         this.checkInitialConnectionTrigger();
+        
+        logger.success(LogCategory.NEGOTIATION, `Perfect Negotiation initialized - Role: ${this.negotiationRole.isPolite ? 'polite' : 'impolite'}`);
     }
 
     /**
@@ -122,11 +98,11 @@ export class PerfectNegotiation {
         this.pc.onnegotiationneeded = async () => {
             try {
                 debugLog(`[PerfectNegotiation] Negotiation needed, isPolite: ${this.negotiationRole.isPolite}`);
-                
+
                 // Check if both peers are present before proceeding with negotiation
                 const allParticipants = this.signaling.getValidParticipants();
                 const bothPresent = allParticipants.length >= 2;
-                
+
                 if (!bothPresent) {
                     debugLog('[PerfectNegotiation] Skipping negotiation - not enough participants yet');
                     return; // Skip negotiation if not enough participants
@@ -159,27 +135,27 @@ export class PerfectNegotiation {
         // Track ICE candidate counts to reduce logging noise
         let iceCandidateCount = 0;
         const MAX_DETAILED_CANDIDATES = 2;
-        
+
         this.pc.onicecandidate = ({ candidate }) => {
             if (candidate) {
                 // Check if both peers are present before sending candidates
                 const allParticipants = this.signaling.getValidParticipants();
                 const bothPresent = allParticipants.length >= 2;
-                
+
                 if (!bothPresent) {
                     // Don't send candidates if no other participant is present
                     return;
                 }
-                
+
                 // Reduce logging noise
                 if (iceCandidateCount < MAX_DETAILED_CANDIDATES) {
                     debugLog('[PerfectNegotiation] Sending ICE candidate');
                 } else if (iceCandidateCount === MAX_DETAILED_CANDIDATES) {
                     debugLog(`[PerfectNegotiation] Sending additional ICE candidates (limiting logs)`);
                 }
-                
+
                 iceCandidateCount++;
-                
+
                 this.signaling.sendMessage({
                     type: 'ice-candidate',
                     roomId: this.roomId,
@@ -316,20 +292,16 @@ export class PerfectNegotiation {
         const others = participants.filter(p => p.clientId !== this.clientId);
 
         // 🩺 DIAGNOSTIC LOGS - ACTIVATED FOR DEBUGGING
-        if (DEBUG_LOGS) {
-            console.log('🩺 [ROLE DIAGNOSTIC] ===================');
-            console.log('🩺 My clientId:', this.clientId);
-            console.log('🩺 My business role:', this.role);
-            console.log('🩺 All participants:', participants.map(p => ({ id: p.clientId, role: p.role })));
-            console.log('🩺 Others:', others.map(p => ({ id: p.clientId, role: p.role })));
-            console.log('🩺 Others length:', others.length);
-        }
+        logger.diagnostic('[ROLE DIAGNOSTIC] ===================');
+        logger.diagnostic('My clientId:', this.clientId);
+        logger.diagnostic('My business role:', this.role);
+        logger.diagnostic('All participants:', participants.map(p => ({ id: p.clientId, role: p.role })));
+        logger.diagnostic('Others:', others.map(p => ({ id: p.clientId, role: p.role })));
+        logger.diagnostic('Others length:', others.length);
 
         if (others.length === 0) {
-            if (DEBUG_LOGS) {
-                console.log('🩺 RESULT: impolite (alone in room)');
-                console.log('🩺 =====================================');
-            }
+            logger.diagnostic('RESULT: impolite (alone in room)');
+            logger.diagnostic('=====================================');
             return 'impolite'; // Alone in room = ready to initiate when someone arrives
         }
 
@@ -337,12 +309,10 @@ export class PerfectNegotiation {
         const allIds = [this.clientId, ...others.map(p => p.clientId)].sort();
         const myPosition = allIds.indexOf(this.clientId);
 
-        if (DEBUG_LOGS) {
-            console.log('🩺 Sorted IDs:', allIds);
-            console.log('🩺 My position:', myPosition);
-            console.log('🩺 RESULT:', myPosition === 0 ? 'impolite' : 'polite');
-            console.log('🩺 =====================================');
-        }
+        logger.diagnostic('Sorted IDs:', allIds);
+        logger.diagnostic('My position:', myPosition);
+        logger.diagnostic('RESULT:', myPosition === 0 ? 'impolite' : 'polite');
+        logger.diagnostic('=====================================');
 
         debugLog(`[PerfectNegotiation] Deterministic role calculation: sortedIds=[${allIds.join(', ')}], myPosition=${myPosition}`);
 
@@ -408,12 +378,12 @@ export class PerfectNegotiation {
     private reevaluateRoleIfNeeded(): void {
         const participants = this.signaling.getValidParticipants();
         const isAlone = participants.length <= 1;
-        
+
         // Only reevaluate roles if we're alone or if connection is disconnected/failed
-        const connectionBroken = this.pc.connectionState === 'disconnected' || 
-                               this.pc.connectionState === 'failed' ||
-                               this.pc.connectionState === 'closed';
-        
+        const connectionBroken = this.pc.connectionState === 'disconnected' ||
+            this.pc.connectionState === 'failed' ||
+            this.pc.connectionState === 'closed';
+
         if (!isAlone && !connectionBroken) {
             debugLog(`[PerfectNegotiation] ✅ Roles stable - not alone (${participants.length} participants) and connection OK (${this.pc.connectionState})`);
             return;

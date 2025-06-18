@@ -7,9 +7,12 @@
  */
 import { supabase } from '@/lib/supabaseClient';
 import { Role } from './peer';
+import { logger, LogCategory } from './logger';
 
-// Debug logging control
-const DEBUG_LOGS = import.meta.env.DEV || false;
+// Fonctions de logs utilisant le nouveau système centralisé
+const debugLog = (message: string, ...args: any[]) => logger.debug(LogCategory.SIGNALING, message, ...args);
+const debugWarn = (message: string, ...args: any[]) => logger.warn(LogCategory.SIGNALING, message, ...args);
+const debugError = (message: string, ...args: any[]) => logger.error(LogCategory.SIGNALING, message, ...args);
 
 /**
  * Represents a signaling message exchanged between peers
@@ -187,18 +190,14 @@ export class SignalingService {
      */
     getValidParticipants(): UserPresence[] {
         // 🩺 DIAGNOSTIC LOGS - ACTIVATED FOR DEBUGGING
-        if (DEBUG_LOGS) {
-            console.log('🩺 [SIGNALING DIAGNOSTIC] Raw roomPresences:', this.roomPresences.map(p => ({ id: p.clientId, role: p.role })));
-        }
-        
+        logger.diagnostic('[SIGNALING DIAGNOSTIC] Raw roomPresences:', this.roomPresences.map(p => ({ id: p.clientId, role: p.role })));
+
         const validParticipants = this.roomPresences.filter(p =>
             p.role === Role.PATIENT || p.role === Role.PRACTITIONER
         );
-        
-        if (DEBUG_LOGS) {
-            console.log('🩺 [SIGNALING DIAGNOSTIC] Valid participants:', validParticipants.map(p => ({ id: p.clientId, role: p.role })));
-        }
-        
+
+        logger.diagnostic('[SIGNALING DIAGNOSTIC] Valid participants:', validParticipants.map(p => ({ id: p.clientId, role: p.role })));
+
         return validParticipants;
     }
 

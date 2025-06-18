@@ -9,6 +9,7 @@ import { DataChannelManager } from '../data-channel/data-channel-manager';
 import { setupPeerConnectionListeners, IPeerConnection } from '../handlers/connection-handlers';
 import { PerfectNegotiation } from '../negotiation/perfect-negotiation';
 import { StreamsByDevice } from '@/features/streams/streamSlice';
+import { logger, LogCategory } from '../../logger';
 
 
 const DEFAULT_TRANSCEIVERS: { device: keyof StreamsByDevice, kind: "audio" | "video" }[] = [
@@ -17,37 +18,10 @@ const DEFAULT_TRANSCEIVERS: { device: keyof StreamsByDevice, kind: "audio" | "vi
     { device: "instrument", kind: "video" },
     { device: "screen", kind: "video" }
 ]
-// Debug logging control - set to false in production
-const DEBUG_LOGS = import.meta.env.DEV || false;
-
-// CONFIGURE LOG LEVELS - enable only what you need
-const CONFIG = {
-    SHOW_CONNECTION_LOGS: DEBUG_LOGS && true,
-    SHOW_ICE_LOGS: DEBUG_LOGS && false,     // Set to true only when debugging ICE issues
-    SHOW_SIGNALING_LOGS: DEBUG_LOGS && false, // Set to true only when debugging signaling
-    SHOW_ALL_ERRORS: true                    // Always show errors
-};
-
-// Conditional logging functions with category filtering
-const debugLog = (message: string, ...args: any[]) => {
-    const isICELog = message.includes('[WebRTC-ICE]') || message.includes('ICE candidate');
-    const isSignalingLog = message.includes('[Signaling]');
-    
-    if (!DEBUG_LOGS) return;
-    
-    if (isICELog && !CONFIG.SHOW_ICE_LOGS) return;
-    if (isSignalingLog && !CONFIG.SHOW_SIGNALING_LOGS) return;
-    
-    console.log(message, ...args);
-};
-
-const debugWarn = (message: string, ...args: any[]) => {
-    if (DEBUG_LOGS) console.warn(message, ...args);
-};
-
-const debugError = (message: string, ...args: any[]) => {
-    if (CONFIG.SHOW_ALL_ERRORS) console.error(message, ...args); // Always log errors by default
-};
+// Fonctions de logs utilisant le nouveau système centralisé
+const debugLog = (message: string, ...args: any[]) => logger.debug(LogCategory.CONNECTION, message, ...args);
+const debugWarn = (message: string, ...args: any[]) => logger.warn(LogCategory.CONNECTION, message, ...args);
+const debugError = (message: string, ...args: any[]) => logger.error(LogCategory.CONNECTION, message, ...args);
 
 // WebRTC interfaces for statistics
 interface RTCStatsReport {
