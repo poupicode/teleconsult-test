@@ -285,7 +285,8 @@ export class PerfectNegotiation {
 
     /**
      * Determine negotiation role using deterministic clientId comparison
-     * This ensures stable roles regardless of connection/disconnection order
+     * Only assigns roles when both patient and practitioner are present
+     * This prevents role conflicts during connection/disconnection phases
      */
     private determineRoleFromClientId(): 'polite' | 'impolite' {
         const participants = this.signaling.getValidParticipants();
@@ -299,13 +300,15 @@ export class PerfectNegotiation {
         logger.diagnostic('Others:', others.map(p => ({ id: p.clientId, role: p.role })));
         logger.diagnostic('Others length:', others.length);
 
-        if (others.length === 0) {
-            logger.diagnostic('RESULT: impolite (alone in room)');
+        // 🔥 NEW LOGIC: Only assign roles when both participants are present
+        // This prevents conflicts during connection/disconnection phases
+        if (!this.signaling.hasPatientAndPractitioner()) {
+            logger.diagnostic('RESULT: polite (waiting for both participants)');
             logger.diagnostic('=====================================');
-            return 'impolite'; // Alone in room = ready to initiate when someone arrives
+            return 'polite'; // Default to polite when not both present
         }
 
-        // Deterministic comparison of clientIds
+        // Deterministic comparison of clientIds when both participants are present
         const allIds = [this.clientId, ...others.map(p => p.clientId)].sort();
         const myPosition = allIds.indexOf(this.clientId);
 
@@ -373,19 +376,26 @@ export class PerfectNegotiation {
 
     /**
      * Reevaluate role if needed based on current participants
-     * Only change role if we're alone (prevents role conflicts during connection)
+     * Only assigns definitive roles when both patient and practitioner are present
      */
     private reevaluateRoleIfNeeded(): void {
         const participants = this.signaling.getValidParticipants();
-        const isAlone = participants.length <= 1;
+        const hasPatientAndPractitioner = this.signaling.hasPatientAndPractitioner();
 
-        // Only reevaluate roles if we're alone or if connection is disconnected/failed
+        // Only reevaluate roles if connection is disconnected/failed OR when both participants become present
         const connectionBroken = this.pc.connectionState === 'disconnected' ||
             this.pc.connectionState === 'failed' ||
             this.pc.connectionState === 'closed';
 
-        if (!isAlone && !connectionBroken) {
-            debugLog(`[PerfectNegotiation] ✅ Roles stable - not alone (${participants.length} participants) and connection OK (${this.pc.connectionState})`);
+        // Skip reevaluation if connection is healthy and we don't have both participants yet
+        if (!connectionBroken && !hasPatientAndPractitioner) {
+            debugLog(`[PerfectNegotiation] ⏸️ Waiting for both participants - current count: ${participants.length}`);
+            return;
+        }
+
+        // Skip reevaluation if connection is good and roles are already stable with both present
+        if (!connectionBroken && hasPatientAndPractitioner && participants.length === 2) {
+            debugLog(`[PerfectNegotiation] ✅ Roles stable - both present and connection OK (${this.pc.connectionState})`);
             return;
         }
 
@@ -393,7 +403,7 @@ export class PerfectNegotiation {
         const currentRole = this.negotiationRole.isPolite ? 'polite' : 'impolite';
 
         if (newRole !== currentRole) {
-            debugLog(`[PerfectNegotiation] 🔄 Role change needed: ${currentRole} → ${newRole} (isAlone: ${isAlone}, connectionBroken: ${connectionBroken})`);
+            debugLog(`[PerfectNegotiation] 🔄 Role change needed: ${currentRole} → ${newRole} (hasPatientAndPractitioner: ${hasPatientAndPractitioner}, connectionBroken: ${connectionBroken})`);
             this.performRoleSwitch(newRole);
         } else {
             debugLog(`[PerfectNegotiation] ✅ Role evaluation: staying ${currentRole} (stable)`);
@@ -536,14 +546,18 @@ export class PerfectNegotiation {
 
     /**
      * Check if there's a genuine role conflict that needs resolution
+     * Only considers conflicts when both patient and practitioner are present
      */
     private hasRoleConflict(): boolean {
         const participants = this.signaling.getValidParticipants();
-        const otherParticipants = participants.filter(p => p.clientId !== this.clientId);
+        const hasPatientAndPractitioner = this.signaling.hasPatientAndPractitioner();
 
-        if (otherParticipants.length === 0) {
-            return false; // No conflict if alone
+        // No conflict if we don't have both participants yet
+        if (!hasPatientAndPractitioner || participants.length < 2) {
+            return false; 
         }
+
+        const otherParticipants = participants.filter(p => p.clientId !== this.clientId);
 
         // Check if our current role matches what it should be based on deterministic rules
         const allIds = [this.clientId, ...otherParticipants.map(p => p.clientId)].sort();
