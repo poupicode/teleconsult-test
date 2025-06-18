@@ -313,13 +313,28 @@ export class PerfectNegotiation {
         const participants = this.signaling.getValidParticipants();
         const others = participants.filter(p => p.clientId !== this.clientId);
 
+        // 🩺 DIAGNOSTIC LOGS - TEMPORARY
+        console.log('🩺 [ROLE DIAGNOSTIC] ===================');
+        console.log('🩺 My clientId:', this.clientId);
+        console.log('🩺 My business role:', this.role);
+        console.log('🩺 All participants:', participants.map(p => ({ id: p.clientId, role: p.role })));
+        console.log('🩺 Others:', others.map(p => ({ id: p.clientId, role: p.role })));
+        console.log('🩺 Others length:', others.length);
+
         if (others.length === 0) {
+            console.log('🩺 RESULT: impolite (alone in room)');
+            console.log('🩺 =====================================');
             return 'impolite'; // Alone in room = ready to initiate when someone arrives
         }
 
         // Deterministic comparison of clientIds
         const allIds = [this.clientId, ...others.map(p => p.clientId)].sort();
         const myPosition = allIds.indexOf(this.clientId);
+
+        console.log('🩺 Sorted IDs:', allIds);
+        console.log('🩺 My position:', myPosition);
+        console.log('🩺 RESULT:', myPosition === 0 ? 'impolite' : 'polite');
+        console.log('🩺 =====================================');
 
         debugLog(`[PerfectNegotiation] Deterministic role calculation: sortedIds=[${allIds.join(', ')}], myPosition=${myPosition}`);
 

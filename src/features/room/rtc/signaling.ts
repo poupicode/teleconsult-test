@@ -183,9 +183,16 @@ export class SignalingService {
      * This filters out any observers or admin connections without explicit roles
      */
     getValidParticipants(): UserPresence[] {
-        return this.roomPresences.filter(p =>
+        // 🩺 DIAGNOSTIC LOGS - TEMPORARY
+        console.log('🩺 [SIGNALING DIAGNOSTIC] Raw roomPresences:', this.roomPresences.map(p => ({ id: p.clientId, role: p.role })));
+        
+        const validParticipants = this.roomPresences.filter(p =>
             p.role === Role.PATIENT || p.role === Role.PRACTITIONER
         );
+        
+        console.log('🩺 [SIGNALING DIAGNOSTIC] Valid participants:', validParticipants.map(p => ({ id: p.clientId, role: p.role })));
+        
+        return validParticipants;
     }
 
     /**
