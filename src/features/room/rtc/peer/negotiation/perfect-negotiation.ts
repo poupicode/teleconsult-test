@@ -285,8 +285,7 @@ export class PerfectNegotiation {
 
     /**
      * Determine negotiation role using deterministic clientId comparison
-     * Only assigns roles when both patient and practitioner are present
-     * This prevents role conflicts during connection/disconnection phases
+     * Uses a simple deterministic approach: alphabetically first clientId = impolite
      */
     private determineRoleFromClientId(): 'polite' | 'impolite' {
         const participants = this.signaling.getValidParticipants();
@@ -300,15 +299,8 @@ export class PerfectNegotiation {
         logger.diagnostic('Others:', others.map(p => ({ id: p.clientId, role: p.role })));
         logger.diagnostic('Others length:', others.length);
 
-        // 🔥 NEW LOGIC: Only assign roles when both participants are present
-        // This prevents conflicts during connection/disconnection phases
-        if (!this.signaling.hasPatientAndPractitioner()) {
-            logger.diagnostic('RESULT: polite (waiting for both participants)');
-            logger.diagnostic('=====================================');
-            return 'polite'; // Default to polite when not both present
-        }
-
-        // Deterministic comparison of clientIds when both participants are present
+        // 🔥 FIXED LOGIC: Always use deterministic comparison regardless of participant count
+        // Get all clientIds (including self) and sort them alphabetically
         const allIds = [this.clientId, ...others.map(p => p.clientId)].sort();
         const myPosition = allIds.indexOf(this.clientId);
 
@@ -376,29 +368,20 @@ export class PerfectNegotiation {
 
     /**
      * Reevaluate role if needed based on current participants
-     * Only assigns definitive roles when both patient and practitioner are present
+     * Simplified to always use deterministic role calculation
      */
     private reevaluateRoleIfNeeded(): void {
         const participants = this.signaling.getValidParticipants();
         const hasPatientAndPractitioner = this.signaling.hasPatientAndPractitioner();
 
-        // Only reevaluate roles if connection is disconnected/failed OR when both participants become present
+        // Only reevaluate roles if connection is disconnected/failed OR when participants change
         const connectionBroken = this.pc.connectionState === 'disconnected' ||
             this.pc.connectionState === 'failed' ||
             this.pc.connectionState === 'closed';
 
-        // Skip reevaluation if connection is healthy and we don't have both participants yet
-        if (!connectionBroken && !hasPatientAndPractitioner) {
-            debugLog(`[PerfectNegotiation] ⏸️ Waiting for both participants - current count: ${participants.length}`);
-            return;
-        }
-
-        // Skip reevaluation if connection is good and roles are already stable with both present
-        if (!connectionBroken && hasPatientAndPractitioner && participants.length === 2) {
-            debugLog(`[PerfectNegotiation] ✅ Roles stable - both present and connection OK (${this.pc.connectionState})`);
-            return;
-        }
-
+        // 🔥 SIMPLIFIED LOGIC: Always calculate role deterministically
+        // The "waiting for both participants" logic was causing the "both polite" bug
+        
         const newRole = this.determineRoleFromClientId();
         const currentRole = this.negotiationRole.isPolite ? 'polite' : 'impolite';
 
