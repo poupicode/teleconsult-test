@@ -77,7 +77,7 @@ export class PerfectNegotiation {
 
         // If we're the impolite peer and room is ready, trigger DataChannel creation
         this.checkInitialConnectionTrigger();
-        
+
         logger.success(LogCategory.NEGOTIATION, `Perfect Negotiation initialized - Role: ${this.negotiationRole.isPolite ? 'polite' : 'impolite'}`);
     }
 
@@ -697,11 +697,14 @@ export class PerfectNegotiation {
 
         // Only impolite peer initiates reconnection
         if (!this.negotiationRole.isPolite) {
-            debugLog('[PerfectNegotiation] Impolite peer initiating reconnection offer...');
+            debugLog('[PerfectNegotiation] Impolite peer initiating reconnection offer with ICE restart...');
             try {
                 this.negotiationState.makingOffer = true;
-                await this.pc.setLocalDescription();
-                debugLog('[PerfectNegotiation] Reconnection offer created, sending via signaling');
+                // Use iceRestart: true for forced reconnection to get fresh ICE candidates
+                const offer = await this.pc.createOffer({ iceRestart: true });
+                await this.pc.setLocalDescription(offer);
+                debugLog('[PerfectNegotiation] Reconnection offer with ICE restart created, sending via signaling');
+                logger.info(LogCategory.ICE, "🔄 ICE restart triggered for forced reconnection");
                 await this.signaling.sendMessage({
                     type: 'offer',
                     roomId: this.roomId,
