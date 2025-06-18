@@ -157,87 +157,24 @@ export class PeerConnection implements IPeerConnection {
             }
         });
 
-        // 🩺 DEBUG : Exposer les méthodes de diagnostic dans la console pour faciliter le debugging
-        if (typeof window !== 'undefined') {
-            (window as any).webrtcDiagnostic = {
-                ...((window as any).webrtcDiagnostic || {}),
-                diagnoseStreams: () => this.diagnoseStreamState(),
-                getStreamsInfo: () => ({
-                    local: Object.keys(this._localStreams),
-                    remote: Object.keys(this._remoteStreams),
-                    numReceivers: this.numReceivers,
-                    transceivers: this.pc.getTransceivers().length
-                }),
-                resetNumReceivers: () => {
-                    this.numReceivers = 0;
-                    logger.info(LogCategory.CONNECTION, "🔧 Manual reset of numReceivers to 0");
-                },
-                recreateStreams: () => this.recreateStreamsFromTransceivers(),
-                help: () => {
-                    console.log("🩺 WebRTC Diagnostic Tools:");
-                    console.log("- webrtcDiagnostic.diagnoseStreams() : Complete stream state analysis");
-                    console.log("- webrtcDiagnostic.getStreamsInfo() : Quick streams info");
-                    console.log("- webrtcDiagnostic.resetNumReceivers() : Reset numReceivers to 0");
-                    console.log("- webrtcDiagnostic.recreateStreams() : Recreate streams from transceivers");
-                    console.log("- webrtcDiagnostic.help() : Show this help");
-                }
-            };
-        }
-
         // Setup custom ICE debugging
         this.setupIceDebugging();
     }
 
     public onTrack = (event: RTCTrackEvent) => {
-        logger.info(LogCategory.CONNECTION, "[onTrack] 🎯 Track received - analyzing attribution");
-        logger.info(LogCategory.CONNECTION, `[onTrack] Track details: kind=${event.track.kind}, id=${event.track.id}, label=${event.track.label}`);
-        logger.info(LogCategory.CONNECTION, `[onTrack] Transceiver direction: ${event.transceiver.direction}`);
-        logger.info(LogCategory.CONNECTION, `[onTrack] Current numReceivers: ${this.numReceivers}`);
-        
-        // 🚨 SOLUTION ROBUSTE : Attribution basée sur l'index du transceiver
-        // au lieu de l'ordre d'arrivée séquentiel fragile
-        
-        // Trouve l'index du transceiver dans la liste des transceivers de la peer connection
-        const transceivers = this.pc.getTransceivers();
-        const transceiverIndex = transceivers.findIndex(t => t === event.transceiver);
-        
-        logger.info(LogCategory.CONNECTION, `[onTrack] Transceiver index found: ${transceiverIndex}/${transceivers.length}`);
-        
-        if (transceiverIndex === -1 || transceiverIndex >= DEFAULT_TRANSCEIVERS.length) {
-            logger.error(LogCategory.ERROR, `[onTrack] ❌ Invalid transceiver index: ${transceiverIndex}, expected 0-${DEFAULT_TRANSCEIVERS.length-1}`);
-            return;
-        }
-        
-        // Attribution robuste basée sur l'index du transceiver, pas sur l'ordre d'arrivée
-        const expectedTransceiver = DEFAULT_TRANSCEIVERS[transceiverIndex];
-        const expectedDevice = expectedTransceiver.device;
-        const expectedKind = expectedTransceiver.kind;
-        
-        // Vérification de cohérence
-        if (event.track.kind !== expectedKind) {
-            logger.error(LogCategory.ERROR, `[onTrack] ❌ MISMATCH: received ${event.track.kind} but expected ${expectedKind} for device ${expectedDevice}`);
-            logger.error(LogCategory.ERROR, `[onTrack] This indicates a serious transceiver order mismatch!`);
-            return;
-        }
-        
-        // Attribution correcte du track au bon stream
-        if (this._remoteStreams[expectedDevice]) {
-            logger.info(LogCategory.CONNECTION, `[onTrack] ✅ Correctly attributing ${expectedKind} track to device "${expectedDevice}"`);
-            this._remoteStreams[expectedDevice].addTrack(event.transceiver.receiver.track);
-            
-            // Validation post-attribution
-            const tracksInStream = this._remoteStreams[expectedDevice].getTracks();
-            logger.info(LogCategory.CONNECTION, `[onTrack] Device "${expectedDevice}" now has ${tracksInStream.length} tracks: ${tracksInStream.map(t => t.kind).join(', ')}`);
-            
-            // 🩺 DIAGNOSTIC automatique après réception de tracks importants
-            const totalTracks = Object.values(this._remoteStreams).reduce((sum, stream) => sum + stream.getTracks().length, 0);
-            if (totalTracks > 0 && totalTracks % 2 === 0) { // Diagnostic tous les 2 tracks (audio+video par device)
-                logger.info(LogCategory.CONNECTION, `[onTrack] 🩺 Triggering automatic diagnostic after receiving ${totalTracks} tracks`);
-                setTimeout(() => this.diagnoseStreamState(), 100); // Small delay to let all tracks arrive
-            }
-            
+        console.debug("[onTrack] Track received:", event.track);
+        console.debug("[onTrack] Track kind:", event.track.kind);
+        console.debug("[onTrack] Associated transceiver:", event.transceiver);
+        console.debug("[onTrack] Stream in event:", event.streams);
+
+        const currentDefaultTransceiver = DEFAULT_TRANSCEIVERS[this.numReceivers];
+
+        // We add the new transceiver to its corresponding stream in remote streams
+        if (currentDefaultTransceiver && this._remoteStreams[currentDefaultTransceiver.device]) {
+            this._remoteStreams[currentDefaultTransceiver.device].addTrack(event.transceiver.receiver.track);
+            this.numReceivers++;
         } else {
-            logger.error(LogCategory.ERROR, `[onTrack] ❌ No remote stream found for device: ${expectedDevice}`);
+            console.error("[WebRTC] Could not find appropriate remote stream for received track", event.track);
         }
     }
 
@@ -283,8 +220,7 @@ export class PeerConnection implements IPeerConnection {
     }
 
     public setupStreamsAndTransceivers = (peerConnection: RTCPeerConnection) => {
-        logger.info(LogCategory.CONNECTION, "🔧 Setting up streams and transceivers");
-        
+        console.debug("Setting up dummy streams and transceivers");
         // Create one empty stream per device found in DEFAULT_TRANSCEIVERS
         // MediaStreams are used to group and identify tracks sent to the peerConnection
         for (const { device } of DEFAULT_TRANSCEIVERS) {
@@ -294,35 +230,27 @@ export class PeerConnection implements IPeerConnection {
                 this._remoteStreams[device] = new MediaStream();
         }
 
-        logger.debug(LogCategory.CONNECTION, "📺 Placeholder MediaStreams created for each device:");
-        logger.debug(LogCategory.CONNECTION, "Local streams:", Object.keys(this._localStreams));
-        logger.debug(LogCategory.CONNECTION, "Remote streams:", Object.keys(this._remoteStreams));
+        console.debug("TelemedPeerConnection: Placeholder MediaStreams created for each device");
+        console.debug(this._localStreams, this._remoteStreams)
 
         // Add transceivers to the peer connection, for future tracks
-        for (let i = 0; i < DEFAULT_TRANSCEIVERS.length; i++) {
-            const { device, kind } = DEFAULT_TRANSCEIVERS[i];
-            
-            logger.info(LogCategory.CONNECTION, `🔄 Creating transceiver ${i}: ${device}/${kind}`);
-            
+        for (const { device, kind } of DEFAULT_TRANSCEIVERS) {
             // Create Transceiver and add it to the peer connection
             const rtcRtpTransceiver = peerConnection.addTransceiver(kind, { streams: [this._localStreams[device]] });
 
             if (!rtcRtpTransceiver) {
-                logger.error(LogCategory.ERROR, `❌ Error creating transceiver ${i} for ${device}/${kind}`);
-                throw new Error(`Error creating transceiver for device ${device}/${kind}`);
+                console.error("Error creating transceiver", device, kind, this._localStreams[device]);
+                throw new Error("Error creating transceiver for device");
             }
-            
             // Store Transceiver locally (to enable the usage of replaceTrack later)
             if (!this.rtcRtpSenders[device])
                 this.rtcRtpSenders[device] = {}
 
             this.rtcRtpSenders[device][kind] = rtcRtpTransceiver.sender;
-            
-            logger.debug(LogCategory.CONNECTION, `✅ Transceiver ${i} created successfully for ${device}/${kind}`);
         }
 
-        logger.success(LogCategory.CONNECTION, `🎯 ${DEFAULT_TRANSCEIVERS.length} transceivers created in the expected order`);
-        logger.debug(LogCategory.CONNECTION, "Transceivers order:", DEFAULT_TRANSCEIVERS.map((t, i) => `${i}: ${t.device}/${t.kind}`));
+        console.debug("TelemedPeerConnection: Transceivers (senders) created for each device and kind");
+        console.debug(this.rtcRtpSenders)
     }
 
 
@@ -682,10 +610,6 @@ export class PeerConnection implements IPeerConnection {
             this.readyToNegotiate = false;
             this.iceCandidates = { local: [], remote: [] };
             this.hasRelay = false;
-            
-            // 🚨 FIX : Reset numReceivers pour éviter le problème d'attribution séquentielle
-            this.numReceivers = 0;
-            logger.info(LogCategory.CONNECTION, "[connect] ✅ Reset numReceivers to 0 - fresh start for track attribution");
 
             // Connect to signaling service
             await this.signaling.connect();
@@ -792,10 +716,6 @@ export class PeerConnection implements IPeerConnection {
             this.iceCandidates = { local: [], remote: [] };
             this.hasRelay = false;
 
-            // 🚨 FIX : Reset numReceivers pour éviter le problème d'attribution séquentielle
-            this.numReceivers = 0;
-            logger.info(LogCategory.CONNECTION, "[disconnect] ✅ Reset numReceivers to 0 - clean slate for next connection");
-
 
             // Force a state update for components observing
             // dataChannel status changes
@@ -872,10 +792,6 @@ export class PeerConnection implements IPeerConnection {
         // Reset ICE candidate collections
         this.iceCandidates = { local: [], remote: [] };
         this.hasRelay = false;
-
-        // 🚨 FIX : Reset numReceivers pour éviter le problème d'attribution séquentielle
-        this.numReceivers = 0;
-        logger.info(LogCategory.CONNECTION, "[resetPeerConnection] ✅ Reset numReceivers to 0 - tracks will be correctly attributed");
 
         // Reinitialize Perfect Negotiation with the new peer connection
         this.perfectNegotiation = new PerfectNegotiation(
@@ -1069,107 +985,6 @@ export class PeerConnection implements IPeerConnection {
     getDataChannelManager(): DataChannelManager {  //bluetooth
         //Pour accéder au gestionnaire du canal de données WebRTC depuis un autre composant
         return this.dataChannelManager;
-    }
-
-    /**
-     * 🩺 DIAGNOSTIC : Méthode complète de diagnostic des streams et tracks
-     * Utilisée pour comprendre les problèmes d'attribution des tracks
-     */
-    public diagnoseStreamState(): void {
-        logger.info(LogCategory.CONNECTION, "🩺 === DIAGNOSTIC COMPLET DES STREAMS ===");
-        
-        // 1. Transceivers et ordre
-        const transceivers = this.pc.getTransceivers();
-        logger.info(LogCategory.CONNECTION, `📡 ${transceivers.length} transceivers configurés:`);
-        transceivers.forEach((t, index) => {
-            const expected = DEFAULT_TRANSCEIVERS[index];
-            const direction = t.direction;
-            const hasTrack = !!t.receiver.track;
-            logger.info(LogCategory.CONNECTION, `  ${index}: ${expected ? `${expected.device}/${expected.kind}` : 'UNKNOWN'} - direction=${direction}, hasTrack=${hasTrack}`);
-        });
-        
-        // 2. État de numReceivers
-        logger.info(LogCategory.CONNECTION, `🔢 numReceivers actuel: ${this.numReceivers} (devrait être entre 0 et ${DEFAULT_TRANSCEIVERS.length})`);
-        
-        // 3. Remote streams et leurs tracks
-        logger.info(LogCategory.CONNECTION, "📺 Remote streams analysis:");
-        for (const [device, stream] of Object.entries(this._remoteStreams)) {
-            const tracks = stream.getTracks();
-            logger.info(LogCategory.CONNECTION, `  "${device}": ${tracks.length} tracks`);
-            tracks.forEach((track, idx) => {
-                logger.info(LogCategory.CONNECTION, `    ${idx}: ${track.kind} - id=${track.id}, enabled=${track.enabled}, muted=${track.muted}`);
-            });
-            
-            if (tracks.length === 0) {
-                logger.warn(LogCategory.CONNECTION, `    ⚠️ Device "${device}" has NO tracks - video will be invisible!`);
-            }
-        }
-        
-        // 4. Local streams (pour référence)
-        logger.info(LogCategory.CONNECTION, "📹 Local streams analysis:");
-        for (const [device, stream] of Object.entries(this._localStreams)) {
-            const tracks = stream.getTracks();
-            logger.info(LogCategory.CONNECTION, `  "${device}": ${tracks.length} tracks [${tracks.map(t => t.kind).join(', ')}]`);
-        }
-        
-        // 5. Recommandations
-        const emptyRemoteStreams = Object.entries(this._remoteStreams).filter(([_, stream]) => stream.getTracks().length === 0);
-        if (emptyRemoteStreams.length > 0) {
-            logger.error(LogCategory.ERROR, "🚨 PROBLÈME DÉTECTÉ : Des streams remote sont vides !");
-            logger.error(LogCategory.ERROR, `Streams vides: ${emptyRemoteStreams.map(([device]) => device).join(', ')}`);
-            logger.error(LogCategory.ERROR, "Cela indique très probablement le bug d'attribution onTrack.");
-            logger.error(LogCategory.ERROR, "Solution: reset numReceivers lors des reconnexions/déconnexions.");
-        } else {
-            logger.success(LogCategory.CONNECTION, "✅ Tous les streams remote ont des tracks - configuration correcte !");
-        }
-        
-        logger.info(LogCategory.CONNECTION, "🩺 === FIN DU DIAGNOSTIC ===");
-    }
-
-    /**
-     * 🚨 MÉTHODE DE RÉCUPÉRATION : Recrée les streams remote vides
-     * Utilisée quand on détecte que des streams sont vides à cause du bug onTrack
-     */
-    public recreateStreamsFromTransceivers(): void {
-        logger.info(LogCategory.CONNECTION, "🔧 Recreating remote streams from transceivers...");
-        
-        const transceivers = this.pc.getTransceivers();
-        
-        // Réinitialiser numReceivers et remote streams
-        this.numReceivers = 0;
-        
-        // Vider tous les remote streams actuels
-        for (const device of Object.keys(this._remoteStreams)) {
-            this._remoteStreams[device] = new MediaStream();
-        }
-        
-        // Recréer les streams en parcourant les transceivers dans l'ordre
-        transceivers.forEach((transceiver, index) => {
-            if (index >= DEFAULT_TRANSCEIVERS.length) {
-                logger.warn(LogCategory.CONNECTION, `⚠️ Transceiver ${index} exceeds expected transceivers count`);
-                return;
-            }
-            
-            const expectedTransceiver = DEFAULT_TRANSCEIVERS[index];
-            const expectedDevice = expectedTransceiver.device;
-            const expectedKind = expectedTransceiver.kind;
-            
-            if (transceiver.receiver && transceiver.receiver.track) {
-                const track = transceiver.receiver.track;
-                
-                // Vérifier la cohérence
-                if (track.kind === expectedKind) {
-                    this._remoteStreams[expectedDevice].addTrack(track);
-                    logger.info(LogCategory.CONNECTION, `✅ Recreated: Added ${track.kind} track to device "${expectedDevice}"`);
-                } else {
-                    logger.error(LogCategory.ERROR, `❌ Mismatch during recreation: ${track.kind} != ${expectedKind} for device ${expectedDevice}`);
-                }
-            }
-        });
-        
-        // Diagnostic après récréation
-        logger.info(LogCategory.CONNECTION, "🩺 Streams after recreation:");
-        this.diagnoseStreamState();
     }
 
 }
