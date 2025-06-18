@@ -181,7 +181,26 @@ export default function ConsultationRoom({
 
       // Ensuite seulement
       await peer.connect();
-      addStreamsToStore(peer, addMediaStreams); // si `addMediaStreams` vient du contexte
+
+      // ✅ Setup callback pour recevoir les streams distants au fur et à mesure
+      peer.onRemoteStream((device, stream) => {
+        console.log(`[ConsultationRoom] Received remote stream for device: ${device}`, stream);
+        
+        // Add the stream to the mediaStreams context
+        addMediaStreams({ [stream.id]: stream });
+
+        // Add the stream to the redux store
+        store.dispatch(
+          streamUpdated({
+            origin: "remote",
+            deviceType: device as keyof StreamsByDevice,
+            streamDetails: { streamId: stream.id },
+          })
+        );
+      });
+
+      // ❌ SUPPRIMER CETTE LIGNE (elle était appelée trop tôt)
+      // addStreamsToStore(peer, addMediaStreams);
 
 
       // Handle connection state changes
@@ -357,23 +376,17 @@ export default function ConsultationRoom({
     </div>
   );
 }
-function addStreamsToStore(telemedPC: PeerConnection, addMediaStreams: (streams: MediaStreamList) => void) {
-  // Getting all the remote streams from the peerConnection
-  const remoteStreams = telemedPC.remoteStreams;
 
-  // TODO Make an action for that takes remoteStreams as a parameter
-  // For each stream, add it to the redux store
-  for (const [device, stream] of Object.entries(remoteStreams)) {
-    // Add the stream to the mediaStreams context
-    addMediaStreams({ [stream.id]: stream });
-
-    // Add the stream to the redux store
-    store.dispatch(
-      streamUpdated({
-        origin: "remote",
-        deviceType: device as keyof StreamsByDevice,
-        streamDetails: { streamId: stream.id },
-      })
-    );
-  }
-}
+// ❌ FONCTION SUPPRIMÉE - remplacée par le callback onRemoteStream
+// Cette fonction était appelée trop tôt, avant que les streams distants soient reçus
+// function addStreamsToStore(telemedPC: PeerConnection, addMediaStreams: (streams: MediaStreamList) => void) {
+//   const remoteStreams = telemedPC.remoteStreams;
+//   for (const [device, stream] of Object.entries(remoteStreams)) {
+//     addMediaStreams({ [stream.id]: stream });
+//     store.dispatch(streamUpdated({
+//       origin: "remote",
+//       deviceType: device as keyof StreamsByDevice,
+//       streamDetails: { streamId: stream.id },
+//     }));
+//   }
+// }

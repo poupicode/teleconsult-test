@@ -100,6 +100,7 @@ export class PeerConnection implements IPeerConnection {
     private onConnectionStateChangeCallback: ((state: RTCPeerConnectionState) => void) | null = null;
     private onRoomReadyCallback: ((isReady: boolean) => void) | null = null;
     private onChatMessageCallback: ((message: ChatMessage) => void) | null = null;
+    private onRemoteStreamCallback: ((device: string, stream: MediaStream) => void) | null = null;
 
     // Exported constants for compatibility
     public readonly ROLE = Role;
@@ -173,6 +174,12 @@ export class PeerConnection implements IPeerConnection {
         if (currentDefaultTransceiver && this._remoteStreams[currentDefaultTransceiver.device]) {
             this._remoteStreams[currentDefaultTransceiver.device].addTrack(event.transceiver.receiver.track);
             this.numReceivers++;
+            
+            // ✅ Déclencher le callback onRemoteStream quand un track est reçu
+            if (this.onRemoteStreamCallback) {
+                console.debug(`[onTrack] Calling remote stream callback for device: ${currentDefaultTransceiver.device}`);
+                this.onRemoteStreamCallback(currentDefaultTransceiver.device, this._remoteStreams[currentDefaultTransceiver.device]);
+            }
         } else {
             console.error("[WebRTC] Could not find appropriate remote stream for received track", event.track);
         }
@@ -644,6 +651,11 @@ export class PeerConnection implements IPeerConnection {
     // Subscribe to chat messages
     onChatMessage(callback: (message: ChatMessage) => void) {
         this.onChatMessageCallback = callback;
+    }
+
+    // Subscribe to remote stream updates
+    onRemoteStream(callback: (device: string, stream: MediaStream) => void) {
+        this.onRemoteStreamCallback = callback;
     }
 
     // Check if the dataChannel is available

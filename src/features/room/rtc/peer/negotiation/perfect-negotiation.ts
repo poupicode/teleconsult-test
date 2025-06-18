@@ -554,7 +554,7 @@ export class PerfectNegotiation {
 
         // No conflict if we don't have both participants yet
         if (!hasPatientAndPractitioner || participants.length < 2) {
-            return false; 
+            return false;
         }
 
         const otherParticipants = participants.filter(p => p.clientId !== this.clientId);
