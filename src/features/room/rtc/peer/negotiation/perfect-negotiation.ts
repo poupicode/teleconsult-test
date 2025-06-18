@@ -62,15 +62,14 @@ export class PerfectNegotiation {
             isSettingRemoteAnswerPending: false
         };
 
-        // Determine negotiation role using deterministic clientId comparison
-        // This ensures stable roles regardless of connection/disconnection order
-        const determinedRole = this.determineRoleFromClientId();
+        // 🚨 LAZY ROLE ASSIGNMENT: Don't calculate role in constructor
+        // Wait until after signaling connection to have complete participant list
         this.negotiationRole = {
-            isPolite: determinedRole === 'polite'
+            isPolite: true // Default to polite, will be calculated after connect()
         };
 
-        console.log(`🔧 [PerfectNegotiation] ROLE ASSIGNMENT: clientId=${clientId}, determinedRole=${determinedRole}, isPolite=${this.negotiationRole.isPolite}`);
-        debugLog(`[PerfectNegotiation] Initialized with role: ${role}, isPolite: ${this.negotiationRole.isPolite}`);
+        console.log(`🔧 [PerfectNegotiation] LAZY INIT: clientId=${clientId}, role will be calculated after signaling connection`);
+        debugLog(`[PerfectNegotiation] Initialized with lazy role assignment - will calculate after connect()`);
 
         this.setupEventHandlers();
         this.setupPresenceListener();
@@ -311,7 +310,7 @@ export class PerfectNegotiation {
         // Take the first other participant (should be only one in P2P teleconsultation)
         const otherPeer = others[0];
         const comparison = this.clientId.localeCompare(otherPeer.clientId);
-        
+
         // Simple: lexicographically smaller clientId = impolite (initiator)
         const result = comparison < 0 ? 'impolite' : 'polite';
 
@@ -385,12 +384,12 @@ export class PerfectNegotiation {
         const participants = this.signaling.getValidParticipants();
         const hasPatientAndPractitioner = this.signaling.hasPatientAndPractitioner();
 
-        // 🚨 CRITICAL FIX: Don't change roles if connection is already established and working
-        const connectionEstablished = this.pc.connectionState === 'connected' || 
-                                     this.pc.connectionState === 'connecting';
+        // 🚨 CRITICAL FIX: Only prevent role changes if connection is ACTUALLY connected (not just connecting)
+        // Allow role changes during initial setup and when connection is broken
+        const connectionActuallyEstablished = this.pc.connectionState === 'connected';
         
-        if (connectionEstablished && participants.length >= 2) {
-            debugLog(`[PerfectNegotiation] ✅ Connection established and stable - preserving current roles`);
+        if (connectionActuallyEstablished && participants.length >= 2) {
+            debugLog(`[PerfectNegotiation] ✅ Connection fully established - preserving current roles`);
             return;
         }
 
@@ -999,5 +998,24 @@ export class PerfectNegotiation {
         this.onConnectionStateChange = undefined;
 
         debugLog('[PerfectNegotiation] Cleanup complete');
+    }
+
+    /**
+     * 🚨 CRITICAL FIX: Calculate role AFTER signaling connection
+     * This should be called once the signaling is connected and participants are known
+     */
+    public calculateInitialRole(): void {
+        console.log(`🎯 [PerfectNegotiation] Calculating initial role after signaling connection...`);
+        
+        const determinedRole = this.determineRoleFromClientId();
+        this.negotiationRole = {
+            isPolite: determinedRole === 'polite'
+        };
+
+        console.log(`🔧 [PerfectNegotiation] ROLE CALCULATED: clientId=${this.clientId}, determinedRole=${determinedRole}, isPolite=${this.negotiationRole.isPolite}`);
+        debugLog(`[PerfectNegotiation] Role calculated after signaling: ${determinedRole}`);
+
+        // If we're impolite and room is ready, trigger initial connection
+        this.checkInitialConnectionTrigger();
     }
 }

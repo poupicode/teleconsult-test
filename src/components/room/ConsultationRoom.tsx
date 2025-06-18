@@ -185,7 +185,7 @@ export default function ConsultationRoom({
       // ✅ Setup callback pour recevoir les streams distants au fur et à mesure
       peer.onRemoteStream((device, stream) => {
         console.log(`[ConsultationRoom] Received remote stream for device: ${device}`, stream);
-        
+
         // Add the stream to the mediaStreams context
         addMediaStreams({ [stream.id]: stream });
 
@@ -206,42 +206,43 @@ export default function ConsultationRoom({
       // Handle connection state changes
       peer.onConnectionStateChange((state) => {
         setConnectionStatus(state);
-      });
-
-      // Handle room ready state changes (when both patient and practitioner are present)
+      });      // Handle room ready state changes (when both patient and practitioner are present)
       peer.onRoomReady((isReady) => {
         setRoomReady(isReady);
 
         // Perfect Negotiation: if the room becomes ready and we are the polite peer,
         // wait a few moments for the impolite peer to have initialized the connection
         if (isReady) {
-          const negotiationState = peer.getPerfectNegotiationState();
-          const isPolite = negotiationState.isPolite;
-          
-          // 🚨 DIAGNOSTIC: Log role info for debugging
-          console.log(`[ConsultationRoom] 🔍 ROLE DIAGNOSTIC - clientId: ${userId}, isPolite: ${isPolite}`);
-          
-          setNegotiationRole(isPolite ? "polite" : "impolite");
+          // 🚨 CRITICAL FIX: Add delay to ensure role calculation is complete
+          setTimeout(() => {
+            const negotiationState = peer.getPerfectNegotiationState();
+            const isPolite = negotiationState.isPolite;
+            
+            // 🚨 DIAGNOSTIC: Log role info for debugging
+            console.log(`[ConsultationRoom] 🔍 ROLE DIAGNOSTIC - clientId: ${userId}, isPolite: ${isPolite}`);
+            
+            setNegotiationRole(isPolite ? "polite" : "impolite");
 
-          if (isPolite) {
-            console.log(
-              "[ConsultationRoom] 🤝 Room is ready and we are the polite peer (waits for offers), waiting for impolite peer to initialize..."
-            );
-
-            // Small delay to ensure the impolite peer is ready to negotiate
-            // Perfect Negotiation automatically handles who initiates the connection
-            setTimeout(() => {
+            if (isPolite) {
               console.log(
-                "[ConsultationRoom] 🤝 Polite peer is now ready to receive connection from impolite peer"
+                "[ConsultationRoom] 🤝 Room is ready and we are the polite peer (waits for offers), waiting for impolite peer to initialize..."
               );
-              // The impolite peer will detect our presence and automatically initiate the connection
-              // via Perfect Negotiation - no manual intervention needed
-            }, 1000);
-          } else {
-            console.log(
-              "[ConsultationRoom] 🚀 Room is ready and we are the impolite peer (initiates offers), Perfect Negotiation will handle connection initiation"
-            );
-          }
+
+              // Small delay to ensure the impolite peer is ready to negotiate
+              // Perfect Negotiation automatically handles who initiates the connection
+              setTimeout(() => {
+                console.log(
+                  "[ConsultationRoom] 🤝 Polite peer is now ready to receive connection from impolite peer"
+                );
+                // The impolite peer will detect our presence and automatically initiate the connection
+                // via Perfect Negotiation - no manual intervention needed
+              }, 1000);
+            } else {
+              console.log(
+                "[ConsultationRoom] 🚀 Room is ready and we are the impolite peer (initiates offers), Perfect Negotiation will handle connection initiation"
+              );
+            }
+          }, 500); // Wait for role calculation to complete
         } else {
           setNegotiationRole(null);
         }
@@ -380,17 +381,3 @@ export default function ConsultationRoom({
     </div>
   );
 }
-
-// ❌ FONCTION SUPPRIMÉE - remplacée par le callback onRemoteStream
-// Cette fonction était appelée trop tôt, avant que les streams distants soient reçus
-// function addStreamsToStore(telemedPC: PeerConnection, addMediaStreams: (streams: MediaStreamList) => void) {
-//   const remoteStreams = telemedPC.remoteStreams;
-//   for (const [device, stream] of Object.entries(remoteStreams)) {
-//     addMediaStreams({ [stream.id]: stream });
-//     store.dispatch(streamUpdated({
-//       origin: "remote",
-//       deviceType: device as keyof StreamsByDevice,
-//       streamDetails: { streamId: stream.id },
-//     }));
-//   }
-// }

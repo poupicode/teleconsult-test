@@ -174,7 +174,7 @@ export class PeerConnection implements IPeerConnection {
         if (currentDefaultTransceiver && this._remoteStreams[currentDefaultTransceiver.device]) {
             this._remoteStreams[currentDefaultTransceiver.device].addTrack(event.transceiver.receiver.track);
             this.numReceivers++;
-            
+
             // ✅ Déclencher le callback onRemoteStream quand un track est reçu
             if (this.onRemoteStreamCallback) {
                 console.debug(`[onTrack] Calling remote stream callback for device: ${currentDefaultTransceiver.device}`);
@@ -620,6 +620,10 @@ export class PeerConnection implements IPeerConnection {
 
             // Connect to signaling service
             await this.signaling.connect();
+
+            // 🚨 CRITICAL FIX: Calculate role AFTER signaling connection
+            console.log('[WebRTC] 🎯 Calculating Perfect Negotiation role after signaling connection...');
+            this.perfectNegotiation.calculateInitialRole();
 
             // Setup signaling listeners
             await this.setupSignalingListeners();
