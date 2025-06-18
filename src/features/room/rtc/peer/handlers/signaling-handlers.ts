@@ -1,4 +1,4 @@
-// Gestionnaires pour les messages de signalisation
+// Signaling message handlers
 
 import { SignalingService } from '../../signaling';
 
@@ -9,7 +9,8 @@ export async function handleOffer(pc: RTCPeerConnection, offer: RTCSessionDescri
     }
 
     try {
-        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        // W3C Compliant: setRemoteDescription accepts RTCSessionDescriptionInit directly
+        await pc.setRemoteDescription(offer);
         console.log('[WebRTC] Set remote description (offer)');
 
         const answer = await pc.createAnswer();
@@ -21,17 +22,28 @@ export async function handleOffer(pc: RTCPeerConnection, offer: RTCSessionDescri
             roomId: roomId,
             content: pc.localDescription as RTCSessionDescriptionInit
         });
-    } catch (err) {
-        console.error('[WebRTC] Error handling offer:', err);
+    } catch (error) {
+        // W3C Compliant error handling with specific error types
+        if (error instanceof DOMException) {
+            console.error(`[WebRTC] DOM Exception handling offer: ${error.name} - ${error.message}`);
+        } else {
+            console.error('[WebRTC] Error handling offer:', error);
+        }
     }
 }
 
 export async function handleAnswer(pc: RTCPeerConnection, answer: RTCSessionDescriptionInit) {
     try {
-        await pc.setRemoteDescription(new RTCSessionDescription(answer));
+        // W3C Compliant: setRemoteDescription accepts RTCSessionDescriptionInit directly
+        await pc.setRemoteDescription(answer);
         console.log('[WebRTC] Set remote description (answer)');
-    } catch (err) {
-        console.error('[WebRTC] Error handling answer:', err);
+    } catch (error) {
+        // W3C Compliant error handling with specific error types
+        if (error instanceof DOMException) {
+            console.error(`[WebRTC] DOM Exception handling answer: ${error.name} - ${error.message}`);
+        } else {
+            console.error('[WebRTC] Error handling answer:', error);
+        }
     }
 }
 
@@ -42,33 +54,34 @@ export async function handleIceCandidate(pc: RTCPeerConnection, candidate: RTCIc
             return;
         }
 
-        // Vérifier que c'est un candidat valide avant de tenter de l'ajouter
+        // Check that it's a valid candidate before attempting to add it
         if (typeof candidate.candidate === 'string' && candidate.candidate !== '') {
-            // Vérifier l'état de la connexion avant d'ajouter le candidat
+            // Check connection state before adding the candidate
             if (pc.signalingState === 'closed') {
-                console.warn('[WebRTC-ICE] Cannot add ICE candidate: peer connection is closed');
+                console.warn('[WebRTC-ICE] ⚠️ Cannot add ICE candidate: peer connection is closed');
                 return;
             }
 
-            // Ajouter le candidat ICE
-            await pc.addIceCandidate(new RTCIceCandidate(candidate));
-            console.log('[WebRTC-ICE] ICE candidate added successfully');
+            // W3C Compliant: addIceCandidate accepts RTCIceCandidateInit directly
+            await pc.addIceCandidate(candidate);
+            console.log('[WebRTC-ICE] ✅ ICE candidate added successfully');
 
-            // Log additionnel pour les candidats TURN
+            // Additional log for TURN candidates
             if (candidate.candidate.includes(' typ relay ')) {
-                console.log('[WebRTC-ICE] Added TURN relay candidate successfully');
+                console.log('[WebRTC-ICE] 🔄 Added TURN relay candidate successfully');
             }
         } else {
-            // Fin de la collecte des candidats
-            console.log('[WebRTC-ICE] End of candidates marker received');
+            // End of candidate collection
+            console.log('[WebRTC-ICE] 🏁 End of candidates marker received');
         }
-    } catch (err) {
-        console.error('[WebRTC] Error adding ICE candidate:', err);
-        console.error('[WebRTC] Failed candidate:', candidate);
-
-        // Log détaillé de l'erreur pour diagnostic
-        if (err instanceof Error) {
-            console.error('[WebRTC] Error details:', err.message);
+    } catch (error) {
+        // W3C Compliant error handling with specific error types
+        if (error instanceof DOMException) {
+            console.error(`[WebRTC] DOM Exception adding ICE candidate: ${error.name} - ${error.message}`);
+            console.error('[WebRTC] 🔍 Failed candidate:', candidate);
+        } else {
+            console.error('[WebRTC] ❌ Error adding ICE candidate:', error);
+            console.error('[WebRTC] 🔍 Failed candidate:', candidate);
         }
     }
 }

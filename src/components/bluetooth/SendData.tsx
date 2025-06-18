@@ -1,4 +1,4 @@
-import { useRef } from "react";
+/**import { useRef } from "react";
 
 // Type de la donnée envoyée par l'input
 type SendDataValueProps = {
@@ -46,3 +46,4 @@ export default function SendButtonData({ onSendValue }: SendDataValueProps) {
     </>
   );
 }
+**/

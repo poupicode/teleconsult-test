@@ -59,7 +59,12 @@ export class DataChannelManager {
     }
 
     // Configure les événements pour le dataChannel
-    setupDataChannel(channel: RTCDataChannel) {
+    setupDataChannel(channel: RTCDataChannel | null) {
+        if (!channel) {
+            console.error('[WebRTC] Cannot setup events for null data channel');
+            return;
+        }
+
         channel.onopen = () => {
             console.log('[WebRTC] Data channel opened');
             // Forcer une mise à jour de l'interface en utilisant un dispatch vide
@@ -113,11 +118,14 @@ export class DataChannelManager {
                             this.onChatMessageCallback(chatMessage);
                         }
                         break;
-                        case 'measurement':
-        if (this.onMeasurementCallback) {
-            this.onMeasurementCallback(message.payload);
-        }
-        break;
+                    case 'measurement':
+                        console.log('[WebRTC] Dans case "measurement" – callback dispo ?', !!this.onMeasurementCallback);
+                        if (this.onMeasurementCallback) {
+                            console.log('[WebRTC] J’appelle le callback avec :', message.payload);
+                            this.onMeasurementCallback(message.payload);
+                        }
+                        break;
+
 
                     case 'channel_closing':
                         console.log('[WebRTC] Remote peer is closing data channel gracefully');
@@ -136,8 +144,13 @@ export class DataChannelManager {
 
     // Envoyer un message via le dataChannel
     sendDataChannelMessage(type: string, payload: any): boolean {
-        if (!this.dataChannel || this.dataChannel.readyState !== 'open') {
-            console.error('[WebRTC] Cannot send message, data channel not ready');
+        if (!this.dataChannel) {
+            console.error('[WebRTC] Cannot send message, data channel is null');
+            return false;
+        }
+
+        if (this.dataChannel.readyState !== 'open') {
+            console.error(`[WebRTC] Cannot send message, data channel not ready (state: ${this.dataChannel.readyState})`);
             return false;
         }
 
@@ -195,6 +208,11 @@ export class DataChannelManager {
     // Vérifier si le dataChannel est disponible
     isDataChannelAvailable(): boolean {
         return this.dataChannel !== null && this.dataChannel.readyState === 'open';
+    }
+
+    // Vérifier l'état de santé du DataChannel pour le timeout intelligent
+    isHealthy(): boolean {
+        return this.isDataChannelAvailable();
     }
 
     // Obtenir le canal de données
@@ -255,7 +273,7 @@ export class DataChannelManager {
         this.closeDataChannel();
     }
     sendMeasurement(data: object): boolean {
-    return this.sendDataChannelMessage('measurement', data);
-}
+        return this.sendDataChannelMessage('measurement', data);
+    }
 
 }

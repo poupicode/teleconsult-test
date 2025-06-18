@@ -14,9 +14,25 @@ import { Role, NegotiationRole, NegotiationState } from '../models/types';
 // Debug logging control - set to false in production
 const DEBUG_LOGS = import.meta.env.DEV || false;
 
-// Conditional logging functions
+// CONFIGURE LOG LEVELS - enable only what you need
+const CONFIG = {
+    SHOW_NEGOTIATION_LOGS: DEBUG_LOGS && true, 
+    SHOW_ICE_LOGS: DEBUG_LOGS && false,     // Set to true only when debugging ICE issues
+    SHOW_SIGNALING_LOGS: DEBUG_LOGS && false, // Set to true only when debugging signaling
+    SHOW_ALL_ERRORS: true                    // Always show errors
+};
+
+// Conditional logging functions with category filtering
 const debugLog = (message: string, ...args: any[]) => {
-    if (DEBUG_LOGS) console.log(message, ...args);
+    const isICELog = message.includes('[WebRTC-ICE]') || message.includes('ICE candidate');
+    const isSignalingLog = message.includes('signaling') || message.includes('Signaling');
+    
+    if (!DEBUG_LOGS) return;
+    
+    if (isICELog && !CONFIG.SHOW_ICE_LOGS) return;
+    if (isSignalingLog && !CONFIG.SHOW_SIGNALING_LOGS) return;
+    
+    console.log(message, ...args);
 };
 
 const debugWarn = (message: string, ...args: any[]) => {
@@ -24,7 +40,7 @@ const debugWarn = (message: string, ...args: any[]) => {
 };
 
 const debugError = (message: string, ...args: any[]) => {
-    console.error(message, ...args); // Always log errors
+    if (CONFIG.SHOW_ALL_ERRORS) console.error(message, ...args); // Always log errors by default
 };
 
 export class PerfectNegotiation {
@@ -38,6 +54,13 @@ export class PerfectNegotiation {
     private negotiationRole: NegotiationRole;
     private negotiationState: NegotiationState;
     private hasTriggeredInitialConnection: boolean = false; // Prevent double triggering
+    private roleLockedUntil: number = 0; // Timestamp until when role switching is locked
+    private presenceChangeDebounceTimer: NodeJS.Timeout | null = null; // Debounce timer for presence changes
+
+    // Metrics for monitoring (can be exposed for debugging/analytics)
+    private roleSwitchCount: number = 0;
+    private lastRoleSwitchTime: number = 0;
+    private connectionAttempts: number = 0;
 
     // Callbacks
     private onConnectionStateChange?: (state: RTCPeerConnectionState) => void;
@@ -65,17 +88,16 @@ export class PerfectNegotiation {
             isSettingRemoteAnswerPending: false
         };
 
-        // Determine negotiation role based on arrival order for true P2P
-        // The first to arrive becomes impolite (initiator)
-        // The second to arrive becomes polite (waiter)
-        // This creates a truly peer-to-peer system where either side can initiate
+        // Determine negotiation role using deterministic clientId comparison
+        // This ensures stable roles regardless of connection/disconnection order
         this.negotiationRole = {
-            isPolite: !this.isFirstToArrive()
+            isPolite: this.determineRoleFromClientId() === 'polite'
         };
 
         debugLog(`[PerfectNegotiation] Initialized with role: ${role}, isPolite: ${this.negotiationRole.isPolite}`);
 
         this.setupEventHandlers();
+        this.setupPresenceListener();
 
         // If we're the impolite peer and room is ready, trigger DataChannel creation
         this.checkInitialConnectionTrigger();
@@ -98,6 +120,15 @@ export class PerfectNegotiation {
         this.pc.onnegotiationneeded = async () => {
             try {
                 debugLog(`[PerfectNegotiation] Negotiation needed, isPolite: ${this.negotiationRole.isPolite}`);
+                
+                // Check if both peers are present before proceeding with negotiation
+                const allParticipants = this.signaling.getValidParticipants();
+                const bothPresent = allParticipants.length >= 2;
+                
+                if (!bothPresent) {
+                    debugLog('[PerfectNegotiation] Skipping negotiation - not enough participants yet');
+                    return; // Skip negotiation if not enough participants
+                }
 
                 this.negotiationState.makingOffer = true;
                 await this.pc.setLocalDescription();
@@ -123,9 +154,30 @@ export class PerfectNegotiation {
      * Handle ICE candidate events
      */
     private setupIceCandidateHandler() {
+        // Track ICE candidate counts to reduce logging noise
+        let iceCandidateCount = 0;
+        const MAX_DETAILED_CANDIDATES = 2;
+        
         this.pc.onicecandidate = ({ candidate }) => {
             if (candidate) {
-                debugLog('[PerfectNegotiation] Sending ICE candidate');
+                // Check if both peers are present before sending candidates
+                const allParticipants = this.signaling.getValidParticipants();
+                const bothPresent = allParticipants.length >= 2;
+                
+                if (!bothPresent) {
+                    // Don't send candidates if no other participant is present
+                    return;
+                }
+                
+                // Reduce logging noise
+                if (iceCandidateCount < MAX_DETAILED_CANDIDATES) {
+                    debugLog('[PerfectNegotiation] Sending ICE candidate');
+                } else if (iceCandidateCount === MAX_DETAILED_CANDIDATES) {
+                    debugLog(`[PerfectNegotiation] Sending additional ICE candidates (limiting logs)`);
+                }
+                
+                iceCandidateCount++;
+                
                 this.signaling.sendMessage({
                     type: 'ice-candidate',
                     roomId: this.roomId,
@@ -241,35 +293,118 @@ export class PerfectNegotiation {
 
         try {
             await this.pc.addIceCandidate(candidate);
-            debugLog('[PerfectNegotiation] Added ICE candidate');
+            debugLog('[PerfectNegotiation] ✅ Added ICE candidate successfully');
         } catch (err) {
             if (!this.negotiationState.ignoreOffer) {
+                debugError('[PerfectNegotiation] ❌ ICE candidate error:', err);
                 throw err;
             }
-            debugLog('[PerfectNegotiation] Ignored ICE candidate error due to offer collision');
+            debugLog('[PerfectNegotiation] 🔇 Ignored ICE candidate error due to offer collision');
+        }
+    }
+
+
+
+    /**
+     * Determine negotiation role using deterministic clientId comparison
+     * This ensures stable roles regardless of connection/disconnection order
+     */
+    private determineRoleFromClientId(): 'polite' | 'impolite' {
+        const participants = this.signaling.getValidParticipants();
+        const others = participants.filter(p => p.clientId !== this.clientId);
+
+        // 🩺 DIAGNOSTIC LOGS - TEMPORARY
+        console.log('🩺 [ROLE DIAGNOSTIC] ===================');
+        console.log('🩺 My clientId:', this.clientId);
+        console.log('🩺 My business role:', this.role);
+        console.log('🩺 All participants:', participants.map(p => ({ id: p.clientId, role: p.role })));
+        console.log('🩺 Others:', others.map(p => ({ id: p.clientId, role: p.role })));
+        console.log('🩺 Others length:', others.length);
+
+        if (others.length === 0) {
+            console.log('🩺 RESULT: impolite (alone in room)');
+            console.log('🩺 =====================================');
+            return 'impolite'; // Alone in room = ready to initiate when someone arrives
+        }
+
+        // Deterministic comparison of clientIds
+        const allIds = [this.clientId, ...others.map(p => p.clientId)].sort();
+        const myPosition = allIds.indexOf(this.clientId);
+
+        console.log('🩺 Sorted IDs:', allIds);
+        console.log('🩺 My position:', myPosition);
+        console.log('🩺 RESULT:', myPosition === 0 ? 'impolite' : 'polite');
+        console.log('🩺 =====================================');
+
+        debugLog(`[PerfectNegotiation] Deterministic role calculation: sortedIds=[${allIds.join(', ')}], myPosition=${myPosition}`);
+
+        return myPosition === 0 ? 'impolite' : 'polite';
+    }
+
+    /**
+     * Set up presence listener to handle role reevaluation with debouncing AND reconnection
+     */
+    private setupPresenceListener(): void {
+        this.signaling.onPresenceChange(() => {
+            // Clear existing timer if presence changes rapidly
+            if (this.presenceChangeDebounceTimer) {
+                clearTimeout(this.presenceChangeDebounceTimer);
+            }
+
+            // Debounce presence changes to avoid excessive role reevaluations
+            this.presenceChangeDebounceTimer = setTimeout(() => {
+                debugLog('[PerfectNegotiation] 👥 Presence stabilized, checking room state...');
+                this.handlePresenceChange();
+                this.presenceChangeDebounceTimer = null;
+            }, 250); // Increased from 100ms to 250ms for better stability
+        });
+    }
+
+    /**
+     * Handle presence changes with reconnection logic
+     */
+    private handlePresenceChange(): void {
+        const participants = this.signaling.getValidParticipants();
+        const bothPresent = participants.length >= 2;
+        const isDisconnected = this.pc.connectionState === 'disconnected' ||
+            this.pc.connectionState === 'failed' ||
+            this.pc.connectionState === 'new';
+
+        debugLog(`[PerfectNegotiation] 🔍 Presence check: bothPresent=${bothPresent}, connectionState=${this.pc.connectionState}`);
+
+        // First, always reevaluate roles
+        this.reevaluateRoleIfNeeded();
+
+        // If both are present but connection is broken, trigger reconnection
+        if (bothPresent && isDisconnected) {
+            debugLog('[PerfectNegotiation] 🔄 Both present but disconnected - checking if we should reconnect');
+
+            setTimeout(() => {
+                // Double-check connection state after role reevaluation
+                if (this.pc.connectionState !== 'connected' && this.pc.connectionState !== 'connecting') {
+                    if (!this.negotiationRole.isPolite) {
+                        debugLog('[PerfectNegotiation] 🚀 Impolite peer triggering reconnection due to presence change');
+                        this.triggerReconnection();
+                    } else {
+                        debugLog('[PerfectNegotiation] 🤝 Polite peer waiting for impolite to reconnect');
+                    }
+                }
+            }, 500); // Small delay after role reevaluation
         }
     }
 
     /**
-     * Check if this peer is the first to arrive in the room
-     * Used to determine initial negotiation role for true P2P
+     * Reevaluate role if needed based on current participants
      */
-    private isFirstToArrive(): boolean {
-        try {
-            // Get other valid participants (excluding ourselves)
-            const allParticipants = this.signaling.getValidParticipants();
-            const otherParticipants = allParticipants.filter(p => p.clientId !== this.clientId);
-            const isFirst = otherParticipants.length === 0;
+    private reevaluateRoleIfNeeded(): void {
+        const newRole = this.determineRoleFromClientId();
+        const currentRole = this.negotiationRole.isPolite ? 'polite' : 'impolite';
 
-            debugLog(`[PerfectNegotiation] Arrival check for ${this.role} (${this.clientId}): ${isFirst ? 'FIRST' : 'SECOND'} to arrive`);
-            debugLog(`[PerfectNegotiation] All participants: ${allParticipants.length}, Others: ${otherParticipants.length}`);
-            debugLog(`[PerfectNegotiation] Other participant IDs: ${otherParticipants.map(p => p.clientId).join(', ')}`);
-
-            return isFirst;
-        } catch (error) {
-            debugWarn('[PerfectNegotiation] Could not determine arrival order, falling back to role-based assignment');
-            // Fallback to original role-based assignment if arrival detection fails
-            return this.role !== Role.PATIENT;
+        if (newRole !== currentRole) {
+            debugLog(`[PerfectNegotiation] 🔄 Role change needed: ${currentRole} → ${newRole} (deterministic)`);
+            this.performRoleSwitch(newRole);
+        } else {
+            debugLog(`[PerfectNegotiation] ✅ Role evaluation: staying ${currentRole} (stable)`);
         }
     }
 
@@ -281,39 +416,162 @@ export class PerfectNegotiation {
         try {
             const allParticipants = this.signaling.getValidParticipants();
             const otherParticipants = allParticipants.filter(p => p.clientId !== this.clientId);
-            return otherParticipants.length === 0;
+            const isAlone = otherParticipants.length === 0;
+            debugLog(`[PerfectNegotiation] 🏠 Room occupancy check: ${isAlone ? 'alone' : `${otherParticipants.length} others`}`);
+            return isAlone;
         } catch (error) {
-            debugWarn('[PerfectNegotiation] Could not check room occupancy');
+            debugWarn('[PerfectNegotiation] ⚠️ Could not check room occupancy:', error);
             return false;
         }
     }
 
     /**
-     * Check if the remote peer appears to have disconnected
-     * Based on connection state and room occupancy
+     * Handle intelligent role switching and automatic reconnection
+     * Complete logic for all disconnection scenarios
      */
-    private isPeerGone(): boolean {
-        const isDisconnected = this.pc.connectionState === 'disconnected' ||
-            this.pc.connectionState === 'failed' ||
-            this.pc.iceConnectionState === 'disconnected' ||
-            this.pc.iceConnectionState === 'failed';
+    private handleRoleSwitch(): void {
+        debugLog('[PerfectNegotiation] 🔄 Handling disconnection, starting recovery process...');
 
-        return isDisconnected && this.isAloneInRoom();
+        // Wait a bit for natural recovery before forcing reconnection
+        setTimeout(() => {
+            if (this.pc.connectionState !== 'connected') {
+                debugLog('[PerfectNegotiation] 🔧 Connection not recovered naturally, initiating recovery...');
+                this.handleDisconnectionRecovery();
+            } else {
+                debugLog('[PerfectNegotiation] ✅ Connection recovered naturally, no intervention needed');
+            }
+        }, 2000); // Give time for natural WebRTC recovery
     }
 
     /**
-     * Handle intelligent role switching when impolite peer disconnects
-     * This ensures connection recovery in P2P scenarios
+     * Complete disconnection recovery logic
+     * Handles all scenarios: alone, both present but disconnected, etc.
      */
-    private handleRoleSwitch(): void {
-        if (this.negotiationRole.isPolite && this.isPeerGone()) {
-            debugLog('[PerfectNegotiation] Impolite peer disconnected, switching to impolite role for recovery');
-            this.negotiationRole.isPolite = false;
+    private handleDisconnectionRecovery(): void {
+        const participants = this.signaling.getValidParticipants();
+        const isAlone = participants.filter(p => p.clientId !== this.clientId).length === 0;
+        const bothPresent = participants.length >= 2;
+
+        debugLog(`[PerfectNegotiation] 🩺 Recovery diagnosis: alone=${isAlone}, bothPresent=${bothPresent}, connectionState=${this.pc.connectionState}`);
+
+        if (isAlone) {
+            debugLog('[PerfectNegotiation] 👤 Alone in room - waiting for other peer to return');
+            // When alone, just reset state and wait
+            this.resetNegotiationState();
+            return;
+        }
+
+        if (bothPresent) {
+            debugLog('[PerfectNegotiation] 👥 Both peers present but disconnected - initiating reconnection');
+
+            // First, reevaluate roles based on current participants
+            this.reevaluateRoleIfNeeded();
+
+            // Then, trigger reconnection if we're impolite
+            setTimeout(() => {
+                if (!this.negotiationRole.isPolite && this.pc.connectionState !== 'connected') {
+                    debugLog('[PerfectNegotiation] 🚀 Impolite peer initiating reconnection after role reevaluation');
+                    this.triggerReconnection();
+                } else if (this.negotiationRole.isPolite) {
+                    debugLog('[PerfectNegotiation] 🤝 Polite peer waiting for impolite peer to reconnect');
+                } else {
+                    debugLog('[PerfectNegotiation] ✅ Connection recovered during role reevaluation');
+                }
+            }, 1000); // Small delay after role reevaluation
         }
     }
 
     /**
-     * Enhanced connection state handler with intelligent role switching
+     * Trigger actual reconnection attempt
+     */
+    private triggerReconnection(): void {
+        debugLog('[PerfectNegotiation] 🔄 Triggering reconnection attempt...');
+
+        // Reset the trigger flag to allow new connection
+        this.hasTriggeredInitialConnection = false;
+
+        // Reset negotiation state for clean reconnection
+        this.resetNegotiationState();
+
+        // Trigger connection via DataChannel creation (which starts Perfect Negotiation)
+        this.checkInitialConnectionTrigger();
+    }
+
+    /**
+     * Complete role switch with deterministic logic
+     * Simplified to use only deterministic role calculation
+     */
+    private performRoleSwitch(newRole: 'polite' | 'impolite'): void {
+        const oldRole = this.negotiationRole.isPolite ? 'polite' : 'impolite';
+
+        if (oldRole === newRole) {
+            debugLog(`[PerfectNegotiation] Already ${newRole}, no switch needed`);
+            return;
+        }
+
+        // Check if role switching is currently locked
+        if (this.isRoleLocked()) {
+            debugLog(`[PerfectNegotiation] Role switch to ${newRole} blocked - role is locked`);
+            return;
+        }
+
+        debugLog(`[PerfectNegotiation] 🔄 ROLE SWITCH: ${oldRole} → ${newRole} (deterministic)`);
+
+        // Update role
+        this.negotiationRole.isPolite = newRole === 'polite';
+
+        // Update metrics
+        this.roleSwitchCount++;
+        this.lastRoleSwitchTime = Date.now();
+        debugLog(`[PerfectNegotiation] 📊 Role switch #${this.roleSwitchCount} completed`);
+
+        // Reset negotiation state for clean slate
+        this.resetNegotiationState();
+
+        // Lock role temporarily to prevent rapid switches (increased from 1s to 2s for better stability)
+        this.roleLockedUntil = Date.now() + 2000;
+
+        // If switching to impolite, prepare to initiate connection
+        if (newRole === 'impolite') {
+            debugLog('[PerfectNegotiation] 🚀 New impolite peer - will initiate connection');
+
+            // Small delay to let things settle, then trigger connection
+            setTimeout(() => {
+                this.checkInitialConnectionTrigger();
+            }, 500);
+        }
+    }
+
+    /**
+     * Check if there's a genuine role conflict that needs resolution
+     */
+    private hasRoleConflict(): boolean {
+        const participants = this.signaling.getValidParticipants();
+        const otherParticipants = participants.filter(p => p.clientId !== this.clientId);
+
+        if (otherParticipants.length === 0) {
+            return false; // No conflict if alone
+        }
+
+        // Check if our current role matches what it should be based on deterministic rules
+        const allIds = [this.clientId, ...otherParticipants.map(p => p.clientId)].sort();
+        const myPosition = allIds.indexOf(this.clientId);
+        const shouldBeImpolite = myPosition === 0;
+        const currentlyImpolite = !this.negotiationRole.isPolite;
+
+        return shouldBeImpolite !== currentlyImpolite;
+    }
+
+    /**
+     * Simplified role conflict resolution using deterministic reevaluation
+     */
+    private resolveRoleConflict(): void {
+        debugLog('[PerfectNegotiation] 🆘 Resolving role conflict using deterministic reevaluation');
+        this.reevaluateRoleIfNeeded();
+    }
+
+    /**
+     * Enhanced connection state handler with intelligent role switching and conflict resolution
      */
     private setupConnectionStateHandler() {
         this.pc.onconnectionstatechange = () => {
@@ -322,6 +580,26 @@ export class PerfectNegotiation {
             // Handle intelligent role switching when peer disconnects
             if (this.pc.connectionState === 'disconnected' || this.pc.connectionState === 'failed') {
                 this.handleRoleSwitch();
+            }
+
+            // 🆘 CRITICAL: When connection becomes connected, check for role conflicts
+            // This handles the case where peer returns quickly after disconnect
+            if (this.pc.connectionState === 'connected') {
+                debugLog('[PerfectNegotiation] ✅ Connection established - checking for role conflicts');
+
+                // Only resolve conflicts if we detect an actual issue
+                setTimeout(() => {
+                    // Additional safety checks before automatic conflict resolution
+                    const hasGenuineConflict = this.hasRoleConflict();
+                    const participantCount = this.signaling.getValidParticipants().length;
+
+                    if (hasGenuineConflict && participantCount >= 2) {
+                        debugLog('[PerfectNegotiation] 🆘 Genuine role conflict detected, resolving...');
+                        this.resolveRoleConflict();
+                    } else {
+                        debugLog('[PerfectNegotiation] ✅ No role conflict detected, connection stable');
+                    }
+                }, 1500); // Increased delay to allow signaling to fully stabilize
             }
 
             if (this.onConnectionStateChange) {
@@ -366,7 +644,52 @@ export class PerfectNegotiation {
      * This method can be called when connection fails to trigger a new negotiation
      */
     public async attemptReconnection(): Promise<void> {
-        debugLog('[PerfectNegotiation] Attempting automatic reconnection...');
+        this.connectionAttempts++;
+        debugLog(`[PerfectNegotiation] Attempting automatic reconnection (#${this.connectionAttempts})...`);
+
+        // Check if connection might be recoverable before forcing reconnection
+        if (this.isConnectionRecoverable()) {
+            debugLog('[PerfectNegotiation] Connection might be recoverable, allowing natural recovery first...');
+
+            // Give connection time to recover naturally before forcing negotiation
+            setTimeout(() => {
+                if (!this.isConnectionRecoverable()) {
+                    debugLog('[PerfectNegotiation] Natural recovery failed, proceeding with forced reconnection');
+                    this.performForcedReconnection();
+                } else {
+                    debugLog('[PerfectNegotiation] ✅ Connection recovered naturally!');
+                }
+            }, 2000); // 2s delay for natural recovery
+
+            return;
+        }
+
+        // Connection is definitely broken, proceed with immediate reconnection
+        this.performForcedReconnection();
+    }
+
+    /**
+     * Check if the current connection might be recoverable
+     */
+    private isConnectionRecoverable(): boolean {
+        const connectionState = this.pc.connectionState;
+        const iceState = this.pc.iceConnectionState;
+        const signalingState = this.pc.signalingState;
+
+        // Very tolerant criteria - only reject if definitely broken
+        const isDefinitelyBroken =
+            connectionState === 'failed' || connectionState === 'closed' ||
+            iceState === 'failed' || iceState === 'closed' ||
+            signalingState === 'closed';
+
+        return !isDefinitelyBroken;
+    }
+
+    /**
+     * Perform forced reconnection when natural recovery is not possible
+     */
+    private async performForcedReconnection(): Promise<void> {
+        debugLog('[PerfectNegotiation] Performing forced reconnection...');
 
         // Only attempt reconnection if we're in a stable state
         if (this.pc.signalingState !== 'stable' && this.pc.signalingState !== 'closed') {
@@ -430,8 +753,8 @@ export class PerfectNegotiation {
      * Use with caution - this bypasses the automatic role detection
      */
     public forceRoleSwitch(newRole: 'polite' | 'impolite'): void {
-        debugLog(`[PerfectNegotiation] Forcing role switch from ${this.negotiationRole.isPolite ? 'polite' : 'impolite'} to ${newRole}`);
-        this.negotiationRole.isPolite = newRole === 'polite';
+        debugLog(`[PerfectNegotiation] 🔧 Force role switch requested: ${newRole}`);
+        this.performRoleSwitch(newRole);
     }
 
     /**
@@ -442,11 +765,129 @@ export class PerfectNegotiation {
         return {
             isPolite: this.negotiationRole.isPolite,
             businessRole: this.role,
-            arrivalOrder: this.negotiationRole.isPolite ? 'second' : 'first', // Role is permanent, don't re-check
+            arrivalOrder: this.negotiationRole.isPolite ? 'second' : 'first', // 🔄 Can change with role switches
             participantsCount: participants.length,
             isAloneInRoom: this.isAloneInRoom(),
             canInitiate: !this.negotiationRole.isPolite,
-            hasTriggered: this.hasTriggeredInitialConnection
+            hasTriggered: this.hasTriggeredInitialConnection,
+            clientId: this.clientId, // 🆘 Add for conflict resolution debugging
+            otherParticipants: participants.filter(p => p.clientId !== this.clientId).map(p => p.clientId)
+        };
+    }
+
+    /**
+     * 🆘 Manually trigger role conflict resolution
+     * Useful when you suspect both peers have become impolite
+     */
+    public triggerRoleConflictResolution(): void {
+        debugLog('[PerfectNegotiation] 🆘 Manual role conflict resolution triggered');
+        this.resolveRoleConflict();
+    }
+
+    /**
+     * 🔒 Lock current role to prevent automatic switches
+     * Use this to stabilize roles during testing or specific scenarios
+     */
+    public lockCurrentRole(): void {
+        debugLog(`[PerfectNegotiation] 🔒 Locking current role: ${this.negotiationRole.isPolite ? 'polite' : 'impolite'}`);
+        this.roleLockedUntil = Date.now() + 30000; // Lock for 30 seconds
+    }
+
+    /**
+     * 🔓 Unlock role switching
+     */
+    public unlockRole(): void {
+        debugLog('[PerfectNegotiation] 🔓 Unlocking role switching');
+        this.roleLockedUntil = 0;
+    }
+
+    /**
+     * 🔄 Reset metrics (useful for testing or long-running sessions)
+     */
+    public resetMetrics(): void {
+        debugLog('[PerfectNegotiation] 📊 Resetting performance metrics');
+        this.roleSwitchCount = 0;
+        this.lastRoleSwitchTime = 0;
+        this.connectionAttempts = 0;
+    }
+
+    /**
+     * 📊 Get performance metrics for monitoring and debugging
+     */
+    public getMetrics() {
+        return {
+            roleSwitchCount: this.roleSwitchCount,
+            lastRoleSwitchTime: this.lastRoleSwitchTime,
+            timeSinceLastRoleSwitch: this.lastRoleSwitchTime > 0 ? Date.now() - this.lastRoleSwitchTime : 0,
+            connectionAttempts: this.connectionAttempts,
+            currentRole: this.negotiationRole.isPolite ? 'polite' : 'impolite',
+            isRoleLocked: this.isRoleLocked(),
+            roleLockedTimeRemaining: Math.max(0, this.roleLockedUntil - Date.now()),
+            hasTriggeredConnection: this.hasTriggeredInitialConnection,
+            negotiationState: this.negotiationState
+        };
+    }
+
+    /**
+     * 🩺 Diagnose role switching issues
+     * Call this method to understand why roles are switching unexpectedly
+     */
+    public diagnoseRoleSwitching(): void {
+        const state = this.getDebugRoleState();
+        const metrics = this.getMetrics();
+
+        console.log('[PerfectNegotiation] 🩺 ROLE SWITCHING DIAGNOSIS:');
+        console.log(`  My ID: ${state.myClientId}`);
+        console.log(`  Current role: ${state.myRole}`);
+        console.log(`  Should be impolite: ${state.shouldBeImpolite}`);
+        console.log(`  Has conflict: ${state.hasConflict}`);
+        console.log(`  Is alone: ${state.isAlone}`);
+        console.log(`  Role locked: ${this.isRoleLocked()}`);
+        console.log(`  📊 METRICS:`);
+        console.log(`    Role switches: ${metrics.roleSwitchCount}`);
+        console.log(`    Connection attempts: ${metrics.connectionAttempts}`);
+        console.log(`    Time since last switch: ${metrics.timeSinceLastRoleSwitch}ms`);
+        console.log(`  All participants:`, state.allParticipants);
+        console.log(`  Sorted IDs:`, state.sortedIds);
+        console.log(`  Connection state: ${state.connectionState}`);
+    }
+
+    /**
+     * Check if role switching is currently locked
+     */
+    private isRoleLocked(): boolean {
+        return this.roleLockedUntil > Date.now();
+    }
+
+    /**
+     * Get detailed state for debugging role issues
+     */
+    public getDebugRoleState() {
+        const participants = this.signaling.getValidParticipants();
+        const others = participants.filter(p => p.clientId !== this.clientId);
+        const allIds = [this.clientId, ...others.map(p => p.clientId)].sort();
+        const myPosition = allIds.indexOf(this.clientId);
+
+        return {
+            myClientId: this.clientId,
+            myRole: this.negotiationRole.isPolite ? 'polite' : 'impolite',
+            myBusinessRole: this.role,
+            myPosition: myPosition,
+            allParticipants: participants.map(p => ({
+                clientId: p.clientId,
+                role: p.role,
+                // Position in deterministic ordering
+                position: allIds.indexOf(p.clientId)
+            })),
+            sortedIds: allIds,
+            shouldBeImpolite: myPosition === 0,
+            currentlyImpolite: !this.negotiationRole.isPolite,
+            hasConflict: this.hasRoleConflict(),
+            connectionState: this.pc.connectionState,
+            iceConnectionState: this.pc.iceConnectionState,
+            hasTriggered: this.hasTriggeredInitialConnection,
+            negotiationState: this.negotiationState,
+            isAlone: this.isAloneInRoom()
         };
     }
 
@@ -456,6 +897,10 @@ export class PerfectNegotiation {
      */
     public onRoomReady(): void {
         debugLog('[PerfectNegotiation] Room became ready, checking if we should trigger connection');
+
+        // 🆘 CRITICAL: Check for role conflicts when room becomes ready
+        // This handles rapid reconnection scenarios
+        this.resolveRoleConflict();
 
         // CRITICAL: Only trigger if we're impolite AND haven't already triggered
         if (this.negotiationRole.isPolite) {
@@ -502,7 +947,7 @@ export class PerfectNegotiation {
 
                 debugLog('[PerfectNegotiation] ✅ IMPOLITE PEER TRIGGERING DataChannel creation (SHOULD ONLY HAPPEN ONCE PER ROOM!)');
                 debugLog(`[PerfectNegotiation] Participants: ${allParticipants.map(p => `${p.role}:${p.clientId}`).join(', ')}`);
-                
+
                 // Small delay to ensure everything is properly set up
                 setTimeout(() => {
                     if (this.pc.connectionState !== 'closed' && this.pc.signalingState !== 'closed') {
@@ -531,6 +976,12 @@ export class PerfectNegotiation {
         this.pc.onnegotiationneeded = null;
         this.pc.onicecandidate = null;
         this.pc.onconnectionstatechange = null;
+
+        // Clear debounce timer
+        if (this.presenceChangeDebounceTimer) {
+            clearTimeout(this.presenceChangeDebounceTimer);
+            this.presenceChangeDebounceTimer = null;
+        }
 
         // Reset negotiation state
         this.resetNegotiationState();

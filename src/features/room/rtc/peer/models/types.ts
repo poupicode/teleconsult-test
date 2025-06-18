@@ -84,3 +84,17 @@ export interface IceCandidateMessage {
  * Union type for all signaling message types
  */
 export type TypedSignalingMessage = OfferMessage | AnswerMessage | IceCandidateMessage;
+
+// Repository of MediaStreams received from other peers
+export type MediaStreamList = {
+    [id: string]: MediaStream | null;
+};
+
+export type VideoDevicesType = MediaDeviceInfo[];
+
+export type ExtendedSessionDescription = RTCSessionDescription
+    & {
+        mediaStreamMetadata: {
+            [k: string]: string;
+        }
+    } | null;

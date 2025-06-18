@@ -1,4 +1,4 @@
-import { useState } from "react";
+/**import { useState } from "react";
 
 interface RenderResultsProps {
   serviceName: string;
@@ -60,3 +60,4 @@ export default function RenderResults({
     </div>
   );
 }
+**/

@@ -2,7 +2,8 @@
 - [Installation Execution](#installation-execution)
 - [Key Files](#key-files)
 - [Service Configuration](#service-configuration)
-- [Authpr Patient](#author-patient)
+- [WebRTC Transmission](#webRTC-transmission)
+- [Author Patient](#author-patient)
 
 
 ## Installation Execution
@@ -63,6 +64,35 @@ For define the Service in config.ts (To Add a Device)
       data: 0bxxxx,    // flag bitmask to check
       offset?: OFFSET, // optional if dynamically calculated
     }
+
+## WebRTC Transmission
+Objective
+  Allow real-time transmission of Bluetooth measures from the Patient to the Doctor via a WebRTC DataChannel, without a central server.
+
+How it works
+Patient Side:
+  - The useBluetooth hook receives a decoded payload like:
+      {
+        "blood_pressure": {
+          "Systolique (mmHg)": "128.0",
+          "Diastolique (mmHg)": "82.0"
+        }
+      }
+
+  - It then calls:
+      peerConnection.getDataChannelManager().sendMeasurement(payload);
+  This sends the JSON data via WebRTC.
+
+Doctor Side:
+  - A WebRTC DataChannelManager receives the message:
+      if (message.type === 'measurement') {
+        this.onMeasurementCallback(message.payload);
+      }
+
+  - The doctor interface (via DoctorInterface.tsx) uses useDoctorData which listens to measurements:
+      manager.onMeasurement(receiveData);
+
+  - The receiveData() function updates the state, causing a re-render with new data.
 
 ## Author Patient
 **Guerric COCHELIN**

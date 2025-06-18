@@ -11,7 +11,8 @@ export interface IPeerConnection {
     createOffer: () => Promise<void>;
     setDataChannel: (channel: RTCDataChannel) => void;
     getOnConnectionStateChangeCallback: () => ((state: RTCPeerConnectionState) => void) | null;
-    getDataChannelManager: () => any; // Ajout de la méthode manquante
+    getDataChannelManager: () => any; // Gestionnaire de canaux de données
+    onTrack?: (event: RTCTrackEvent) => void; // Callback pour la gestion des pistes
 }
 
 export function setupPeerConnectionListeners(peerConnection: IPeerConnection, pc: RTCPeerConnection) {
@@ -40,7 +41,7 @@ export function setupPeerConnectionListeners(peerConnection: IPeerConnection, pc
     };
 
     // Note: negotiationneeded handler is managed by Perfect Negotiation
-    // Perfect Negotiation handles all offer/answer logic to prevent race conditions
+    // Perfect Negotiation handles all offer/answer logic to prevent race conditions .
 
     // Écouter les data channels entrants (pour le patient)
     pc.ondatachannel = (event) => {

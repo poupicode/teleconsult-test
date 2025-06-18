@@ -48,7 +48,7 @@ export class SignalingService {
      * @param role The role of the participant (patient or practitioner)
      */
     constructor(roomId: string, clientId: string, role: Role) {
-        console.log(`[Signaling] Creating service for room: ${roomId}, client: ${clientId}, role: ${role}`);
+        console.log(`[Signaling] 🏗️ Creating service for room: ${roomId}, client: ${clientId}, role: ${role}`);
         this.roomId = roomId;
         this.clientId = clientId;
         this.role = role;
@@ -58,23 +58,23 @@ export class SignalingService {
      * Connects to Supabase realtime channels for signaling and presence
      */
     async connect() {
-        console.log(`[Signaling] Connecting to room channel: ${this.roomId}`);
+        console.log(`[Signaling] 🔌 Connecting to room channel: ${this.roomId}`);
 
         // Create a specific channel for the room signaling
         this.subscription = supabase
             .channel(`room:${this.roomId}`)
             .on('broadcast', { event: 'signaling' }, (payload) => {
                 const message = payload.payload as SignalingMessage;
-                console.log(`[Signaling] Received message: ${message.type} from ${message.sender}`);
+                console.log(`[Signaling] 📨 Received message: ${message.type} from ${message.sender}`);
 
-                // Log plus détaillé pour les candidats ICE
+                // More detailed log for ICE candidates
                 if (message.type === 'ice-candidate') {
-                    console.log(`[Signaling] Received ICE candidate: ${JSON.stringify(message.content)}`);
+                    console.log(`[Signaling] 🧊 Received ICE candidate: ${JSON.stringify(message.content)}`);
                 }
 
                 // Skip messages from self
                 if (message.sender === this.clientId) {
-                    console.log('[Signaling] Ignoring message from self');
+                    console.log('[Signaling] ⚠️ Ignoring message from self');
                     return;
                 }
 
@@ -83,7 +83,7 @@ export class SignalingService {
                     if (this.messageCallback) {
                         this.messageCallback(message);
                     } else {
-                        console.warn('[Signaling] Received message but no callback registered to handle it!');
+                        console.warn('[Signaling] ⚠️ Received message but no callback registered to handle it!');
                     }
                 }
             })
@@ -96,14 +96,14 @@ export class SignalingService {
             .channel(`presence:${this.roomId}`)
             .on('presence', { event: 'sync' }, () => {
                 const state = this.presenceSubscription.presenceState();
-                console.log('[Signaling] Presence state updated:', state);
+                console.log('[Signaling] 👥 Presence state updated:', state);
 
                 // Convert presence state to user presences array
                 const presences: UserPresence[] = [];
                 Object.values(state).forEach((stateItem: any) => {
                     stateItem.forEach((presence: any) => {
                         // Log each presence with its properties for debugging
-                        console.log(`[Signaling] Presence detected: clientId=${presence.clientId}, role=${presence.role || 'undefined'}`);
+                        console.log(`[Signaling] 👤 Presence detected: clientId=${presence.clientId}, role=${presence.role || 'undefined'}`);
 
                         // Only add presences with valid roles
                         if (presence.clientId && presence.role) {
@@ -112,7 +112,7 @@ export class SignalingService {
                                 role: presence.role
                             });
                         } else {
-                            console.log('[Signaling] Ignoring presence without valid clientId or role');
+                            console.log('[Signaling] ⚠️ Ignoring presence without valid clientId or role');
                         }
                     });
                 });
@@ -142,11 +142,11 @@ export class SignalingService {
      * @param message The message to send (without sender info)
      */
     async sendMessage(message: Omit<SignalingMessage, 'sender'>) {
-        console.log(`[Signaling] Sending message: ${message.type}`);
+        console.log(`[Signaling] 📤 Sending message: ${message.type}`);
 
-        // Log plus détaillé pour les candidats ICE
+        // More detailed log for ICE candidates
         if (message.type === 'ice-candidate') {
-            console.log(`[Signaling] Sending ICE candidate: ${JSON.stringify(message.content)}`);
+            console.log(`[Signaling] 🧊 Sending ICE candidate: ${JSON.stringify(message.content)}`);
         }
 
         const completeMessage = {
@@ -163,10 +163,10 @@ export class SignalingService {
                 payload: completeMessage
             });
 
-            console.log('[Signaling] Message sent successfully');
+            console.log('[Signaling] ✅ Message sent successfully');
             return { error: null };
         } catch (error) {
-            console.error('[Signaling] Error sending message:', error);
+            console.error('[Signaling] ❌ Error sending message:', error);
             return { error };
         }
     }
@@ -183,9 +183,16 @@ export class SignalingService {
      * This filters out any observers or admin connections without explicit roles
      */
     getValidParticipants(): UserPresence[] {
-        return this.roomPresences.filter(p =>
+        // 🩺 DIAGNOSTIC LOGS - TEMPORARY
+        console.log('🩺 [SIGNALING DIAGNOSTIC] Raw roomPresences:', this.roomPresences.map(p => ({ id: p.clientId, role: p.role })));
+        
+        const validParticipants = this.roomPresences.filter(p =>
             p.role === Role.PATIENT || p.role === Role.PRACTITIONER
         );
+        
+        console.log('🩺 [SIGNALING DIAGNOSTIC] Valid participants:', validParticipants.map(p => ({ id: p.clientId, role: p.role })));
+        
+        return validParticipants;
     }
 
     /**
@@ -200,7 +207,7 @@ export class SignalingService {
         const hasPractitioner = validParticipants.some(p => p.role === Role.PRACTITIONER);
 
         // Log the count of valid participants for debugging
-        console.log(`[Signaling] Valid participants: ${validParticipants.length} (Patient: ${hasPatient}, Practitioner: ${hasPractitioner})`);
+        console.log(`[Signaling] 📊 Valid participants: ${validParticipants.length} (Patient: ${hasPatient}, Practitioner: ${hasPractitioner})`);
 
         return hasPatient && hasPractitioner;
     }
@@ -225,92 +232,92 @@ export class SignalingService {
      * Disconnects from all channels and cleans up resources
      */
     async disconnect() {
-        console.log('[Signaling] Disconnecting from room:', this.roomId);
+        console.log('[Signaling] 🔌 Disconnecting from room:', this.roomId);
 
         try {
-            // Quitter la présence en premier pour s'assurer que les autres participants
-            // soient notifiés correctement de notre départ
+            // Leave presence first to ensure other participants
+            // are properly notified of our departure
             if (this.presenceSubscription) {
                 try {
-                    // Vérifier si untrack est disponible avant de l'appeler
+                    // Check if untrack is available before calling it
                     if (this.presenceSubscription.untrack && typeof this.presenceSubscription.untrack === 'function') {
                         await this.presenceSubscription.untrack();
-                        console.log('[Signaling] Untracked presence for client:', this.clientId);
+                        console.log('[Signaling] ✅ Untracked presence for client:', this.clientId);
                     } else {
-                        console.log('[Signaling] Skipping untrack - not available on presenceSubscription');
+                        console.log('[Signaling] ⚠️ Skipping untrack - not available on presenceSubscription');
                     }
                 } catch (err) {
-                    console.warn('[Signaling] Error untracking presence:', err);
+                    console.warn('[Signaling] ⚠️ Error untracking presence:', err);
                 }
 
                 // Wait a moment to ensure the untrack propagates
                 await new Promise(resolve => setTimeout(resolve, 200));
 
                 try {
-                    // Vérifier si le canal existe et possède une méthode unsubscribe
-                    // avant d'essayer de le supprimer
+                    // Check if the channel exists and has an unsubscribe method
+                    // before trying to remove it
                     if (typeof this.presenceSubscription === 'object' &&
                         this.presenceSubscription !== null &&
                         this.presenceSubscription.unsubscribe) {
                         // Remove the channel
                         await supabase.removeChannel(this.presenceSubscription);
-                        console.log('[Signaling] Removed presence channel for room:', this.roomId);
+                        console.log('[Signaling] ✅ Removed presence channel for room:', this.roomId);
                     } else {
-                        console.log('[Signaling] Presence channel not valid for removal, skipping');
+                        console.log('[Signaling] ⚠️ Presence channel not valid for removal, skipping');
                     }
                 } catch (err) {
-                    console.warn('[Signaling] Error removing presence channel:', err);
+                    console.warn('[Signaling] ⚠️ Error removing presence channel:', err);
                 }
                 this.presenceSubscription = null;
             }
 
-            // Désabonner du canal de signalisation
+            // Unsubscribe from signaling channel
             if (this.subscription) {
                 try {
-                    // Vérifier si le canal existe et possède une méthode unsubscribe
+                    // Check if the channel exists and has an unsubscribe method
                     if (typeof this.subscription === 'object' &&
                         this.subscription !== null &&
                         this.subscription.unsubscribe) {
                         await supabase.removeChannel(this.subscription);
-                        console.log('[Signaling] Removed message subscription for room:', this.roomId);
+                        console.log('[Signaling] ✅ Removed message subscription for room:', this.roomId);
                     } else {
-                        console.log('[Signaling] Message channel not valid for removal, skipping');
+                        console.log('[Signaling] ⚠️ Message channel not valid for removal, skipping');
                     }
                 } catch (err) {
-                    console.warn('[Signaling] Error removing message channel:', err);
+                    console.warn('[Signaling] ⚠️ Error removing message channel:', err);
                 }
                 this.subscription = null;
             }
 
-            // Forcer manuellement la suppression de notre présence
+            // Manually force removal of our presence
             try {
-                // Créer un canal temporaire pour forcer la mise à jour de la présence
-                // mais s'assurer que nous gardons une référence dessus pour pouvoir le fermer proprement
+                // Create a temporary channel to force presence update
+                // but ensure we keep a reference to it so we can close it properly
                 const tempChannel = supabase.channel('manual-cleanup');
 
                 if (tempChannel && typeof tempChannel.subscribe === 'function') {
                     await tempChannel.subscribe();
 
-                    // S'assurer qu'on nettoie correctement ce canal temporaire
+                    // Ensure we properly clean up this temporary channel
                     if (tempChannel && typeof tempChannel.unsubscribe === 'function') {
                         await tempChannel.unsubscribe();
                     }
                 }
             } catch (err) {
-                console.warn('[Signaling] Error during manual cleanup:', err);
+                console.warn('[Signaling] ⚠️ Error during manual cleanup:', err);
             }
 
-            // Réinitialiser les callbacks et l'état
+            // Reset callbacks and state
             this.messageCallback = null;
             this.presenceCallback = null;
             this.roomPresences = [];
 
-            console.log('[Signaling] Disconnection complete for room:', this.roomId);
+            console.log('[Signaling] ✅ Disconnection complete for room:', this.roomId);
 
-            // Ajouter un petit délai pour s'assurer que Supabase a bien eu le temps de traiter les changements
+            // Add a small delay to ensure Supabase has had time to process the changes
             await new Promise(resolve => setTimeout(resolve, 200));
         } catch (error) {
-            console.error('[Signaling] Error during disconnect:', error);
+            console.error('[Signaling] ❌ Error during disconnect:', error);
         }
     }
 }
