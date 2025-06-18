@@ -969,7 +969,13 @@ export class PeerConnection implements IPeerConnection {
     // This is the ONLY way DataChannel should be created - through Perfect Negotiation
     triggerDataChannelCreation(): void {
         console.log('[WebRTC] 🏗️ Perfect Negotiation triggering DataChannel creation');
+        console.log(`[WebRTC] 🔍 Current connection state: ${this.pc.connectionState}`);
+        console.log(`[WebRTC] 🔍 Current signaling state: ${this.pc.signalingState}`);
+        
         this.dataChannelManager.createDataChannel();
+        
+        console.log('[WebRTC] ✅ DataChannel creation request sent to manager');
+        console.log('[WebRTC] 🔮 Expecting onnegotiationneeded to trigger next...');
     }
 
     /**

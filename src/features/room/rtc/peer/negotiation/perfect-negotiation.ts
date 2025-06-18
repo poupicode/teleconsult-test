@@ -95,6 +95,8 @@ export class PerfectNegotiation {
      */
     private setupNegotiationNeededHandler() {
         this.pc.onnegotiationneeded = async () => {
+            console.log('🚀 [PerfectNegotiation] onnegotiationneeded TRIGGERED!');
+            
             try {
                 debugLog(`[PerfectNegotiation] Negotiation needed, isPolite: ${this.negotiationRole.isPolite}`);
 
@@ -102,14 +104,19 @@ export class PerfectNegotiation {
                 const allParticipants = this.signaling.getValidParticipants();
                 const bothPresent = allParticipants.length >= 2;
 
+                console.log(`🔍 [PerfectNegotiation] bothPresent: ${bothPresent}, participants: ${allParticipants.length}`);
+
                 if (!bothPresent) {
+                    console.log('❌ [PerfectNegotiation] Skipping negotiation - not enough participants yet');
                     debugLog('[PerfectNegotiation] Skipping negotiation - not enough participants yet');
                     return; // Skip negotiation if not enough participants
                 }
 
+                console.log('✅ [PerfectNegotiation] Starting negotiation - creating offer...');
                 this.negotiationState.makingOffer = true;
                 await this.pc.setLocalDescription();
 
+                console.log('📤 [PerfectNegotiation] Offer created, sending via signaling...');
                 debugLog('[PerfectNegotiation] Created offer, sending via signaling');
                 await this.signaling.sendMessage({
                     type: 'offer',
@@ -117,9 +124,11 @@ export class PerfectNegotiation {
                     content: this.pc.localDescription!
                 });
 
+                console.log('✅ [PerfectNegotiation] Offer sent successfully!');
                 debugLog('[PerfectNegotiation] Offer sent successfully, waiting for answer...');
 
             } catch (err) {
+                console.error('❌ [PerfectNegotiation] Error during negotiation:', err);
                 debugError('[PerfectNegotiation] Error during negotiation:', err);
                 this.negotiationState.makingOffer = false; // Only reset on error
             }
