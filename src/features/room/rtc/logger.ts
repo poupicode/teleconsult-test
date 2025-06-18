@@ -40,11 +40,6 @@ class WebRTCLogger {
             LogCategory.DATACHANNEL,
             LogCategory.ERROR
         ]);
-
-        // En mode VERBOSE, tout est activé
-        if (this.currentLevel === LogLevel.VERBOSE) {
-            this.enabledCategories = new Set(Object.values(LogCategory));
-        }
     }
 
     // Méthodes publiques pour changer le niveau
