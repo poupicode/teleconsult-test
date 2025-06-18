@@ -9,16 +9,16 @@ import streamReducer from '@/features/streams/streamSlice';
 import measureReducer from '../features/measures/measureSlice';
 
 export const store = configureStore({
-    reducer: {
-        session: sessionReducer,
-        user: userReducer,
-        room: roomReducer,
-        iceConfig: iceConfigReducer,
-        chat: chatReducer,
-        selectedStream: selectedStreamReducer,
-        streams: streamReducer,
-        measure: measureReducer,
-    },
+        reducer: {
+                session: sessionReducer,
+                user: userReducer,
+                room: roomReducer,
+                iceConfig: iceConfigReducer,
+                chat: chatReducer,
+                selectedStream: selectedStreamReducer,
+                streams: streamReducer,
+                measure: measureReducer,
+        },
 });
 
 export type AppDispatch = typeof store.dispatch;

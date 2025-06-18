@@ -168,20 +168,20 @@ export default function ConsultationRoom({
       const peer = new PeerConnection(roomId, userId, userRole);
       setPeerConnection(peer);
 
-// ✅ Injecte les streams AVANT connect()
-const localStreams: StreamsByDevice = store.getState().streams.local;
-for (const [device, streamDetails] of Object.entries(localStreams)) {
-  const streamId = streamDetails.streamId;
-  if (streamId && mediaStreams[streamId]) {
-    peer.replaceDeviceStream(mediaStreams[streamId], device as keyof StreamsByDevice);
-  } else {
-    console.warn(`⚠️ Stream ${streamId} manquant dans mediaStreams`);
-  }
-}
+      // ✅ Injecte les streams AVANT connect()
+      const localStreams: StreamsByDevice = store.getState().streams.local;
+      for (const [device, streamDetails] of Object.entries(localStreams)) {
+        const streamId = streamDetails.streamId;
+        if (streamId && mediaStreams[streamId]) {
+          peer.replaceDeviceStream(mediaStreams[streamId], device as keyof StreamsByDevice);
+        } else {
+          console.warn(`⚠️ Stream ${streamId} manquant dans mediaStreams`);
+        }
+      }
 
-// Ensuite seulement
-await peer.connect();
-addStreamsToStore(peer, addMediaStreams); // si `addMediaStreams` vient du contexte
+      // Ensuite seulement
+      await peer.connect();
+      addStreamsToStore(peer, addMediaStreams); // si `addMediaStreams` vient du contexte
 
 
       // Handle connection state changes
@@ -245,28 +245,28 @@ addStreamsToStore(peer, addMediaStreams); // si `addMediaStreams` vient du conte
   useEffect(() => {
     console.log(`---------------------------------------------
       [ConsultationRoom] allMeasuresStore:
-      -----------------------------------------`, allMeasuresStore); 
+      -----------------------------------------`, allMeasuresStore);
   }
-  , [allMeasuresStore]);
+    , [allMeasuresStore]);
 
   // Stocker dans un state la fonction de connexion Bluetooth envoyé et remonté depuis BluetoothContext dans ConsultationRoom
-const [receiveHandleConnect, setReceiveHandleConnect] = React.useState<
-  (() => Promise<void>) | null
->(null);
+  const [receiveHandleConnect, setReceiveHandleConnect] = React.useState<
+    (() => Promise<void>) | null
+  >(null);
 
-// Récupérer la fonction de connexion Bluetooth envoyé et remonté depuis BluetoothContext dans ConsultationRoom
-const getHandleConnect = React.useCallback((fn: () => Promise<void>) => {
-setReceiveHandleConnect(() => fn);
-}, []);
+  // Récupérer la fonction de connexion Bluetooth envoyé et remonté depuis BluetoothContext dans ConsultationRoom
+  const getHandleConnect = React.useCallback((fn: () => Promise<void>) => {
+    setReceiveHandleConnect(() => fn);
+  }, []);
 
-// Créer la fonction au click qui va appeler la fonction de connexion BluetoothContext envoyé et remonté depuis DoctorRoomManager dans ConsultationRoom
-const handleConnect = React.useCallback(async () => {
-if (receiveHandleConnect) {
-receiveHandleConnect();
-} else {
-  alert("Fonction pas encore reçue");
-}
-}, [receiveHandleConnect]);
+  // Créer la fonction au click qui va appeler la fonction de connexion BluetoothContext envoyé et remonté depuis DoctorRoomManager dans ConsultationRoom
+  const handleConnect = React.useCallback(async () => {
+    if (receiveHandleConnect) {
+      receiveHandleConnect();
+    } else {
+      alert("Fonction pas encore reçue");
+    }
+  }, [receiveHandleConnect]);
 
 
   // Stocker dans un state la fonction de déconnexion Bluetooth envoyé et remonté depuis BluetoothContext dans ConsultationRoom
@@ -338,11 +338,11 @@ receiveHandleConnect();
               className="pt-3 pe-2 ps-1"
             >
               {peerConnection && <BluetoothServiceCard
-                  role={userKind}
-                  peerConnection={peerConnection}
-                  onSendConnect={getHandleConnect}
-                  onSendStatus={getBluetoothStatus}
-                />}
+                role={userKind}
+                peerConnection={peerConnection}
+                onSendConnect={getHandleConnect}
+                onSendStatus={getBluetoothStatus}
+              />}
             </div>
             <Button
               className="secondary-btn position-absolute pe-3 ps-3"
@@ -357,7 +357,7 @@ receiveHandleConnect();
     </div>
   );
 }
-function addStreamsToStore(telemedPC : PeerConnection, addMediaStreams: (streams: MediaStreamList) => void) {
+function addStreamsToStore(telemedPC: PeerConnection, addMediaStreams: (streams: MediaStreamList) => void) {
   // Getting all the remote streams from the peerConnection
   const remoteStreams = telemedPC.remoteStreams;
 
