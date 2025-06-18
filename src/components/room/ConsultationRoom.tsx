@@ -358,12 +358,34 @@ export default function ConsultationRoom({
   );
 }
 function addStreamsToStore(telemedPC: PeerConnection, addMediaStreams: (streams: MediaStreamList) => void) {
+  // 🩺 DIAGNOSTIC automatique avant d'ajouter les streams
+  telemedPC.diagnoseStreamState();
+  
   // Getting all the remote streams from the peerConnection
   const remoteStreams = telemedPC.remoteStreams;
+
+  console.log('[addStreamsToStore] 🎯 Validating remote streams before adding to store');
+  console.log('[addStreamsToStore] Available remote streams:', Object.keys(remoteStreams));
+
+  // 🚨 VALIDATION : Vérifier que chaque stream a bien les tracks attendus
+  let validStreamsCount = 0;
+  let emptyStreamsCount = 0;
 
   // TODO Make an action for that takes remoteStreams as a parameter
   // For each stream, add it to the redux store
   for (const [device, stream] of Object.entries(remoteStreams)) {
+    const tracks = stream.getTracks();
+    
+    console.log(`[addStreamsToStore] 📺 Device "${device}": ${tracks.length} tracks [${tracks.map(t => t.kind).join(', ')}]`);
+    
+    if (tracks.length === 0) {
+      console.warn(`[addStreamsToStore] ⚠️ Device "${device}" has empty stream - this may cause invisible video!`);
+      emptyStreamsCount++;
+    } else {
+      validStreamsCount++;
+      console.log(`[addStreamsToStore] ✅ Device "${device}" has valid tracks:`, tracks.map(t => `${t.kind}:${t.id}`));
+    }
+
     // Add the stream to the mediaStreams context
     addMediaStreams({ [stream.id]: stream });
 
@@ -375,5 +397,15 @@ function addStreamsToStore(telemedPC: PeerConnection, addMediaStreams: (streams:
         streamDetails: { streamId: stream.id },
       })
     );
+  }
+
+  // 🩺 DIAGNOSTIC : Rapport de validation
+  console.log(`[addStreamsToStore] 📊 Stream validation summary:`);
+  console.log(`[addStreamsToStore] ✅ Valid streams: ${validStreamsCount}`);
+  console.log(`[addStreamsToStore] ⚠️ Empty streams: ${emptyStreamsCount}`);
+  
+  if (emptyStreamsCount > 0) {
+    console.warn(`[addStreamsToStore] 🚨 ${emptyStreamsCount} streams are empty! This likely indicates the onTrack attribution bug.`);
+    console.warn(`[addStreamsToStore] Check WebRTC logs for track attribution issues.`);
   }
 }
