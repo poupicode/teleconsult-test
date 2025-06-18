@@ -602,7 +602,7 @@ export class PeerConnection implements IPeerConnection {
 
     // Connect to signaling service and set up listeners
     async connect() {
-        console.log('[WebRTC] 🔗 Connecting to signaling service');
+        console.log('[WebRTC] 🔗 Connecting to signaling service - START');
 
         // 🚨 Protection contre les connexions multiples
         if (this.isConnecting) {
@@ -613,22 +613,31 @@ export class PeerConnection implements IPeerConnection {
         this.isConnecting = true;
 
         try {
+            console.log('[WebRTC] 🔗 Reset state before connecting...');
             // Reset state before connecting
             this.readyToNegotiate = false;
             this.iceCandidates = { local: [], remote: [] };
             this.hasRelay = false;
 
+            console.log('[WebRTC] 🔗 Calling this.signaling.connect()...');
             // Connect to signaling service
             await this.signaling.connect();
+            console.log('[WebRTC] ✅ Signaling connected successfully');
 
             // 🚨 CRITICAL FIX: Calculate role AFTER signaling connection
             console.log('[WebRTC] 🎯 Calculating Perfect Negotiation role after signaling connection...');
             this.perfectNegotiation.calculateInitialRole();
+            console.log('[WebRTC] ✅ Role calculation completed');
 
+            console.log('[WebRTC] 🔗 Setting up signaling listeners...');
             // Setup signaling listeners
             await this.setupSignalingListeners();
+            console.log('[WebRTC] ✅ Signaling listeners setup completed');
 
             console.log('[WebRTC] ✅ Connected to signaling service and setup completed');
+        } catch (error) {
+            console.error('[WebRTC] ❌ Error during connect():', error);
+            throw error;
         } finally {
             this.isConnecting = false;
         }

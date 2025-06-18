@@ -287,6 +287,8 @@ export class PerfectNegotiation {
      * 🚨 CRITICAL FIX: Only compare between exactly 2 peers to avoid "both impolite" bug
      */
     private determineRoleFromClientId(): 'polite' | 'impolite' {
+        console.log(`🔍 [determineRoleFromClientId] CALLED for clientId: ${this.clientId}`);
+        
         const participants = this.signaling.getValidParticipants();
         const others = participants.filter(p => p.clientId !== this.clientId);
 
@@ -303,6 +305,7 @@ export class PerfectNegotiation {
         if (others.length === 0) {
             logger.diagnostic('⭐ ALONE IN ROOM - defaulting to IMPOLITE (will be first to initiate)');
             logger.diagnostic('=====================================');
+            console.log(`🔍 [determineRoleFromClientId] Result: IMPOLITE (alone in room)`);
             return 'impolite';
         }
 
@@ -319,6 +322,7 @@ export class PerfectNegotiation {
         logger.diagnostic('RESULT:', result);
         logger.diagnostic('=====================================');
 
+        console.log(`🔍 [determineRoleFromClientId] Result: ${result} (vs ${otherPeer.clientId})`);
         debugLog(`[PerfectNegotiation] P2P role calculation: me="${this.clientId}" vs other="${otherPeer.clientId}" → ${result}`);
 
         return result;
@@ -1005,7 +1009,7 @@ export class PerfectNegotiation {
      * This should be called once the signaling is connected and participants are known
      */
     public calculateInitialRole(): void {
-        console.log(`🎯 [PerfectNegotiation] Calculating initial role after signaling connection...`);
+        console.log(`🎯 [PerfectNegotiation] calculateInitialRole() CALLED - clientId: ${this.clientId}`);
         
         const determinedRole = this.determineRoleFromClientId();
         this.negotiationRole = {
@@ -1017,5 +1021,6 @@ export class PerfectNegotiation {
 
         // If we're impolite and room is ready, trigger initial connection
         this.checkInitialConnectionTrigger();
+        console.log(`🎯 [PerfectNegotiation] calculateInitialRole() COMPLETED`);
     }
 }
