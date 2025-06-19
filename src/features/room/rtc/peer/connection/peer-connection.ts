@@ -522,10 +522,11 @@ export class PeerConnection implements IPeerConnection {
 
         // Listen for presence changes in the room
         this.signaling.onPresenceChange((presences: UserPresence[]) => {
-            console.log('[WebRTC] Room presence changed:', presences);
+            console.log('[WebRTC] 👥 Room presence changed:', presences.map(p => `${p.clientId}(${p.role})`));
+            
             // Check if a patient and practitioner are present
             const hasPatientAndPractitioner = this.signaling.hasPatientAndPractitioner();
-            console.log(`[WebRTC] Room has patient and practitioner: ${hasPatientAndPractitioner}`);
+            console.log(`[WebRTC] 📊 Room has patient and practitioner: ${hasPatientAndPractitioner}`);
 
             // Smart timeout: check if a reset was planned and evaluate connection state
             if (hasPatientAndPractitioner && this.presenceResetTimeout) {
@@ -586,15 +587,12 @@ export class PeerConnection implements IPeerConnection {
                 // Perfect Negotiation P2P: Let the first to arrive initiate, regardless of business role
                 // The negotiation is now handled entirely by Perfect Negotiation based on arrival order
                 if (this.readyToNegotiate) {
-                    const roleInfo = this.perfectNegotiation.getRoleInfo();
-                    debugLog(`[WebRTC] Room ready for P2P connection. Role info:`, roleInfo);
-
-                    // Perfect Negotiation will handle all connection initiation automatically
-                    debugLog(`[WebRTC] Perfect Negotiation enabled - role: ${roleInfo.isPolite ? 'polite' : 'impolite'}`);
-                    debugLog('[WebRTC] DataChannel creation will be handled by Perfect Negotiation via negotiationneeded events');
+                    console.log(`[WebRTC] 🎯 Room ready for P2P connection! Notifying Perfect Negotiation...`);
 
                     // Notify Perfect Negotiation that room is ready
                     this.perfectNegotiation.onRoomReady();
+                    
+                    console.log('[WebRTC] ✅ Perfect Negotiation notified of room readiness');
                 }
             }
         });
@@ -624,15 +622,13 @@ export class PeerConnection implements IPeerConnection {
             await this.signaling.connect();
             console.log('[WebRTC] ✅ Signaling connected successfully');
 
-            // 🚨 CRITICAL FIX: Calculate role AFTER signaling connection
-            console.log('[WebRTC] 🎯 Calculating Perfect Negotiation role after signaling connection...');
-            this.perfectNegotiation.calculateInitialRole();
-            console.log('[WebRTC] ✅ Role calculation completed');
-
             console.log('[WebRTC] 🔗 Setting up signaling listeners...');
             // Setup signaling listeners
             await this.setupSignalingListeners();
             console.log('[WebRTC] ✅ Signaling listeners setup completed');
+
+            // 🚨 NOTE: Role calculation will happen in onRoomReady() when both participants are present
+            console.log('[WebRTC] 🎯 Waiting for both participants to be present before calculating roles...');
 
             console.log('[WebRTC] ✅ Connected to signaling service and setup completed');
         } catch (error) {

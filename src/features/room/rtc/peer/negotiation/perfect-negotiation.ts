@@ -62,23 +62,20 @@ export class PerfectNegotiation {
             isSettingRemoteAnswerPending: false
         };
 
-        // Determine negotiation role using deterministic clientId comparison
-        // This ensures stable roles regardless of connection/disconnection order
-        const determinedRole = this.determineRoleFromClientId();
+        // 🚨 SIMPLIFIED: Start with polite role, will be calculated later when both participants are present
         this.negotiationRole = {
-            isPolite: determinedRole === 'polite'
+            isPolite: true // Default to polite, will be determined when room is ready
         };
 
-        console.log(`🔧 [PerfectNegotiation] ROLE ASSIGNMENT: clientId=${clientId}, determinedRole=${determinedRole}, isPolite=${this.negotiationRole.isPolite}`);
-        debugLog(`[PerfectNegotiation] Initialized with role: ${role}, isPolite: ${this.negotiationRole.isPolite}`);
+        console.log(`🔧 [PerfectNegotiation] INITIALIZED: clientId=${clientId}, waiting for role calculation when room is ready`);
+        debugLog(`[PerfectNegotiation] Initialized with business role: ${role}, negotiation role will be determined later`);
 
         this.setupEventHandlers();
         this.setupPresenceListener();
 
-        // If we're the impolite peer and room is ready, trigger DataChannel creation
-        this.checkInitialConnectionTrigger();
+        // ❌ REMOVED: Don't check initial connection here, wait for room to be ready
 
-        logger.success(LogCategory.NEGOTIATION, `Perfect Negotiation initialized - Role: ${this.negotiationRole.isPolite ? 'polite' : 'impolite'}`);
+        logger.success(LogCategory.NEGOTIATION, `Perfect Negotiation initialized - Role will be determined when both participants are present`);
     }
 
     /**
@@ -330,91 +327,32 @@ export class PerfectNegotiation {
     }
 
     /**
-     * Set up presence listener to handle role reevaluation with debouncing AND reconnection
+     * Set up presence listener - simplified logic
+     * No complex debouncing or role recalculation - just monitor for disconnections
      */
     private setupPresenceListener(): void {
         this.signaling.onPresenceChange(() => {
-            // Clear existing timer if presence changes rapidly
-            if (this.presenceChangeDebounceTimer) {
-                clearTimeout(this.presenceChangeDebounceTimer);
+            const hasPatientAndPractitioner = this.signaling.hasPatientAndPractitioner();
+            
+            console.log(`[PerfectNegotiation] � Presence changed, hasPatientAndPractitioner: ${hasPatientAndPractitioner}`);
+            
+            // If a participant disconnected, we need to be ready for reconnection
+            if (!hasPatientAndPractitioner) {
+                console.log('[PerfectNegotiation] � Participant disconnected, resetting trigger flag for reconnection');
+                this.hasTriggeredInitialConnection = false;
             }
-
-            // Debounce presence changes to avoid excessive role reevaluations
-            this.presenceChangeDebounceTimer = setTimeout(() => {
-                debugLog('[PerfectNegotiation] 👥 Presence stabilized, checking room state...');
-                this.handlePresenceChange();
-                this.presenceChangeDebounceTimer = null;
-            }, 250); // Increased from 100ms to 250ms for better stability
+            
+            // No role recalculation here - roles are calculated once in onRoomReady()
         });
     }
 
     /**
-     * Handle presence changes with reconnection logic
-     */
-    private handlePresenceChange(): void {
-        const participants = this.signaling.getValidParticipants();
-        const bothPresent = participants.length >= 2;
-        const isDisconnected = this.pc.connectionState === 'disconnected' ||
-            this.pc.connectionState === 'failed' ||
-            this.pc.connectionState === 'new';
-
-        debugLog(`[PerfectNegotiation] 🔍 Presence check: bothPresent=${bothPresent}, connectionState=${this.pc.connectionState}`);
-
-        // First, always reevaluate roles
-        this.reevaluateRoleIfNeeded();
-
-        // If both are present but connection is broken, trigger reconnection
-        if (bothPresent && isDisconnected) {
-            debugLog('[PerfectNegotiation] 🔄 Both present but disconnected - checking if we should reconnect');
-
-            setTimeout(() => {
-                // Double-check connection state after role reevaluation
-                if (this.pc.connectionState !== 'connected' && this.pc.connectionState !== 'connecting') {
-                    if (!this.negotiationRole.isPolite) {
-                        debugLog('[PerfectNegotiation] 🚀 Impolite peer triggering reconnection due to presence change');
-                        this.triggerReconnection();
-                    } else {
-                        debugLog('[PerfectNegotiation] 🤝 Polite peer waiting for impolite to reconnect');
-                    }
-                }
-            }, 500); // Small delay after role reevaluation
-        }
-    }
-
-    /**
-     * Reevaluate role if needed based on current participants
-     * Only assigns definitive roles when both patient and practitioner are present
+     * ❌ DEPRECATED: Roles are now calculated once in calculateInitialRole()
+     * This method is kept for compatibility but does nothing
      */
     private reevaluateRoleIfNeeded(): void {
-        const participants = this.signaling.getValidParticipants();
-        const hasPatientAndPractitioner = this.signaling.hasPatientAndPractitioner();
-
-        // Only reevaluate roles if connection is disconnected/failed OR when both participants become present
-        const connectionBroken = this.pc.connectionState === 'disconnected' ||
-            this.pc.connectionState === 'failed' ||
-            this.pc.connectionState === 'closed';
-
-        // Skip reevaluation if connection is healthy and we don't have both participants yet
-        if (!connectionBroken && !hasPatientAndPractitioner) {
-            debugLog(`[PerfectNegotiation] ⏸️ Waiting for both participants - current count: ${participants.length}`);
-            return;
-        }
-
-        // Skip reevaluation if connection is good and roles are already stable with both present
-        if (!connectionBroken && hasPatientAndPractitioner && participants.length === 2) {
-            debugLog(`[PerfectNegotiation] ✅ Roles stable - both present and connection OK (${this.pc.connectionState})`);
-            return;
-        }
-
-        const newRole = this.determineRoleFromClientId();
-        const currentRole = this.negotiationRole.isPolite ? 'polite' : 'impolite';
-
-        if (newRole !== currentRole) {
-            debugLog(`[PerfectNegotiation] 🔄 Role change needed: ${currentRole} → ${newRole} (hasPatientAndPractitioner: ${hasPatientAndPractitioner}, connectionBroken: ${connectionBroken})`);
-            this.performRoleSwitch(newRole);
-        } else {
-            debugLog(`[PerfectNegotiation] ✅ Role evaluation: staying ${currentRole} (stable)`);
-        }
+        console.log('[PerfectNegotiation] ⚠️ reevaluateRoleIfNeeded() called but roles are not recalculated - they are stable once determined');
+        // No-op: roles are determined once and remain stable
     }
 
     /**
@@ -473,10 +411,10 @@ export class PerfectNegotiation {
         if (bothPresent) {
             debugLog('[PerfectNegotiation] 👥 Both peers present but disconnected - initiating reconnection');
 
-            // First, reevaluate roles based on current participants
-            this.reevaluateRoleIfNeeded();
+            // ❌ No role reevaluation - roles are stable once determined
+            console.log('[PerfectNegotiation] 📍 Roles are stable, proceeding with reconnection');
 
-            // Then, trigger reconnection if we're impolite
+            // Trigger reconnection if we're impolite
             setTimeout(() => {
                 if (!this.negotiationRole.isPolite && this.pc.connectionState !== 'connected') {
                     debugLog('[PerfectNegotiation] 🚀 Impolite peer initiating reconnection after role reevaluation');
@@ -576,11 +514,11 @@ export class PerfectNegotiation {
     }
 
     /**
-     * Simplified role conflict resolution using deterministic reevaluation
+     * ❌ DEPRECATED: Role conflicts are resolved by stable role determination
      */
     private resolveRoleConflict(): void {
-        debugLog('[PerfectNegotiation] 🆘 Resolving role conflict using deterministic reevaluation');
-        this.reevaluateRoleIfNeeded();
+        console.log('[PerfectNegotiation] 📍 resolveRoleConflict called but roles are stable - no action needed');
+        // No-op: roles are determined once and remain stable
     }
 
     /**
@@ -909,28 +847,26 @@ export class PerfectNegotiation {
 
     /**
      * Method called when room becomes ready (both participants present)
-     * This allows Perfect Negotiation to trigger connection when needed
+     * This calculates roles and triggers connection if needed
      */
     public onRoomReady(): void {
-        debugLog('[PerfectNegotiation] Room became ready, checking if we should trigger connection');
+        console.log('[PerfectNegotiation] 🎯 Room became ready, calculating roles and checking connection trigger');
 
-        // 🆘 CRITICAL: Check for role conflicts when room becomes ready
-        // This handles rapid reconnection scenarios
-        this.resolveRoleConflict();
+        // 🚨 STEP 1: Calculate roles now that both participants are present
+        this.calculateInitialRole();
 
-        // CRITICAL: Only trigger if we're impolite AND haven't already triggered
-        if (this.negotiationRole.isPolite) {
-            debugLog('[PerfectNegotiation] Polite peer - waiting for impolite peer to initiate');
-            return;
+        // 🚨 STEP 2: If we're impolite, trigger connection
+        if (!this.negotiationRole.isPolite && !this.hasTriggeredInitialConnection) {
+            console.log('[PerfectNegotiation] ✅ I am impolite peer, triggering DataChannel creation');
+            if (this.peerConnection?.triggerDataChannelCreation) {
+                this.peerConnection.triggerDataChannelCreation();
+                this.hasTriggeredInitialConnection = true;
+            }
+        } else if (this.negotiationRole.isPolite) {
+            console.log('[PerfectNegotiation] ⏳ I am polite peer, waiting for impolite peer to initiate');
+        } else {
+            console.log('[PerfectNegotiation] ⚠️ Already triggered connection, skipping');
         }
-
-        if (this.hasTriggeredInitialConnection) {
-            debugLog('[PerfectNegotiation] ⚠️ Already triggered connection, skipping to prevent double triggering');
-            return;
-        }
-
-        debugLog('[PerfectNegotiation] ✅ Impolite peer triggering connection from onRoomReady()');
-        this.checkInitialConnectionTrigger();
     }
 
     /**
@@ -1011,20 +947,42 @@ export class PerfectNegotiation {
     /**
      * 🚨 CRITICAL FIX: Calculate role AFTER signaling connection
      * This should be called once the signaling is connected and participants are known
+     * This is the ONLY method that should determine negotiation roles
      */
     public calculateInitialRole(): void {
         console.log(`🎯 [PerfectNegotiation] calculateInitialRole() CALLED - clientId: ${this.clientId}`);
+        
+        // Only calculate roles when both participants are present
+        if (!this.signaling.hasPatientAndPractitioner()) {
+            console.log(`🎯 [PerfectNegotiation] Not both participants present yet, keeping polite role as default`);
+            return;
+        }
 
-        const determinedRole = this.determineRoleFromClientId();
-        this.negotiationRole = {
-            isPolite: determinedRole === 'polite'
-        };
+        const participants = this.signaling.getValidParticipants();
+        const others = participants.filter(p => p.clientId !== this.clientId);
 
-        console.log(`🔧 [PerfectNegotiation] ROLE RECALCULATED: clientId=${this.clientId}, determinedRole=${determinedRole}, isPolite=${this.negotiationRole.isPolite}`);
-        debugLog(`[PerfectNegotiation] Role recalculated after signaling: ${determinedRole}`);
+        console.log(`🎯 [PerfectNegotiation] Participants: ${participants.map(p => `${p.clientId}(${p.role})`).join(', ')}`);
 
-        // If we're impolite and room is ready, trigger initial connection
-        this.checkInitialConnectionTrigger();
+        // Simple deterministic role assignment based on clientId
+        const allIds = [this.clientId, ...others.map(p => p.clientId)].sort();
+        const myPosition = allIds.indexOf(this.clientId);
+        const shouldBeImpolite = myPosition === 0; // First in sorted order is impolite (initiator)
+
+        // Only update role if it's different
+        const currentRole = this.negotiationRole.isPolite ? 'polite' : 'impolite';
+        const newRole = shouldBeImpolite ? 'impolite' : 'polite';
+        
+        if (currentRole !== newRole) {
+            this.negotiationRole.isPolite = !shouldBeImpolite;
+            console.log(`🎯 [PerfectNegotiation] ROLE CHANGED: ${currentRole} → ${newRole} (clientIds: ${allIds.join(', ')}, myPosition: ${myPosition})`);
+        } else {
+            console.log(`🎯 [PerfectNegotiation] ROLE CONFIRMED: ${newRole} (already set correctly)`);
+        }
+        
+        // If we're impolite, we can trigger connection
+        if (!this.negotiationRole.isPolite) {
+            console.log(`🎯 [PerfectNegotiation] I'm impolite, will trigger connection when room is ready`);
+        }
 
         console.log(`🎯 [PerfectNegotiation] calculateInitialRole() COMPLETED`);
     }
