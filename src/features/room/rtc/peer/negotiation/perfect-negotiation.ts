@@ -94,27 +94,37 @@ export class PerfectNegotiation {
     private setupNegotiationNeededHandler() {
         this.pc.onnegotiationneeded = async () => {
             try {
+                console.log(`🔥 [PerfectNegotiation] NEGOTIATION NEEDED triggered!`);
+                console.log(`🔥 [PerfectNegotiation] Current role: ${this.negotiationRole.isPolite ? 'polite' : 'impolite'}`);
+                console.log(`🔥 [PerfectNegotiation] makingOffer: ${this.negotiationState.makingOffer}`);
+                
                 debugLog(`[PerfectNegotiation] Negotiation needed, isPolite: ${this.negotiationRole.isPolite}`);
 
                 // Check if both peers are present before proceeding with negotiation
                 const allParticipants = this.signaling.getValidParticipants();
                 const bothPresent = allParticipants.length >= 2;
 
+                console.log(`🔥 [PerfectNegotiation] Both present: ${bothPresent}, participants: ${allParticipants.length}`);
+
                 if (!bothPresent) {
+                    console.log('🔥 [PerfectNegotiation] Skipping negotiation - not enough participants yet');
                     debugLog('[PerfectNegotiation] Skipping negotiation - not enough participants yet');
                     return; // Skip negotiation if not enough participants
                 }
 
                 // 🚨 CRITICAL FIX: Only impolite peer should create offers
                 if (this.negotiationRole.isPolite) {
+                    console.log('🔥 [PerfectNegotiation] I am polite peer - NOT creating offers, waiting for remote');
                     debugLog('[PerfectNegotiation] Polite peer does not create offers - waiting for remote');
                     return;
                 }
 
+                console.log('🔥 [PerfectNegotiation] I am impolite peer - CREATING OFFER NOW!');
                 debugLog('[PerfectNegotiation] Impolite peer creating offer...');
                 this.negotiationState.makingOffer = true;
                 await this.pc.setLocalDescription();
 
+                console.log('🔥 [PerfectNegotiation] Offer created, sending via signaling...');
                 debugLog('[PerfectNegotiation] Created offer, sending via signaling');
                 await this.signaling.sendMessage({
                     type: 'offer',
