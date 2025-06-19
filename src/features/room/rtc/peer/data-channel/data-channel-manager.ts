@@ -48,9 +48,9 @@ export class DataChannelManager {
             // Créer un canal de données général pour toutes les communications
             console.log('[DataChannel] 🚀 About to call pc.createDataChannel()...');
             console.log(`[DataChannel] 🔍 PC state before: connectionState=${pc.connectionState}, signalingState=${pc.signalingState}`);
-            
+
             this.dataChannel = pc.createDataChannel('data-channel');
-            
+
             console.log('[DataChannel] ✅ pc.createDataChannel() completed');
             console.log('[WebRTC] Created data channel for all communications');
             console.log('[DataChannel] 🔮 This should trigger onnegotiationneeded event...');

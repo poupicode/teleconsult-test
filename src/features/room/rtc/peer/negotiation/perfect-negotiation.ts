@@ -96,7 +96,7 @@ export class PerfectNegotiation {
     private setupNegotiationNeededHandler() {
         this.pc.onnegotiationneeded = async () => {
             console.log('🚀 [PerfectNegotiation] onnegotiationneeded TRIGGERED!');
-            
+
             try {
                 debugLog(`[PerfectNegotiation] Negotiation needed, isPolite: ${this.negotiationRole.isPolite}`);
 
@@ -297,7 +297,7 @@ export class PerfectNegotiation {
      */
     private determineRoleFromClientId(): 'polite' | 'impolite' {
         console.log(`🔍 [determineRoleFromClientId] CALLED for clientId: ${this.clientId}`);
-        
+
         const participants = this.signaling.getValidParticipants();
         const others = participants.filter(p => p.clientId !== this.clientId);
 
@@ -371,6 +371,14 @@ export class PerfectNegotiation {
         // First, always reevaluate roles
         this.reevaluateRoleIfNeeded();
 
+        // 🚨 FIX: If both are present and we're impolite, trigger negotiation
+        if (bothPresent && !this.negotiationRole.isPolite && !this.hasTriggeredInitialConnection) {
+            debugLog('[PerfectNegotiation] 🚀 Both participants detected - impolite peer triggering initial connection');
+            setTimeout(() => {
+                this.checkInitialConnectionTrigger();
+            }, 200); // Small delay after role reevaluation
+        }
+
         // If both are present but connection is broken, trigger reconnection
         if (bothPresent && isDisconnected) {
             debugLog('[PerfectNegotiation] 🔄 Both present but disconnected - checking if we should reconnect');
@@ -400,7 +408,7 @@ export class PerfectNegotiation {
         // 🚨 CRITICAL FIX: Only prevent role changes if connection is ACTUALLY connected (not just connecting)
         // Allow role changes during initial setup and when connection is broken
         const connectionActuallyEstablished = this.pc.connectionState === 'connected';
-        
+
         if (connectionActuallyEstablished && participants.length >= 2) {
             debugLog(`[PerfectNegotiation] ✅ Connection fully established - preserving current roles`);
             return;
@@ -1019,7 +1027,7 @@ export class PerfectNegotiation {
      */
     public calculateInitialRole(): void {
         console.log(`🎯 [PerfectNegotiation] calculateInitialRole() CALLED - clientId: ${this.clientId}`);
-        
+
         const determinedRole = this.determineRoleFromClientId();
         this.negotiationRole = {
             isPolite: determinedRole === 'polite'
