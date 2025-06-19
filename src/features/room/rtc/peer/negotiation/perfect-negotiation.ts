@@ -62,14 +62,15 @@ export class PerfectNegotiation {
             isSettingRemoteAnswerPending: false
         };
 
-        // 🚨 LAZY ROLE ASSIGNMENT: Don't calculate role in constructor
-        // Wait until after signaling connection to have complete participant list
+        // Determine negotiation role using deterministic clientId comparison
+        // This ensures stable roles regardless of connection/disconnection order
+        const determinedRole = this.determineRoleFromClientId();
         this.negotiationRole = {
-            isPolite: true // Default to polite, will be calculated after connect()
+            isPolite: determinedRole === 'polite'
         };
 
-        console.log(`🔧 [PerfectNegotiation] LAZY INIT: clientId=${clientId}, role will be calculated after signaling connection`);
-        debugLog(`[PerfectNegotiation] Initialized with lazy role assignment - will calculate after connect()`);
+        console.log(`🔧 [PerfectNegotiation] ROLE ASSIGNMENT: clientId=${clientId}, determinedRole=${determinedRole}, isPolite=${this.negotiationRole.isPolite}`);
+        debugLog(`[PerfectNegotiation] Initialized with role: ${role}, isPolite: ${this.negotiationRole.isPolite}`);
 
         this.setupEventHandlers();
         this.setupPresenceListener();
@@ -91,41 +92,25 @@ export class PerfectNegotiation {
     }
 
     /**
-     * Handle negotiation needed events with Perfect Negotiation pattern - JUST-IN-TIME
+     * Handle negotiation needed events with Perfect Negotiation pattern
      */
     private setupNegotiationNeededHandler() {
         this.pc.onnegotiationneeded = async () => {
-            console.log('🚀 [PerfectNegotiation] onnegotiationneeded TRIGGERED!');
-
             try {
-                // 🎯 JUST-IN-TIME: Calculate role on-demand for this negotiation
-                const roleForThisNegotiation = this.getRoleForNegotiation();
-                debugLog(`[PerfectNegotiation] Negotiation needed, just-in-time role: ${roleForThisNegotiation}`);
+                debugLog(`[PerfectNegotiation] Negotiation needed, isPolite: ${this.negotiationRole.isPolite}`);
 
                 // Check if both peers are present before proceeding with negotiation
                 const allParticipants = this.signaling.getValidParticipants();
                 const bothPresent = allParticipants.length >= 2;
 
-                console.log(`🔍 [PerfectNegotiation] bothPresent: ${bothPresent}, participants: ${allParticipants.length}`);
-
                 if (!bothPresent) {
-                    console.log('❌ [PerfectNegotiation] Skipping negotiation - not enough participants yet');
                     debugLog('[PerfectNegotiation] Skipping negotiation - not enough participants yet');
                     return; // Skip negotiation if not enough participants
                 }
 
-                // 🎯 JUST-IN-TIME: Only create offer if we're impolite
-                if (roleForThisNegotiation === 'polite') {
-                    console.log('🤝 [PerfectNegotiation] Polite peer received onnegotiationneeded - waiting for remote offer');
-                    debugLog('[PerfectNegotiation] Polite peer does not create offers - waiting for remote');
-                    return;
-                }
-
-                console.log('✅ [PerfectNegotiation] Impolite peer creating offer...');
                 this.negotiationState.makingOffer = true;
                 await this.pc.setLocalDescription();
 
-                console.log('📤 [PerfectNegotiation] Offer created, sending via signaling...');
                 debugLog('[PerfectNegotiation] Created offer, sending via signaling');
                 await this.signaling.sendMessage({
                     type: 'offer',
@@ -133,11 +118,9 @@ export class PerfectNegotiation {
                     content: this.pc.localDescription!
                 });
 
-                console.log('✅ [PerfectNegotiation] Offer sent successfully!');
                 debugLog('[PerfectNegotiation] Offer sent successfully, waiting for answer...');
 
             } catch (err) {
-                console.error('❌ [PerfectNegotiation] Error during negotiation:', err);
                 debugError('[PerfectNegotiation] Error during negotiation:', err);
                 this.negotiationState.makingOffer = false; // Only reset on error
             }
@@ -207,7 +190,7 @@ export class PerfectNegotiation {
     }
 
     /**
-     * Handle incoming description (offer/answer) with Perfect Negotiation collision detection - JUST-IN-TIME
+     * Handle incoming description (offer/answer) with Perfect Negotiation collision detection
      */
     private async handleDescription(message: SignalingMessage) {
         const description = message.content as RTCSessionDescriptionInit;
@@ -217,28 +200,24 @@ export class PerfectNegotiation {
         if (description.type === 'offer') {
             debugLog(`[PerfectNegotiation] Received offer, current state: makingOffer=${this.negotiationState.makingOffer}, signalingState=${this.pc.signalingState}`);
 
-            // 🎯 JUST-IN-TIME: Calculate role on-demand for collision detection
-            const roleForCollisionDetection = this.getRoleForNegotiation();
-            const isPoliteForThisOffer = roleForCollisionDetection === 'polite';
-
             // Perfect Negotiation collision detection logic
             const readyForOffer = !this.negotiationState.makingOffer &&
                 (this.pc.signalingState === "stable" || this.negotiationState.isSettingRemoteAnswerPending);
 
             const offerCollision = !readyForOffer;
 
-            this.negotiationState.ignoreOffer = !isPoliteForThisOffer && offerCollision;
+            this.negotiationState.ignoreOffer = !this.negotiationRole.isPolite && offerCollision;
 
             if (this.negotiationState.ignoreOffer) {
-                debugLog('[PerfectNegotiation] IGNORING offer due to collision (impolite peer, just-in-time)');
+                debugLog('[PerfectNegotiation] IGNORING offer due to collision (impolite peer)');
                 return;
             }
 
-            debugLog('[PerfectNegotiation] ACCEPTING offer and creating answer (just-in-time role)');
+            debugLog('[PerfectNegotiation] ACCEPTING offer and creating answer');
 
             // If we were making an offer but we're polite, we need to rollback
-            if (isPoliteForThisOffer && this.negotiationState.makingOffer) {
-                debugLog('[PerfectNegotiation] Polite peer (just-in-time) rolling back own offer to accept incoming offer');
+            if (this.negotiationRole.isPolite && this.negotiationState.makingOffer) {
+                debugLog('[PerfectNegotiation] Polite peer rolling back own offer to accept incoming offer');
                 this.negotiationState.makingOffer = false;
             }
 
@@ -305,12 +284,11 @@ export class PerfectNegotiation {
 
 
     /**
-     * Determine negotiation role using ULTRA-SIMPLE deterministic clientId comparison
-     * 🚨 CRITICAL FIX: Only compare between exactly 2 peers to avoid "both impolite" bug
+     * Determine negotiation role using deterministic clientId comparison
+     * Only assigns roles when both patient and practitioner are present
+     * This prevents role conflicts during connection/disconnection phases
      */
     private determineRoleFromClientId(): 'polite' | 'impolite' {
-        console.log(`🔍 [determineRoleFromClientId] CALLED for clientId: ${this.clientId}`);
-
         const participants = this.signaling.getValidParticipants();
         const others = participants.filter(p => p.clientId !== this.clientId);
 
@@ -322,43 +300,26 @@ export class PerfectNegotiation {
         logger.diagnostic('Others:', others.map(p => ({ id: p.clientId, role: p.role })));
         logger.diagnostic('Others length:', others.length);
 
-        // 🚨 CRITICAL FIX: If alone or no valid comparison possible, default to impolite
-        // This prevents the "both calculating different roles" bug
-        if (others.length === 0) {
-            logger.diagnostic('⭐ ALONE IN ROOM - defaulting to IMPOLITE (will be first to initiate)');
+        // 🔥 NEW LOGIC: Only assign roles when both participants are present
+        // This prevents conflicts during connection/disconnection phases
+        if (!this.signaling.hasPatientAndPractitioner()) {
+            logger.diagnostic('RESULT: polite (waiting for both participants)');
             logger.diagnostic('=====================================');
-            console.log(`🔍 [determineRoleFromClientId] Result: IMPOLITE (alone in room)`);
-            return 'impolite';
+            return 'polite'; // Default to polite when not both present
         }
 
-        // 🚨 CRITICAL FIX: For P2P, we only care about the OTHER peer in a 2-person call
-        // Take the first other participant (should be only one in P2P teleconsultation)
-        const otherPeer = others[0];
-        const comparison = this.clientId.localeCompare(otherPeer.clientId);
+        // Deterministic comparison of clientIds when both participants are present
+        const allIds = [this.clientId, ...others.map(p => p.clientId)].sort();
+        const myPosition = allIds.indexOf(this.clientId);
 
-        // Simple: lexicographically smaller clientId = impolite (initiator)
-        const result = comparison < 0 ? 'impolite' : 'polite';
-
-        logger.diagnostic('Other peer clientId:', otherPeer.clientId);
-        logger.diagnostic('String comparison result:', comparison);
-        logger.diagnostic('RESULT:', result);
+        logger.diagnostic('Sorted IDs:', allIds);
+        logger.diagnostic('My position:', myPosition);
+        logger.diagnostic('RESULT:', myPosition === 0 ? 'impolite' : 'polite');
         logger.diagnostic('=====================================');
 
-        console.log(`🔍 [determineRoleFromClientId] Result: ${result} (vs ${otherPeer.clientId})`);
-        debugLog(`[PerfectNegotiation] P2P role calculation: me="${this.clientId}" vs other="${otherPeer.clientId}" → ${result}`);
+        debugLog(`[PerfectNegotiation] Deterministic role calculation: sortedIds=[${allIds.join(', ')}], myPosition=${myPosition}`);
 
-        return result;
-    }
-
-    /**
-     * 🎯 JUST-IN-TIME ROLE CALCULATION
-     * Calculate negotiation role on-demand without storing persistent state
-     * This eliminates role conflicts and timing issues
-     */
-    private getRoleForNegotiation(): 'polite' | 'impolite' {
-        const role = this.determineRoleFromClientId();
-        debugLog(`[PerfectNegotiation] 🎯 Just-in-time role: ${role} for clientId: ${this.clientId}`);
-        return role;
+        return myPosition === 0 ? 'impolite' : 'polite';
     }
 
     /**
@@ -381,7 +342,7 @@ export class PerfectNegotiation {
     }
 
     /**
-     * Handle presence changes with reconnection logic - JUST-IN-TIME approach
+     * Handle presence changes with reconnection logic
      */
     private handlePresenceChange(): void {
         const participants = this.signaling.getValidParticipants();
@@ -392,61 +353,51 @@ export class PerfectNegotiation {
 
         debugLog(`[PerfectNegotiation] 🔍 Presence check: bothPresent=${bothPresent}, connectionState=${this.pc.connectionState}`);
 
-        // 🚨 IMPROVED: Just-in-time role calculation for initial connection
-        if (bothPresent && !this.hasTriggeredInitialConnection) {
-            const roleForInitialConnection = this.getRoleForNegotiation();
-            if (roleForInitialConnection === 'impolite') {
-                debugLog('[PerfectNegotiation] 🚀 Both participants detected - impolite peer triggering initial connection (just-in-time)');
-                setTimeout(() => {
-                    this.checkInitialConnectionTrigger();
-                }, 200);
-            }
-        }
+        // First, always reevaluate roles
+        this.reevaluateRoleIfNeeded();
 
-        // 🔥 FAST RECONNECTION with just-in-time role calculation
+        // If both are present but connection is broken, trigger reconnection
         if (bothPresent && isDisconnected) {
-            debugLog('[PerfectNegotiation] 🔄 Both present but disconnected - fast reconnection with just-in-time roles');
+            debugLog('[PerfectNegotiation] 🔄 Both present but disconnected - checking if we should reconnect');
 
             setTimeout(() => {
-                // Calculate role FRESH at reconnection time - no stored state conflicts!
-                const roleForReconnection = this.getRoleForNegotiation();
-                
-                // Double-check connection state
+                // Double-check connection state after role reevaluation
                 if (this.pc.connectionState !== 'connected' && this.pc.connectionState !== 'connecting') {
-                    if (roleForReconnection === 'impolite') {
-                        debugLog('[PerfectNegotiation] 🚀 Impolite peer (just-in-time) triggering fast reconnection');
+                    if (!this.negotiationRole.isPolite) {
+                        debugLog('[PerfectNegotiation] 🚀 Impolite peer triggering reconnection due to presence change');
                         this.triggerReconnection();
                     } else {
-                        debugLog('[PerfectNegotiation] 🤝 Polite peer (just-in-time) waiting for impolite to reconnect');
+                        debugLog('[PerfectNegotiation] 🤝 Polite peer waiting for impolite to reconnect');
                     }
-                } else {
-                    debugLog('[PerfectNegotiation] ✅ Connection recovered during timeout - no reconnection needed');
                 }
-            }, 500); // Fast reconnection timeout - still works great!
+            }, 500); // Small delay after role reevaluation
         }
     }
 
     /**
      * Reevaluate role if needed based on current participants
-     * 🚨 CRITICAL FIX: Avoid role changes when connection is established and working
+     * Only assigns definitive roles when both patient and practitioner are present
      */
     private reevaluateRoleIfNeeded(): void {
         const participants = this.signaling.getValidParticipants();
         const hasPatientAndPractitioner = this.signaling.hasPatientAndPractitioner();
 
-        // 🚨 CRITICAL FIX: Only prevent role changes if connection is ACTUALLY connected (not just connecting)
-        // Allow role changes during initial setup and when connection is broken
-        const connectionActuallyEstablished = this.pc.connectionState === 'connected';
-
-        if (connectionActuallyEstablished && participants.length >= 2) {
-            debugLog(`[PerfectNegotiation] ✅ Connection fully established - preserving current roles`);
-            return;
-        }
-
-        // Only reevaluate roles if connection is disconnected/failed OR when participants change
+        // Only reevaluate roles if connection is disconnected/failed OR when both participants become present
         const connectionBroken = this.pc.connectionState === 'disconnected' ||
             this.pc.connectionState === 'failed' ||
             this.pc.connectionState === 'closed';
+
+        // Skip reevaluation if connection is healthy and we don't have both participants yet
+        if (!connectionBroken && !hasPatientAndPractitioner) {
+            debugLog(`[PerfectNegotiation] ⏸️ Waiting for both participants - current count: ${participants.length}`);
+            return;
+        }
+
+        // Skip reevaluation if connection is good and roles are already stable with both present
+        if (!connectionBroken && hasPatientAndPractitioner && participants.length === 2) {
+            debugLog(`[PerfectNegotiation] ✅ Roles stable - both present and connection OK (${this.pc.connectionState})`);
+            return;
+        }
 
         const newRole = this.determineRoleFromClientId();
         const currentRole = this.negotiationRole.isPolite ? 'polite' : 'impolite';
@@ -495,7 +446,7 @@ export class PerfectNegotiation {
     }
 
     /**
-     * Complete disconnection recovery logic - JUST-IN-TIME
+     * Complete disconnection recovery logic
      * Handles all scenarios: alone, both present but disconnected, etc.
      */
     private handleDisconnectionRecovery(): void {
@@ -515,20 +466,20 @@ export class PerfectNegotiation {
         if (bothPresent) {
             debugLog('[PerfectNegotiation] 👥 Both peers present but disconnected - initiating reconnection');
 
-            // 🎯 JUST-IN-TIME: Calculate role fresh for recovery decision
-            const roleForRecovery = this.getRoleForNegotiation();
+            // First, reevaluate roles based on current participants
+            this.reevaluateRoleIfNeeded();
 
             // Then, trigger reconnection if we're impolite
             setTimeout(() => {
-                if (roleForRecovery === 'impolite' && this.pc.connectionState !== 'connected') {
-                    debugLog('[PerfectNegotiation] 🚀 Impolite peer (just-in-time) initiating reconnection');
+                if (!this.negotiationRole.isPolite && this.pc.connectionState !== 'connected') {
+                    debugLog('[PerfectNegotiation] 🚀 Impolite peer initiating reconnection after role reevaluation');
                     this.triggerReconnection();
-                } else if (roleForRecovery === 'polite') {
-                    debugLog('[PerfectNegotiation] 🤝 Polite peer (just-in-time) waiting for impolite peer to reconnect');
+                } else if (this.negotiationRole.isPolite) {
+                    debugLog('[PerfectNegotiation] 🤝 Polite peer waiting for impolite peer to reconnect');
                 } else {
-                    debugLog('[PerfectNegotiation] ✅ Connection recovered during recovery check');
+                    debugLog('[PerfectNegotiation] ✅ Connection recovered during role reevaluation');
                 }
-            }, 1000); // Small delay after role calculation
+            }, 1000); // Small delay after role reevaluation
         }
     }
 
@@ -741,7 +692,7 @@ export class PerfectNegotiation {
     }
 
     /**
-     * Perform forced reconnection when natural recovery is not possible - JUST-IN-TIME
+     * Perform forced reconnection when natural recovery is not possible
      */
     private async performForcedReconnection(): Promise<void> {
         debugLog('[PerfectNegotiation] Performing forced reconnection...');
@@ -758,12 +709,9 @@ export class PerfectNegotiation {
         // Reset negotiation state for clean reconnection
         this.resetNegotiationState();
 
-        // 🎯 JUST-IN-TIME: Calculate role on-demand for forced reconnection
-        const roleForForcedReconnection = this.getRoleForNegotiation();
-
         // Only impolite peer initiates reconnection
-        if (roleForForcedReconnection === 'impolite') {
-            debugLog('[PerfectNegotiation] Impolite peer (just-in-time) initiating reconnection offer with ICE restart...');
+        if (!this.negotiationRole.isPolite) {
+            debugLog('[PerfectNegotiation] Impolite peer initiating reconnection offer with ICE restart...');
             try {
                 this.negotiationState.makingOffer = true;
                 // Use iceRestart: true for forced reconnection to get fresh ICE candidates
@@ -782,7 +730,7 @@ export class PerfectNegotiation {
                 this.negotiationState.makingOffer = false;
             }
         } else {
-            debugLog('[PerfectNegotiation] Polite peer (just-in-time) waiting for reconnection offer from remote...');
+            debugLog('[PerfectNegotiation] Polite peer waiting for reconnection offer from remote...');
         }
     }
 
@@ -953,18 +901,19 @@ export class PerfectNegotiation {
     }
 
     /**
-     * Method called when room becomes ready (both participants present) - JUST-IN-TIME
+     * Method called when room becomes ready (both participants present)
      * This allows Perfect Negotiation to trigger connection when needed
      */
     public onRoomReady(): void {
         debugLog('[PerfectNegotiation] Room became ready, checking if we should trigger connection');
 
-        // 🎯 JUST-IN-TIME: Calculate role on-demand for this specific trigger
-        const roleForRoomReady = this.getRoleForNegotiation();
+        // 🆘 CRITICAL: Check for role conflicts when room becomes ready
+        // This handles rapid reconnection scenarios
+        this.resolveRoleConflict();
 
         // CRITICAL: Only trigger if we're impolite AND haven't already triggered
-        if (roleForRoomReady === 'polite') {
-            debugLog('[PerfectNegotiation] Polite peer (just-in-time) - waiting for impolite peer to initiate');
+        if (this.negotiationRole.isPolite) {
+            debugLog('[PerfectNegotiation] Polite peer - waiting for impolite peer to initiate');
             return;
         }
 
@@ -973,21 +922,18 @@ export class PerfectNegotiation {
             return;
         }
 
-        debugLog('[PerfectNegotiation] ✅ Impolite peer (just-in-time) triggering connection from onRoomReady()');
+        debugLog('[PerfectNegotiation] ✅ Impolite peer triggering connection from onRoomReady()');
         this.checkInitialConnectionTrigger();
     }
 
     /**
-     * Check if initial connection should be triggered for impolite peer - JUST-IN-TIME
+     * Check if initial connection should be triggered for impolite peer
      * Called during initialization to start connection if conditions are met
      */
     private checkInitialConnectionTrigger(): void {
-        // 🎯 JUST-IN-TIME: Calculate role on-demand for triggering decision
-        const roleForTrigger = this.getRoleForNegotiation();
-        
         // CRITICAL: Only impolite peer should trigger initial connection
-        if (roleForTrigger === 'polite') {
-            debugLog('[PerfectNegotiation] Polite peer (just-in-time) NEVER triggers connection - waiting for impolite peer');
+        if (this.negotiationRole.isPolite) {
+            debugLog('[PerfectNegotiation] Polite peer NEVER triggers connection - waiting for impolite peer');
             return;
         }
 
@@ -1002,13 +948,13 @@ export class PerfectNegotiation {
             const allParticipants = this.signaling.getValidParticipants();
             const bothPresent = allParticipants.length >= 2;
 
-            debugLog(`[PerfectNegotiation] Impolite peer (just-in-time) checking trigger conditions: bothPresent=${bothPresent}, participants=${allParticipants.length}`);
+            debugLog(`[PerfectNegotiation] Impolite peer checking trigger conditions: bothPresent=${bothPresent}, participants=${allParticipants.length}`);
 
             if (bothPresent && this.peerConnection?.triggerDataChannelCreation) {
                 // Mark as triggered BEFORE triggering to prevent race conditions
                 this.hasTriggeredInitialConnection = true;
 
-                debugLog('[PerfectNegotiation] ✅ IMPOLITE PEER (just-in-time) TRIGGERING DataChannel creation!');
+                debugLog('[PerfectNegotiation] ✅ IMPOLITE PEER TRIGGERING DataChannel creation (SHOULD ONLY HAPPEN ONCE PER ROOM!)');
                 debugLog(`[PerfectNegotiation] Participants: ${allParticipants.map(p => `${p.role}:${p.clientId}`).join(', ')}`);
 
                 // Small delay to ensure everything is properly set up
@@ -1053,25 +999,5 @@ export class PerfectNegotiation {
         this.onConnectionStateChange = undefined;
 
         debugLog('[PerfectNegotiation] Cleanup complete');
-    }
-
-    /**
-     * 🚨 CRITICAL FIX: Calculate role AFTER signaling connection
-     * This should be called once the signaling is connected and participants are known
-     */
-    public calculateInitialRole(): void {
-        console.log(`🎯 [PerfectNegotiation] calculateInitialRole() CALLED - clientId: ${this.clientId}`);
-
-        const determinedRole = this.determineRoleFromClientId();
-        this.negotiationRole = {
-            isPolite: determinedRole === 'polite'
-        };
-
-        console.log(`🔧 [PerfectNegotiation] ROLE CALCULATED: clientId=${this.clientId}, determinedRole=${determinedRole}, isPolite=${this.negotiationRole.isPolite}`);
-        debugLog(`[PerfectNegotiation] Role calculated after signaling: ${determinedRole}`);
-
-        // If we're impolite and room is ready, trigger initial connection
-        this.checkInitialConnectionTrigger();
-        console.log(`🎯 [PerfectNegotiation] calculateInitialRole() COMPLETED`);
     }
 }
