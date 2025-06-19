@@ -27,7 +27,7 @@ export enum LogCategory {
 }
 
 // 🎯 CONFIGURATION GLOBALE - Changez ici pour tout le projet
-const LOG_LEVEL: LogLevel = LogLevel.MINIMAL; // ← Changez ici : MINIMAL, NORMAL, ou VERBOSE
+const LOG_LEVEL: LogLevel = LogLevel.VERBOSE; // ← Changez ici : MINIMAL, NORMAL, ou VERBOSE
 
 // Configuration centralisée
 class WebRTCLogger {
