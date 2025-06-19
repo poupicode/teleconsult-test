@@ -108,6 +108,13 @@ export class PerfectNegotiation {
                     return; // Skip negotiation if not enough participants
                 }
 
+                // 🚨 CRITICAL FIX: Only impolite peer should create offers
+                if (this.negotiationRole.isPolite) {
+                    debugLog('[PerfectNegotiation] Polite peer does not create offers - waiting for remote');
+                    return;
+                }
+
+                debugLog('[PerfectNegotiation] Impolite peer creating offer...');
                 this.negotiationState.makingOffer = true;
                 await this.pc.setLocalDescription();
 
@@ -999,5 +1006,26 @@ export class PerfectNegotiation {
         this.onConnectionStateChange = undefined;
 
         debugLog('[PerfectNegotiation] Cleanup complete');
+    }
+
+    /**
+     * 🚨 CRITICAL FIX: Calculate role AFTER signaling connection
+     * This should be called once the signaling is connected and participants are known
+     */
+    public calculateInitialRole(): void {
+        console.log(`🎯 [PerfectNegotiation] calculateInitialRole() CALLED - clientId: ${this.clientId}`);
+
+        const determinedRole = this.determineRoleFromClientId();
+        this.negotiationRole = {
+            isPolite: determinedRole === 'polite'
+        };
+
+        console.log(`🔧 [PerfectNegotiation] ROLE RECALCULATED: clientId=${this.clientId}, determinedRole=${determinedRole}, isPolite=${this.negotiationRole.isPolite}`);
+        debugLog(`[PerfectNegotiation] Role recalculated after signaling: ${determinedRole}`);
+
+        // If we're impolite and room is ready, trigger initial connection
+        this.checkInitialConnectionTrigger();
+        
+        console.log(`🎯 [PerfectNegotiation] calculateInitialRole() COMPLETED`);
     }
 }
