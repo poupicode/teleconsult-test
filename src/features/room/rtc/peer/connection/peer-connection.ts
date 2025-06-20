@@ -370,16 +370,9 @@ export class PeerConnection implements IPeerConnection {
                     break;
 
                 case 'disconnected':
-                    console.warn('[WebRTC-ICE] 🔌 Connection disconnected, monitoring for recovery...');
-
-                    // Smart reconnection strategy: Short timeout for teleconsultation
-                    setTimeout(() => {
-                        if (this.pc.iceConnectionState === 'disconnected' &&
-                            this.signaling.hasPatientAndPractitioner()) {
-                            console.log('[WebRTC-ICE] Still disconnected after 2s, attempting reconnection...');
-                            this.perfectNegotiation.attemptReconnection();
-                        }
-                    }, 2000); // Short timeout: optimal for teleconsultation UX
+                    console.warn('[WebRTC-ICE] 🔌 Connection disconnected, allowing natural recovery...');
+                    // Note: No forced reconnection timeout here - letting WebRTC handle natural recovery
+                    // The presence-based timeout (3s) will handle participant departure scenarios
                     break;
             }
         };
@@ -523,7 +516,7 @@ export class PeerConnection implements IPeerConnection {
         // Listen for presence changes in the room
         this.signaling.onPresenceChange((presences: UserPresence[]) => {
             console.log('[WebRTC] 👥 Room presence changed:', presences.map(p => `${p.clientId}(${p.role})`));
-            
+
             // Check if a patient and practitioner are present
             const hasPatientAndPractitioner = this.signaling.hasPatientAndPractitioner();
             console.log(`[WebRTC] 📊 Room has patient and practitioner: ${hasPatientAndPractitioner}`);
@@ -591,7 +584,7 @@ export class PeerConnection implements IPeerConnection {
 
                     // Notify Perfect Negotiation that room is ready
                     this.perfectNegotiation.onRoomReady();
-                    
+
                     console.log('[WebRTC] ✅ Perfect Negotiation notified of room readiness');
                 }
             }
@@ -973,12 +966,12 @@ export class PeerConnection implements IPeerConnection {
 
         console.log('[WebRTC] ✅ DataChannel creation request sent to manager, result:', result);
         console.log('[WebRTC] 🔮 Expecting onnegotiationneeded to trigger next...');
-        
+
         // 🚨 NEW: Force negotiation if onnegotiationneeded doesn't trigger
         setTimeout(() => {
             console.log(`[WebRTC] 🕐 Checking if negotiation started after DataChannel creation...`);
             console.log(`[WebRTC] 🔍 Current states: connectionState=${this.pc.connectionState}, signalingState=${this.pc.signalingState}`);
-            
+
             // If still in 'stable' signaling state, negotiation didn't start
             if (this.pc.signalingState === 'stable' && this.pc.connectionState === 'new') {
                 console.log('[WebRTC] 🚨 Negotiation did not start automatically, forcing it...');
