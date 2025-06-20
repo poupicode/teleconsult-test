@@ -23,7 +23,7 @@ export const DEFAULT_ICE_CONFIG: RTCConfiguration = {
         }
     ],
     iceCandidatePoolSize: 20,
-    iceTransportPolicy: "relay", // Use all available ICE transports
+    iceTransportPolicy: "all", // Use all available ICE transports
     bundlePolicy: "balanced", // Use balanced bundle policy
     rtcpMuxPolicy: "require", // Require RTCP multiplexing
 };
