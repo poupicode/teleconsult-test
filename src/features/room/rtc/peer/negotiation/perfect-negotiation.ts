@@ -27,9 +27,10 @@ export class PerfectNegotiation {
     // Perfect negotiation specific state
     private negotiationRole: NegotiationRole;
     private negotiationState: NegotiationState;
-    private hasTriggeredInitialConnection: boolean = false; // Prevent double triggering
-    private roleLockedUntil: number = 0; // Timestamp until when role switching is locked
-    private presenceChangeDebounceTimer: NodeJS.Timeout | null = null; // Debounce timer for presence changes
+    private hasTriggeredInitialConnection: boolean = false;
+    private roleCalculated: boolean = false; // Ensure roles are calculated only once
+    private roleLockedUntil: number = 0;
+    private presenceChangeDebounceTimer: NodeJS.Timeout | null = null;
 
     // Metrics for monitoring (can be exposed for debugging/analytics)
     private roleSwitchCount: number = 0;
@@ -109,7 +110,13 @@ export class PerfectNegotiation {
                 if (!bothPresent) {
                     console.log('🔥 [PerfectNegotiation] Skipping negotiation - not enough participants yet');
                     debugLog('[PerfectNegotiation] Skipping negotiation - not enough participants yet');
-                    return; // Skip negotiation if not enough participants
+                    return;
+                }
+
+                // 🚨 CRITICAL FIX: Ensure roles are calculated before any negotiation
+                if (!this.roleCalculated) {
+                    console.log('🔥 [PerfectNegotiation] Roles not calculated yet, calculating now...');
+                    this.calculateInitialRole();
                 }
 
                 // 🚨 CRITICAL FIX: Only impolite peer should create offers
@@ -138,15 +145,9 @@ export class PerfectNegotiation {
                 debugError('[PerfectNegotiation] Error during negotiation:', err);
                 this.negotiationState.makingOffer = false; // Always reset on error
             }
-            // Note: makingOffer stays true until we receive an answer or error
 
-            // Timeout protection: reset makingOffer if no answer received after 10s
-            setTimeout(() => {
-                if (this.negotiationState.makingOffer) {
-                    console.warn('🚨 [PerfectNegotiation] Timeout: No answer received after 10s, resetting makingOffer');
-                    this.negotiationState.makingOffer = false;
-                }
-            }, 10000);
+            // 🚨 REMOVED: Timeout protection is dangerous and can interfere with normal negotiation
+            // The makingOffer flag will be reset when we receive an answer or on error
         };
     }
 
@@ -326,12 +327,15 @@ export class PerfectNegotiation {
 
             if (!hasPatientAndPractitioner) {
                 // Participant disconnected - reset trigger flag for reconnection
-                console.log('[PerfectNegotiation] 👋 Participant disconnected, resetting trigger flag');
+                console.log('[PerfectNegotiation] 👋 Participant disconnected, resetting flags');
                 this.hasTriggeredInitialConnection = false;
+                this.roleCalculated = false; // Allow role recalculation when someone reconnects
             } else {
-                // Both participants are back - recalculate roles and potentially trigger connection
-                console.log('[PerfectNegotiation] 👥 Both participants present - recalculating roles');
-                this.calculateInitialRole();
+                // Both participants are back - calculate roles if not done yet
+                if (!this.roleCalculated) {
+                    console.log('[PerfectNegotiation] 👥 Both participants present - calculating roles');
+                    this.calculateInitialRole();
+                }
 
                 // If we're impolite and haven't triggered connection yet, do it now
                 if (!this.negotiationRole.isPolite && !this.hasTriggeredInitialConnection) {
@@ -564,9 +568,10 @@ export class PerfectNegotiation {
 
         if (resetTriggerFlag) {
             this.hasTriggeredInitialConnection = false;
-            debugLog('[PerfectNegotiation] Negotiation state AND trigger flag reset');
+            this.roleCalculated = false; // Allow role recalculation
+            debugLog('[PerfectNegotiation] Negotiation state, trigger flag AND role calculation reset');
         } else {
-            debugLog('[PerfectNegotiation] Negotiation state reset (trigger flag preserved)');
+            debugLog('[PerfectNegotiation] Negotiation state reset (trigger flag and roles preserved)');
         }
     }
 
@@ -831,8 +836,10 @@ export class PerfectNegotiation {
     public onRoomReady(): void {
         console.log('[PerfectNegotiation] 🎯 Room became ready, calculating roles and checking connection trigger');
 
-        // 🚨 STEP 1: Calculate roles now that both participants are present
-        this.calculateInitialRole();
+        // 🚨 STEP 1: Calculate roles now that both participants are present (only once)
+        if (!this.roleCalculated) {
+            this.calculateInitialRole();
+        }
 
         // 🚨 STEP 2: If we're impolite, trigger connection
         if (!this.negotiationRole.isPolite && !this.hasTriggeredInitialConnection) {
@@ -900,6 +907,12 @@ export class PerfectNegotiation {
             return;
         }
 
+        // 🚨 CRITICAL: Only calculate once to prevent role changes during negotiation
+        if (this.roleCalculated) {
+            console.log(`🎯 [PerfectNegotiation] Roles already calculated, skipping recalculation`);
+            return;
+        }
+
         const participants = this.signaling.getValidParticipants();
         const others = participants.filter(p => p.clientId !== this.clientId);
 
@@ -910,23 +923,19 @@ export class PerfectNegotiation {
         const myPosition = allIds.indexOf(this.clientId);
         const shouldBeImpolite = myPosition === 0; // First in sorted order is impolite (initiator)
 
-        // Only update role if it's different
-        const currentRole = this.negotiationRole.isPolite ? 'polite' : 'impolite';
-        const newRole = shouldBeImpolite ? 'impolite' : 'polite';
-
-        if (currentRole !== newRole) {
-            this.negotiationRole.isPolite = !shouldBeImpolite;
-            console.log(`🎯 [PerfectNegotiation] ROLE CHANGED: ${currentRole} → ${newRole} (clientIds: ${allIds.join(', ')}, myPosition: ${myPosition})`);
-        } else {
-            console.log(`🎯 [PerfectNegotiation] ROLE CONFIRMED: ${newRole} (already set correctly)`);
-        }
+        // Set role
+        this.negotiationRole.isPolite = !shouldBeImpolite;
+        this.roleCalculated = true; // Mark as calculated
+        
+        const finalRole = shouldBeImpolite ? 'impolite' : 'polite';
+        console.log(`🎯 [PerfectNegotiation] ROLE ASSIGNED: ${finalRole} (clientIds: ${allIds.join(', ')}, myPosition: ${myPosition})`);
 
         // If we're impolite, we can trigger connection
         if (!this.negotiationRole.isPolite) {
             console.log(`🎯 [PerfectNegotiation] I'm impolite, will trigger connection when room is ready`);
         }
 
-        console.log(`🎯 [PerfectNegotiation] calculateInitialRole() COMPLETED`);
+        console.log(`🎯 [PerfectNegotiation] calculateInitialRole() COMPLETED - roles locked`);
     }
 
     /**

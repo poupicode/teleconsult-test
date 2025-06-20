@@ -12,6 +12,7 @@ export class DataChannelManager {
     private role: Role;
     private onChatMessageCallback: ((message: ChatMessage) => void) | null = null;
     private onMeasurementCallback: ((data: object) => void) | null = null;
+    private isCreatingChannel: boolean = false; // Protection contre les créations multiples
 
     constructor(peerConnectionProvider: () => RTCPeerConnection, roomId: string, clientId: string, role: Role) {
         this.getPeerConnection = peerConnectionProvider;
@@ -23,6 +24,12 @@ export class DataChannelManager {
     // Créer un canal de données pour toutes les communications
     createDataChannel(): RTCDataChannel | null {
         try {
+            // 🚨 Protection contre les créations multiples
+            if (this.isCreatingChannel) {
+                console.log('[WebRTC] Data channel creation already in progress, skipping');
+                return this.dataChannel;
+            }
+
             if (this.dataChannel) {
                 if (this.dataChannel.readyState === 'open') {
                     console.log('[WebRTC] Data channel already exists and is open, reusing it');
@@ -36,12 +43,15 @@ export class DataChannelManager {
                 }
             }
 
+            this.isCreatingChannel = true;
+
             // Récupérer la connexion actuelle au moment de créer le canal
             const pc = this.getPeerConnection();
 
             // Vérifier que la connexion peer est dans un état valide avant de créer le canal
             if (pc.connectionState === 'closed' || pc.signalingState === 'closed') {
                 console.error('[WebRTC] Cannot create data channel - peer connection is closed');
+                this.isCreatingChannel = false;
                 return null;
             }
 
@@ -56,10 +66,12 @@ export class DataChannelManager {
             console.log('[DataChannel] 🔮 This should trigger onnegotiationneeded event...');
 
             this.setupDataChannel(this.dataChannel);
+            this.isCreatingChannel = false;
 
             return this.dataChannel;
         } catch (err) {
             console.error('[WebRTC] Error creating data channel:', err);
+            this.isCreatingChannel = false;
             return null;
         }
     }
@@ -81,6 +93,7 @@ export class DataChannelManager {
         channel.onclose = () => {
             console.log('[WebRTC] Data channel closed');
             this.dataChannel = null;
+            this.isCreatingChannel = false; // Reset creation flag
             // Forcer une mise à jour de l'interface
             store.dispatch({ type: 'webrtc/dataChannelStatusChanged' });
         };
