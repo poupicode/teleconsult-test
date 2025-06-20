@@ -564,7 +564,7 @@ export class PeerConnection implements IPeerConnection {
                             this.resetPeerConnection();
                         } else {
                             console.log('[WebRTC] ✅ Participant returned! Checking connection health...');
-
+                            
                             // Check if connection is healthy or needs reset
                             if (this.isConnectionHealthy()) {
                                 console.log('[WebRTC] 🟢 Connection is healthy, no reset needed');
@@ -866,7 +866,7 @@ export class PeerConnection implements IPeerConnection {
             const roleInfo = this.perfectNegotiation.getRoleInfo();
             debugLog('[WebRTC] Room ready after reset, Perfect Negotiation will handle connection initiation');
             debugLog('[WebRTC] P2P role info:', roleInfo);
-
+            
             // 🚀 IMPORTANT: Trigger connection after reset when both participants are present
             // This ensures that if someone returns after the 3s timeout, a new negotiation starts
             this.perfectNegotiation.onRoomReady();
