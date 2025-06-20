@@ -97,7 +97,7 @@ export class PerfectNegotiation {
                 console.log(`🔥 [PerfectNegotiation] NEGOTIATION NEEDED triggered!`);
                 console.log(`🔥 [PerfectNegotiation] Current role: ${this.negotiationRole.isPolite ? 'polite' : 'impolite'}`);
                 console.log(`🔥 [PerfectNegotiation] makingOffer: ${this.negotiationState.makingOffer}`);
-                
+
                 debugLog(`[PerfectNegotiation] Negotiation needed, isPolite: ${this.negotiationRole.isPolite}`);
 
                 // Check if both peers are present before proceeding with negotiation
@@ -139,7 +139,7 @@ export class PerfectNegotiation {
                 this.negotiationState.makingOffer = false; // Always reset on error
             }
             // Note: makingOffer stays true until we receive an answer or error
-            
+
             // Timeout protection: reset makingOffer if no answer received after 10s
             setTimeout(() => {
                 if (this.negotiationState.makingOffer) {
@@ -321,9 +321,9 @@ export class PerfectNegotiation {
     private setupPresenceListener(): void {
         this.signaling.onPresenceChange(() => {
             const hasPatientAndPractitioner = this.signaling.hasPatientAndPractitioner();
-            
+
             console.log(`[PerfectNegotiation] 👥 Presence changed, hasPatientAndPractitioner: ${hasPatientAndPractitioner}`);
-            
+
             if (!hasPatientAndPractitioner) {
                 // Participant disconnected - reset trigger flag for reconnection
                 console.log('[PerfectNegotiation] 👋 Participant disconnected, resetting trigger flag');
@@ -332,7 +332,7 @@ export class PerfectNegotiation {
                 // Both participants are back - recalculate roles and potentially trigger connection
                 console.log('[PerfectNegotiation] 👥 Both participants present - recalculating roles');
                 this.calculateInitialRole();
-                
+
                 // If we're impolite and haven't triggered connection yet, do it now
                 if (!this.negotiationRole.isPolite && !this.hasTriggeredInitialConnection) {
                     console.log('[PerfectNegotiation] 🚀 Triggering connection after presence recovery');
@@ -502,10 +502,10 @@ export class PerfectNegotiation {
             console.log(`[PerfectNegotiation] 📊 Connection state changed: ${this.pc.connectionState}`);
             debugLog(`[PerfectNegotiation] Connection state: ${this.pc.connectionState}`);
 
-            // Handle WebRTC connection failures
-            if (this.pc.connectionState === 'disconnected' || this.pc.connectionState === 'failed') {
-                console.log('[PerfectNegotiation] 🔌 Connection lost, triggering reconnection...');
-                
+            // Handle WebRTC connection failures - only for truly failed connections
+            if (this.pc.connectionState === 'failed') {
+                console.log('[PerfectNegotiation] ❌ Connection failed, will attempt reconnection after delay...');
+
                 // Small delay to let things settle, then trigger reconnection
                 setTimeout(() => {
                     // Only try reconnection if both participants are still present
@@ -516,6 +516,11 @@ export class PerfectNegotiation {
                         console.log('[PerfectNegotiation] 👋 Participant missing, skipping WebRTC reconnection');
                     }
                 }, 1000);
+            } else if (this.pc.connectionState === 'disconnected') {
+                console.log('[PerfectNegotiation] 🔌 Connection disconnected, allowing natural recovery...');
+                // Note: Not triggering immediate reconnection for 'disconnected' state
+                // This allows WebRTC's natural ICE recovery mechanisms to work
+                // Presence-based logic will handle participant departure scenarios
             }
 
             if (this.pc.connectionState === 'connected') {
@@ -556,7 +561,7 @@ export class PerfectNegotiation {
             ignoreOffer: false,
             isSettingRemoteAnswerPending: false
         };
-        
+
         if (resetTriggerFlag) {
             this.hasTriggeredInitialConnection = false;
             debugLog('[PerfectNegotiation] Negotiation state AND trigger flag reset');
@@ -888,7 +893,7 @@ export class PerfectNegotiation {
      */
     public calculateInitialRole(): void {
         console.log(`🎯 [PerfectNegotiation] calculateInitialRole() CALLED - clientId: ${this.clientId}`);
-        
+
         // Only calculate roles when both participants are present
         if (!this.signaling.hasPatientAndPractitioner()) {
             console.log(`🎯 [PerfectNegotiation] Not both participants present yet, keeping polite role as default`);
@@ -908,14 +913,14 @@ export class PerfectNegotiation {
         // Only update role if it's different
         const currentRole = this.negotiationRole.isPolite ? 'polite' : 'impolite';
         const newRole = shouldBeImpolite ? 'impolite' : 'polite';
-        
+
         if (currentRole !== newRole) {
             this.negotiationRole.isPolite = !shouldBeImpolite;
             console.log(`🎯 [PerfectNegotiation] ROLE CHANGED: ${currentRole} → ${newRole} (clientIds: ${allIds.join(', ')}, myPosition: ${myPosition})`);
         } else {
             console.log(`🎯 [PerfectNegotiation] ROLE CONFIRMED: ${newRole} (already set correctly)`);
         }
-        
+
         // If we're impolite, we can trigger connection
         if (!this.negotiationRole.isPolite) {
             console.log(`🎯 [PerfectNegotiation] I'm impolite, will trigger connection when room is ready`);
@@ -930,7 +935,7 @@ export class PerfectNegotiation {
      */
     public async forceNegotiation(): Promise<void> {
         console.log('🚨 [PerfectNegotiation] FORCING NEGOTIATION manually');
-        
+
         try {
             // Check PeerConnection state first
             if (this.pc.connectionState === 'closed' || this.pc.signalingState === 'closed') {
@@ -961,7 +966,7 @@ export class PerfectNegotiation {
 
             console.log('🚨 [PerfectNegotiation] Creating forced offer...');
             this.negotiationState.makingOffer = true;
-            
+
             await this.pc.setLocalDescription();
             console.log('🚨 [PerfectNegotiation] Forced offer created, sending via signaling');
 
