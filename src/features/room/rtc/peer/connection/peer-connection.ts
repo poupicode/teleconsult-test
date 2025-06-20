@@ -974,10 +974,19 @@ export class PeerConnection implements IPeerConnection {
         console.log('[WebRTC] ✅ DataChannel creation request sent to manager, result:', result);
         console.log('[WebRTC] 🔮 Expecting onnegotiationneeded to trigger next...');
         
-        // Let's also check the PeerConnection state after creating DataChannel
+        // 🚨 NEW: Force negotiation if onnegotiationneeded doesn't trigger
         setTimeout(() => {
-            console.log(`[WebRTC] 🕐 1s after DataChannel creation: connectionState=${this.pc.connectionState}, signalingState=${this.pc.signalingState}`);
-        }, 1000);
+            console.log(`[WebRTC] 🕐 Checking if negotiation started after DataChannel creation...`);
+            console.log(`[WebRTC] 🔍 Current states: connectionState=${this.pc.connectionState}, signalingState=${this.pc.signalingState}`);
+            
+            // If still in 'stable' signaling state, negotiation didn't start
+            if (this.pc.signalingState === 'stable' && this.pc.connectionState === 'new') {
+                console.log('[WebRTC] 🚨 Negotiation did not start automatically, forcing it...');
+                this.perfectNegotiation.forceNegotiation();
+            } else {
+                console.log('[WebRTC] ✅ Negotiation appears to have started normally');
+            }
+        }, 500);
     }
 
     /**
