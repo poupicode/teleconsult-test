@@ -563,7 +563,15 @@ export class PeerConnection implements IPeerConnection {
                             console.warn('[WebRTC] ⏰ Participant still absent after 3s. Resetting connection...');
                             this.resetPeerConnection();
                         } else {
-                            console.log('[WebRTC] ✅ Participant returned! No reset needed.');
+                            console.log('[WebRTC] ✅ Participant returned! Checking connection health...');
+                            
+                            // Check if connection is healthy or needs reset
+                            if (this.isConnectionHealthy()) {
+                                console.log('[WebRTC] 🟢 Connection is healthy, no reset needed');
+                            } else {
+                                console.log('[WebRTC] 🔄 Connection is degraded, triggering reset for clean reconnection');
+                                this.resetPeerConnection();
+                            }
                         }
 
                         this.presenceResetTimeout = null;
@@ -824,6 +832,9 @@ export class PeerConnection implements IPeerConnection {
             }
         });
 
+        // 🚨 IMPORTANT: Reset negotiation state and trigger flag for clean reconnection
+        this.perfectNegotiation.resetNegotiationState(true); // true = also reset trigger flag
+
         // Update data channel manager with new peer connection
         this.dataChannelManager = new DataChannelManager(
             () => this.pc,
@@ -852,6 +863,11 @@ export class PeerConnection implements IPeerConnection {
             const roleInfo = this.perfectNegotiation.getRoleInfo();
             debugLog('[WebRTC] Room ready after reset, Perfect Negotiation will handle connection initiation');
             debugLog('[WebRTC] P2P role info:', roleInfo);
+            
+            // 🚀 IMPORTANT: Trigger connection after reset when both participants are present
+            // This ensures that if someone returns after the 3s timeout, a new negotiation starts
+            this.perfectNegotiation.onRoomReady();
+            debugLog('[WebRTC] ✅ Triggered Perfect Negotiation after reset with both participants present');
         }
 
         // Explicitly notify connection state change, as the new
